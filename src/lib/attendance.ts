@@ -274,9 +274,6 @@ export async function checkOut(
     }
   }
 
-  if (session.staff_id) {
-    notifyCheckoutWhatsapp(session.staff_id, checkOutAt.toISOString(), session.work_date);
-  }
 
   return updated as AttendanceSession;
 }
