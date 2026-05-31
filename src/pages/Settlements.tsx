@@ -109,7 +109,7 @@ export default function Settlements() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(searchParams.get('staff') || '');
   const [selectedMonth, setSelectedMonth] = useState<string>(searchParams.get('month') || format(subMonths(new Date(), 1), 'yyyy-MM'));
-  // Leave deduction state (from LeaveDeductionSection)
+  // Leave deduction state
   const [systemDeductionDays, setSystemDeductionDays] = useState(0);
   const [finalDeductionDays, setFinalDeductionDays] = useState(0);
   const [deductionAdjustmentReason, setDeductionAdjustmentReason] = useState('');
@@ -125,6 +125,12 @@ export default function Settlements() {
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [statutorySettings, setStatutorySettings] = useState<StatutorySettings | null>(null);
+
+  // New monthly variable inputs
+  const [incentivesInput, setIncentivesInput] = useState<number>(0);
+  const [bonusInput, setBonusInput] = useState<number>(0);
+  const [overtimeOverride, setOvertimeOverride] = useState<number | null>(null);
+  const [overtimeOverrideReason, setOvertimeOverrideReason] = useState<string>('');
 
   useEffect(() => {
     if (canAccessSettlements) {
