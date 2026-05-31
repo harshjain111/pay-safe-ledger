@@ -133,9 +133,6 @@ export async function checkIn(
     .single();
   if (updErr) throw updErr;
   const result = updated as AttendanceSession;
-  if (result.staff_id) {
-    notifyCheckinWhatsapp(result.staff_id, result.check_in_at, result.work_date);
-  }
   return result;
 }
 
