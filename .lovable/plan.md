@@ -1,96 +1,102 @@
+## Goal
+Turn the current single-figure salary settlement into a structured **Payroll** module covering Salary Structure, Deductions, Processing (monthly + bonus + overtime), and Payslips — matching the standard payroll checklist you listed. PF/ESI already exist; this plan adds the rest while keeping the immutable double-entry ledger intact.
 
-## 1. Rebrand from Smokzy → Konnect 2 Hospitality
+## 1. Salary Structure (per staff, hybrid)
+Fixed components live on the staff record; variable components are entered at settlement time.
 
-**Logo** — copy the uploaded mark to `src/assets/logo.png` (and `public/logo.png` for PWA/favicon). Replace all word-mark spots that currently read "Smokzy" with the logo image + the wordmark "Konnect 2 Hospitality":
-- `src/pages/Auth.tsx` (header + footer copyright)
-- `src/pages/Index.tsx` (landing header)
-- `src/components/layout/AppLayout.tsx` (sidebar brand)
-- `src/components/pwa/InstallPrompt.tsx` (install copy)
-- `src/lib/pdf-export.ts` (PDF header + footer)
-- `src/index.css` (comment only)
+**Fixed (staff profile, Owner-editable):**
+- `basic_salary` (₹)
+- `hra` (₹)
+- `other_allowances` (₹)
+- `monthly_salary` stays as the auto-derived sum (Basic + HRA + Allowances) — used everywhere salary is referenced today, so no breakage.
 
-**Metadata / PWA** — update `index.html` (title, theme meta, OG/Twitter tags, apple-mobile-web-app-title) and `vite.config.ts` PWA manifest (`name`, `short_name`, `description`). Title becomes `Konnect 2 Hospitality – Payroll & Operations`.
+**Variable (entered per month on the settlement screen):**
+- Incentives (₹)
+- Bonus (₹)
+- Overtime amount (₹) — auto-suggested from attendance, Owner can override
 
-**Favicon & PWA icon** — generate new `pwa-icon-192.png` and `pwa-icon-512.png` from the logo and overwrite the files in `public/`. Replace `public/favicon.ico` with a logo-based `favicon.png` and update the `<link rel="icon">` accordingly.
+A new "Salary Structure" card on **Staff → Details** (Owner only, masked for others) lets Owner edit Basic/HRA/Allowances. Saving writes a `salary_history` row (already exists) so historical settlements stay accurate.
 
-## 2. Phone-auth pseudo-email migration
+## 2. Deductions
+Existing: **PF** (with employer contribution), **ESI** (with employer contribution), Leave deduction, Discipline fine, Advance adjustment.
 
-Switch the suffix from `@phone.smokzy.internal` → `@phone.konnect2hospitality.internal` in:
-- `src/pages/Auth.tsx`
-- `supabase/functions/create-user/index.ts`
-- `supabase/functions/create-staff-user/index.ts`
-- `supabase/functions/migrate-owner-to-phone/index.ts`
+New:
+- **Professional Tax (PT)** — flat slab. New singleton settings row alongside PF/ESI:
+  - `pt_enabled` (bool), `pt_monthly_amount` (₹, default 200), `pt_min_gross` (₹, exempt below this).
+  - Per-staff opt-out via `pt_exempt` boolean on `staff`.
+  - Note: This intentionally overrides the "no tax" memory — PT is a statutory payroll deduction, not income tax / GST. The no-GST/no-income-tax rule stays.
+- **Loan Deductions** — new `staff_loans` table (principal, EMI, start month, remaining balance, status). On each settlement, active loans auto-add an EMI deduction line and decrement the balance. Owner can pause/close a loan.
 
-To avoid locking out existing users, run a one-shot DB migration that rewrites every `auth.users.email` ending in `@phone.smokzy.internal` to the new suffix (phone digits unchanged). Login flow continues to work transparently because the lookup is derived from the phone number.
+## 3. Payroll Processing
+- **Monthly Payroll** — existing Settlements screen, upgraded:
+  - Earnings section: Basic, HRA, Allowances, Incentives, Bonus, Overtime (pro-rated for leave where applicable).
+  - Deductions section: Leave, Discipline, PF (Ee), ESI (Ee), PT, Loan EMIs, Advance adjustment.
+  - Employer contributions (PF Er, ESI Er) post as expense + liability (current behavior).
+  - Net Payable = Earnings − Deductions.
+- **Bonus Processing** — inline field on the monthly settlement (one-off bonus per month). No separate screen needed; bonus rows show on the payslip.
+- **Overtime Calculation**:
+  - Auto: `(worked_minutes − scheduled_minutes) / 60 × (basic ÷ working_days ÷ scheduled_hours) × 1.5` per day, summed for the month.
+  - Manual override field on the settlement screen with reason capture.
+  - Source: `attendance_sessions.worked_minutes` + `staff_shift_assignments`.
 
-## 3. PF & ESI in salary settlement (new module)
+## 4. Payslips
+- **Generate**: on settlement confirmation, an immutable PDF is rendered using the existing `pdf-export.ts` helper, structured as: Header (logo + Konnect 2 Hospitality + month) → Staff block → Earnings table → Deductions table → Net Payable → Signature line. Stored on the `salary_settlements` row (no file storage needed — generated on-demand from the snapshot columns).
+- **Staff download** (in-app): button on Staff Dashboard / My Settlements list for each settled month. Re-renders the PDF from the stored snapshot.
+- **Owner bulk download**: on Settlements page, a "Download All Payslips" action for the selected month produces a ZIP of all confirmed payslips (client-side with `jszip`).
+- Email payslip is **not** in scope per your selection.
 
-### Settings (new)
-- **PF Settings** (Owner-only, global): toggle "PF enabled", employee rate %, employer rate %, contribution-base cap (₹), wage-base mode (Basic = Monthly Salary for this app), default enrollment on/off for new staff.
-- **ESI Settings**: globally enabled toggle + default employer rate %; eligibility ceiling (₹). Employee rate % is **per-staff** (per your choice), set on the staff profile.
+## 5. Permissions & Privacy
+- All new amounts (Basic/HRA/Allowances/PT/Loans) follow the existing salary-mask rule: visible only to Owner; Admin/Accountant/CA see masked (***) values. Staff sees their own.
+- Only Owner can edit structure, PT settings, and create loans.
 
-Stored in a new `payroll_statutory_settings` table (singleton row, Owner-managed).
+## 6. Accounting (double-entry)
+New account codes:
+- `5070` Bonus Expense
+- `5080` Overtime Expense
+- `2300` Professional Tax Payable
+- `1250` Staff Loans (Asset / Receivable)
 
-### Per-staff enrollment (Staff profile, Owner-only fields)
-- `pf_enrolled` (boolean)
-- `pf_employee_rate_override` (nullable %, falls back to global)
-- `esi_enrolled` (boolean)
-- `esi_employee_rate` (% — required when enrolled, no global default)
-
-### Settlement calculator changes (`src/pages/Settlements.tsx`)
-Extend `SettlementCalculation` with:
-- `pfEmployee`, `pfEmployer`, `esiEmployee`, `esiEmployer`
-
-Formula additions (computed after pro-rata & leave, before advance adjust):
+Per settlement, journal lines (extending today's flow):
 ```
-basicForPf  = min(proRataSalary, pfBaseCap)         // when pf_enrolled
-pfEmployee  = round(basicForPf × pfEmployeeRate%)
-pfEmployer  = round(basicForPf × pfEmployerRate%)
-
-esiBase     = proRataSalary                          // gross
-esiEligible = esi_enrolled && esiBase ≤ esiCeiling
-esiEmployee = esiEligible ? round(esiBase × esi_employee_rate%) : 0
-esiEmployer = esiEligible ? round(esiBase × esiEmployerRate%) : 0
-
-grossSalary = max(0, proRataSalary − leaveDeduction − disciplineFine − pfEmployee − esiEmployee)
+Dr  Salary Expense (Basic+HRA+Allowances pro-rated)
+Dr  Bonus Expense
+Dr  Overtime Expense
+Dr  PF Employer Expense        Cr  PF Payable (Er)
+Dr  ESI Employer Expense       Cr  ESI Payable (Er)
+                                Cr  PF Payable (Ee withheld)
+                                Cr  ESI Payable (Ee withheld)
+                                Cr  Professional Tax Payable
+                                Cr  Staff Advances (advance adjustment)
+                                Cr  Staff Loans (EMI adjustment)
+                                Cr  Staff Payable (Net)
 ```
-UI breakdown card adds two new line items (only when > 0): "PF (Employee X%)" and "ESI (Employee X%)", each with a tiny info popover explaining the base & rate used. Logic is fully automatic — Owner just sees the deductions appear.
+Balance is enforced by the existing `validate_journal_entry_balanced` trigger.
 
-### Persistence
-Add columns to `salary_settlements`:
-- `pf_employee`, `pf_employer`, `esi_employee`, `esi_employer` (numeric, default 0)
-- `pf_rate_employee`, `pf_rate_employer`, `esi_rate_employee`, `esi_rate_employer` (snapshot %)
-- `pf_base`, `esi_base` (numeric snapshot)
+## 7. Technical Details
+**DB migrations (one batch):**
+- `staff`: add `basic_salary`, `hra`, `other_allowances`, `pt_exempt`.
+- `payroll_statutory_settings`: add `pt_enabled`, `pt_monthly_amount`, `pt_min_gross`.
+- `salary_settlements`: add `incentives`, `bonus`, `overtime_amount`, `overtime_auto`, `overtime_override_reason`, `pt_amount`, `loan_emi_total`, `earnings_basic`, `earnings_hra`, `earnings_allowances` (snapshots for payslip integrity).
+- New table `staff_loans` (id, staff_id, principal, emi_amount, start_month, remaining_balance, status, notes, created_by, timestamps) with Owner-only RLS + service_role GRANT.
+- New table `salary_settlement_loan_deductions` (settlement_id, loan_id, amount) so each settlement records which loans were debited.
+- New accounts seeded: 5070, 5080, 2300, 1250.
 
-### Journal entries (`src/lib/journal-entries.ts`)
-Add new account codes & seed via migration:
-- `2100` EPF Payable (Liability)
-- `2200` ESI Payable (Liability)
-- `5050` Employer PF Contribution (Expense)
-- `5060` Employer ESI Contribution (Expense)
+**Code:**
+- `src/lib/journal-entries.ts` — extend `createSalarySettlementEntry` for new lines.
+- `src/lib/payroll.ts` (new) — pure calculation: structure breakdown, OT auto-calc, loan EMI fetch, PT eligibility.
+- `src/pages/Settlements.tsx` — Earnings/Deductions sections + OT override + bonus/incentive fields + payslip download.
+- `src/pages/StaffDetails.tsx` — Salary Structure card (Owner only).
+- `src/pages/Settings.tsx` — PT settings section (next to PF/ESI).
+- New `src/pages/StaffLoans.tsx` (Owner only) — create/list/close loans, route `/loans`.
+- `src/lib/pdf-export.ts` — `generatePayslipPDF(settlement)` helper.
+- `src/pages/Dashboard.tsx` (Staff view) — "My Payslips" list with download.
+- `bun add jszip` for bulk download.
 
-Extend `createSalarySettlementEntry` so each settlement also posts (when amounts > 0):
-- Dr Staff Payable / Cr EPF Payable — `pfEmployee`
-- Dr Staff Payable / Cr ESI Payable — `esiEmployee`
-- Dr Employer PF Expense / Cr EPF Payable — `pfEmployer`
-- Dr Employer ESI Expense / Cr ESI Payable — `esiEmployer`
+**Memory updates after build:**
+- Update `mem://constraints/no-gst-or-tax-logic` to clarify PT is allowed; GST/Income Tax still excluded.
+- New `mem://features/payroll-module` describing structure, deductions, OT, payslip flow.
 
-(Existing Salary Expense / Staff Payable lines remain unchanged, balanced by the trigger validator.)
-
-### Confirm dialog & PDF
-- `EnhancedSettlementConfirmDialog` shows PF/ESI lines in the breakdown.
-- Settlement PDF (`pdf-export.ts`) shows the new rows under "Deductions".
-
-## 4. Memory updates
-
-Replace the "No tax logic" core rule scope: GST stays excluded, but statutory payroll (PF/ESI) is now an in-scope module. Update `mem://constraints/no-gst-or-tax-logic` and the `Auth` core line (new pseudo-email suffix). Add a new `mem://accounting/pf-esi-module` memory describing the settings, formulas, account codes, and journal posting.
-
-## Technical notes
-
-- All new tables/columns ship with explicit GRANTs to `authenticated` + `service_role` and Owner-only RLS (read by all authenticated, write by owner).
-- Settlement is still immutable post-confirm — no behavioural change there.
-- No new edge functions, no external integrations.
-- Existing settled rows backfill with `0` for the new columns — historic settlements stay untouched.
-- Pseudo-email migration runs once via SQL `UPDATE auth.users SET email = …` (no other schema touched). Phone numbers themselves are unchanged.
-
-After you approve, I'll implement everything in build mode in one pass.
+## Out of scope (call-outs)
+- Email payslip — skipped per your choice (no email infra needed).
+- Per-state PT slabs — using flat amount.
+- Annual Form 16 / TDS — explicitly excluded.

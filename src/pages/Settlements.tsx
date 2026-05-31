@@ -28,14 +28,30 @@ import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustme
 import { LeaveDeductionSection } from '@/components/settlements/LeaveDeductionSection';
 import { createSalarySettlementEntry } from '@/lib/journal-entries';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
+import {
+  getStaffStructure,
+  prorateStructure,
+  computeProfessionalTax,
+  computeAutoOvertime,
+  getLoanEMIsForMonth,
+  type LoanEMI,
+} from '@/lib/payroll';
 import type { Staff, PaymentMode } from '@/types/database';
 
 interface SettlementCalculation {
-  monthlySalary: number;
+  monthlySalary: number; // pro-rata contractual (Basic+HRA+Allow)
+  basic: number;
+  hra: number;
+  allowances: number;
+  incentives: number;
+  bonus: number;
+  overtimeAuto: number;
+  overtimeAmount: number;
+  overtimeOverrideReason: string;
   dailySalary: number;
-   systemDeductionDays: number;
-   finalDeductionDays: number;
-   deductionAdjustmentReason?: string;
+  systemDeductionDays: number;
+  finalDeductionDays: number;
+  deductionAdjustmentReason?: string;
   leaveDeduction: number;
   disciplineFine: number;
   pfEmployee: number;
@@ -49,6 +65,9 @@ interface SettlementCalculation {
   esiRateEmployee: number;
   esiRateEmployer: number;
   esiEligible: boolean;
+  ptAmount: number;
+  loanEmis: LoanEMI[];
+  loanEmiTotal: number;
   grossSalary: number;
   advancesOutstanding: number;
   advanceToAdjust: number;
@@ -64,6 +83,9 @@ interface StatutorySettings {
   esi_enabled: boolean;
   esi_employer_rate: number;
   esi_eligibility_ceiling: number;
+  pt_enabled: boolean;
+  pt_monthly_amount: number;
+  pt_min_gross: number;
 }
 
 interface ValidationResult {
@@ -87,7 +109,7 @@ export default function Settlements() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(searchParams.get('staff') || '');
   const [selectedMonth, setSelectedMonth] = useState<string>(searchParams.get('month') || format(subMonths(new Date(), 1), 'yyyy-MM'));
-  // Leave deduction state (from LeaveDeductionSection)
+  // Leave deduction state
   const [systemDeductionDays, setSystemDeductionDays] = useState(0);
   const [finalDeductionDays, setFinalDeductionDays] = useState(0);
   const [deductionAdjustmentReason, setDeductionAdjustmentReason] = useState('');
@@ -103,6 +125,12 @@ export default function Settlements() {
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [statutorySettings, setStatutorySettings] = useState<StatutorySettings | null>(null);
+
+  // New monthly variable inputs
+  const [incentivesInput, setIncentivesInput] = useState<number>(0);
+  const [bonusInput, setBonusInput] = useState<number>(0);
+  const [overtimeOverride, setOvertimeOverride] = useState<number | null>(null);
+  const [overtimeOverrideReason, setOvertimeOverrideReason] = useState<string>('');
 
   useEffect(() => {
     if (canAccessSettlements) {
@@ -125,20 +153,21 @@ export default function Settlements() {
     if (canAccessSettlements && selectedStaffId && selectedMonth) {
       calculateSettlement();
     }
-  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings]);
+  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings, incentivesInput, bonusInput, overtimeOverride]);
 
   // Recalculate netPayable when advance adjustment changes (without resetting overrides)
   useEffect(() => {
     if (calculation) {
-      const maxAdjustable = Math.min(calculation.advancesOutstanding, calculation.grossSalary);
+      const loanTotal = calculation.loanEmiTotal || 0;
+      const maxAdjustable = Math.min(calculation.advancesOutstanding, Math.max(0, calculation.grossSalary - loanTotal));
       const clampedAdjustment = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = calculation.grossSalary - clampedAdjustment;
+      const netPayable = Math.max(0, calculation.grossSalary - clampedAdjustment - loanTotal);
       const carryForward = calculation.advancesOutstanding - clampedAdjustment;
-      
+
       setCalculation(prev => prev ? {
         ...prev,
         advanceToAdjust: clampedAdjustment,
-        netPayable: Math.max(0, netPayable),
+        netPayable,
         carryForwardAdvance: carryForward,
       } : null);
     }
@@ -180,7 +209,7 @@ export default function Settlements() {
     try {
       const { data, error } = await supabase
         .from('payroll_statutory_settings')
-        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross')
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -255,74 +284,50 @@ export default function Settlements() {
       const daysInMonth = getDaysInMonth(parseISO(selectedMonth + '-01'));
       const dailySalary = monthlySalary / daysInMonth;
 
-      // PRO-RATA: Calculate effective working days for mid-month joining/exit
+      // PRO-RATA
       const monthStart = parseISO(selectedMonth + '-01');
       const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-      
       let effectiveDays = daysInMonth;
       const currentStaff = staff.find(s => s.id === selectedStaffId);
-
       if (currentStaff) {
         const joiningDate = parseISO(currentStaff.date_of_joining);
-        
-        // If joined mid-month in the settlement month
         if (joiningDate > monthStart && joiningDate <= monthEnd) {
-          // Days from joining date to end of month (inclusive)
           effectiveDays = daysInMonth - joiningDate.getDate() + 1;
         }
-        
-        // If staff is inactive, check if they were deactivated this month
-        // (pro-rata for exit — uses last day as end of active period)
         if (!currentStaff.is_active) {
           const updatedAt = parseISO(currentStaff.updated_at);
           if (updatedAt >= monthStart && updatedAt <= monthEnd) {
             const exitDay = updatedAt.getDate();
-            const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) 
-              ? joiningDate.getDate() 
-              : 1;
+            const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) ? joiningDate.getDate() : 1;
             effectiveDays = exitDay - joiningDay + 1;
           }
         }
       }
 
-      // Pro-rata salary = (monthly / daysInMonth) * effectiveDays
       const proRataSalary = dailySalary * effectiveDays;
-
-      // Use finalDeductionDays from leave records (with owner override)
       const leaveDeduction = dailySalary * finalDeductionDays;
 
-      // Discipline fine for the month (skipped for untracked staff: returns 0)
+      // Structure breakdown (pro-rated)
+      const fullStructure = currentStaff ? getStaffStructure(currentStaff) : { basic: monthlySalary, hra: 0, allowances: 0, contractualTotal: monthlySalary };
+      const prorated = prorateStructure(fullStructure, effectiveDays, daysInMonth);
+
       let disciplineFine = 0;
-      if (currentStaff && (currentStaff as Staff & { attendance_tracked?: boolean }).attendance_tracked !== false) {
-        const { totalFine } = await getMonthlyDisciplineFine(
-          selectedStaffId,
-          selectedMonth,
-          monthlySalary,
-        );
+      if (currentStaff && (currentStaff as Staff).attendance_tracked !== false) {
+        const { totalFine } = await getMonthlyDisciplineFine(selectedStaffId, selectedMonth, monthlySalary);
         disciplineFine = totalFine;
       }
 
-      // ===== Statutory deductions (PF & ESI) =====
       const round2 = (n: number) => Math.round(n * 100) / 100;
       const s = statutorySettings;
-      const cs = currentStaff as (Staff & {
-        pf_enrolled?: boolean;
-        pf_employee_rate_override?: number | null;
-        esi_enrolled?: boolean;
-        esi_employee_rate?: number | null;
-      }) | undefined;
+      const cs = currentStaff;
 
-      // PF — global toggle + per-staff enrollment
       const pfActive = !!(s?.pf_enabled && cs?.pf_enrolled);
-      const pfRateEmployee = pfActive
-        ? (cs?.pf_employee_rate_override ?? s?.pf_employee_rate ?? 0)
-        : 0;
+      const pfRateEmployee = pfActive ? (cs?.pf_employee_rate_override ?? s?.pf_employee_rate ?? 0) : 0;
       const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
       const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
       const pfEmployee = pfActive ? round2(pfBase * pfRateEmployee / 100) : 0;
       const pfEmployer = pfActive ? round2(pfBase * pfRateEmployer / 100) : 0;
 
-      // ESI — global toggle + per-staff enrollment + eligibility ceiling
       const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
       const esiBase = proRataSalary;
       const esiEligible = esiEnrolled && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
@@ -331,50 +336,62 @@ export default function Settlements() {
       const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
       const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
 
-      const grossSalary = Math.max(0, proRataSalary - leaveDeduction - disciplineFine - pfEmployee - esiEmployee);
+      // Auto Overtime
+      const overtimeAuto = currentStaff && (currentStaff as Staff).attendance_tracked !== false
+        ? await computeAutoOvertime({
+            staffId: selectedStaffId,
+            month: selectedMonth,
+            basic: fullStructure.basic,
+            daysInMonth,
+          })
+        : 0;
+      const overtimeAmount = overtimeOverride !== null ? overtimeOverride : overtimeAuto;
+
+      // Loan EMIs
+      const loanEmis = await getLoanEMIsForMonth(selectedStaffId, selectedMonth);
+      const loanEmiTotal = loanEmis.reduce((sum, l) => sum + l.amount, 0);
+
+      // Gross earnings before statutory + leave + discipline
+      const grossEarnings = proRataSalary + incentivesInput + bonusInput + overtimeAmount;
+
+      // Professional Tax (computed against gross earnings)
+      const ptAmount = computeProfessionalTax(currentStaff ?? {}, grossEarnings, s);
+
+      const grossSalary = Math.max(0, grossEarnings - leaveDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
       const advancesOutstanding = Number(advanceData) || 0;
-
-      // Don't auto-set advance adjustment — let admin enter it manually (default 0)
-      const maxAdjustable = Math.min(advancesOutstanding, grossSalary);
+      const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-
-      const netPayable = Math.max(0, grossSalary - currentAdj);
+      const netPayable = Math.max(0, grossSalary - currentAdj - loanEmiTotal);
       const carryForwardAdvance = advancesOutstanding - currentAdj;
 
-      const newWarnings = [...warnings.filter(w => !w.includes('leave') && !w.includes('Pro-rata') && !w.includes('ESI'))];
-      if (effectiveDays < daysInMonth) {
-        newWarnings.push(`Pro-rata: ${effectiveDays} of ${daysInMonth} days (₹${proRataSalary.toFixed(0)} of ₹${monthlySalary})`);
-      }
-      if (finalDeductionDays > 5) {
-        newWarnings.push(`High leave deduction (${finalDeductionDays} days) - please verify`);
-      }
-      if (finalDeductionDays > effectiveDays) {
-        newWarnings.push(`Leave deduction exceeds effective working days (${effectiveDays})`);
-      }
-      if (esiEnrolled && !esiEligible) {
-        newWarnings.push(`ESI not deducted — gross ₹${esiBase.toFixed(0)} exceeds ceiling ₹${(s?.esi_eligibility_ceiling ?? 0).toLocaleString('en-IN')}`);
-      }
+      const newWarnings: string[] = [];
+      if (effectiveDays < daysInMonth) newWarnings.push(`Pro-rata: ${effectiveDays} of ${daysInMonth} days`);
+      if (finalDeductionDays > 5) newWarnings.push(`High leave deduction (${finalDeductionDays} days)`);
+      if (finalDeductionDays > effectiveDays) newWarnings.push(`Leave exceeds working days (${effectiveDays})`);
+      if (esiEnrolled && !esiEligible) newWarnings.push(`ESI skipped — gross exceeds ceiling`);
       setWarnings(newWarnings);
 
       setCalculation({
         monthlySalary: proRataSalary,
+        basic: prorated.basic,
+        hra: prorated.hra,
+        allowances: prorated.allowances,
+        incentives: incentivesInput,
+        bonus: bonusInput,
+        overtimeAuto,
+        overtimeAmount,
+        overtimeOverrideReason,
         dailySalary,
         systemDeductionDays,
         finalDeductionDays,
         deductionAdjustmentReason,
         leaveDeduction,
         disciplineFine,
-        pfEmployee,
-        pfEmployer,
-        pfBase,
-        pfRateEmployee,
-        pfRateEmployer,
-        esiEmployee,
-        esiEmployer,
-        esiBase,
-        esiRateEmployee,
-        esiRateEmployer,
-        esiEligible,
+        pfEmployee, pfEmployer, pfBase, pfRateEmployee, pfRateEmployer,
+        esiEmployee, esiEmployer, esiBase, esiRateEmployee, esiRateEmployer, esiEligible,
+        ptAmount,
+        loanEmis,
+        loanEmiTotal,
         grossSalary,
         advancesOutstanding,
         advanceToAdjust: currentAdj,
