@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
-        name: "Konnect 2 Hospitality – Payroll",
-        short_name: "Konnect 2",
-        description: "Konnect 2 Hospitality internal payroll, attendance, and accounting platform.",
+        name: "VIBRND HR BUDDY",
+        short_name: "VIBRND HR",
+        description: "VIBRND HR BUDDY — HR, payroll, attendance and accounting suite by Vibrnd.",
         start_url: "/",
         display: "standalone",
         orientation: "portrait",
