@@ -767,7 +767,7 @@ export default function Settlements() {
                           .eq('settlement_month', selectedMonth)
                           .maybeSingle();
                         if (error || !data) {
-                          toast.error('Could not load settlement for payslip');
+                          toast({ title: 'Error', description: 'Could not load settlement for payslip', variant: 'destructive' });
                           return;
                         }
                         downloadPayslipPDF(selectedStaff as any, data as any);
