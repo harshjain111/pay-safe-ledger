@@ -1,78 +1,96 @@
-## Goal
 
-Make attendance behave as **shift sessions** (anchored to the check-in date, not the calendar day), so night shifts that cross midnight work correctly. Stop falsely marking next-day "absent" when a shift covered it. Add a 10-hour WhatsApp checkout reminder and a 16-hour auto-close safety net.
+## 1. Rebrand from Smokzy → Konnect 2 Hospitality
 
----
+**Logo** — copy the uploaded mark to `src/assets/logo.png` (and `public/logo.png` for PWA/favicon). Replace all word-mark spots that currently read "Smokzy" with the logo image + the wordmark "Konnect 2 Hospitality":
+- `src/pages/Auth.tsx` (header + footer copyright)
+- `src/pages/Index.tsx` (landing header)
+- `src/components/layout/AppLayout.tsx` (sidebar brand)
+- `src/components/pwa/InstallPrompt.tsx` (install copy)
+- `src/lib/pdf-export.ts` (PDF header + footer)
+- `src/index.css` (comment only)
 
-## Part 1 — Session-based attendance (data + UI)
+**Metadata / PWA** — update `index.html` (title, theme meta, OG/Twitter tags, apple-mobile-web-app-title) and `vite.config.ts` PWA manifest (`name`, `short_name`, `description`). Title becomes `Konnect 2 Hospitality – Payroll & Operations`.
 
-Good news: the data model already anchors a session to the check-in date (`work_date = localDateString()` at check-in) and worked minutes are already `checkout - checkin - breaks`. So the data layer is correct — this is mostly a **UI display fix**.
+**Favicon & PWA icon** — generate new `pwa-icon-192.png` and `pwa-icon-512.png` from the logo and overwrite the files in `public/`. Replace `public/favicon.ico` with a logo-based `favicon.png` and update the `<link rel="icon">` accordingly.
 
-Changes:
-- In all attendance list/table views (`MyAttendanceLogs.tsx`, `StaffAttendanceSection.tsx`, `SessionDetailsDrawer.tsx`, `PenaltiesPanel.tsx` where relevant):
-  - Show check-in as `4:00 PM, 19 May`
-  - Show check-out as `2:00 AM, 20 May` whenever the calendar date of check-out differs from `work_date`
-  - Continue showing `worked_minutes` formatted via `formatMinutes` ("10h 0m")
-  - Status badge unchanged (present/late/half-day/absent)
-- No DB schema change required for Part 1.
+## 2. Phone-auth pseudo-email migration
 
-## Part 2 — Session-aware absent detection
+Switch the suffix from `@phone.smokzy.internal` → `@phone.konnect2hospitality.internal` in:
+- `src/pages/Auth.tsx`
+- `supabase/functions/create-user/index.ts`
+- `supabase/functions/create-staff-user/index.ts`
+- `supabase/functions/migrate-owner-to-phone/index.ts`
 
-Update `supabase/functions/check-absent-staff/index.ts` so a staff member is **not** marked absent today if any of the following is true:
-1. They have an approved leave for today.
-2. They have an `attendance_sessions` row with `work_date = today` (already handled).
-3. They have an **open** session (status `active`/`on_break`) whose `check_in_at` is in the last 24h (covers night shift still in progress).
-4. They have a session with `work_date = yesterday` whose `check_out_at` is on or after today's IST midnight (yesterday's shift extended into today and covered the morning).
-5. They have no shift assignment at all (can't determine "scheduled" → skip silently, as today).
+To avoid locking out existing users, run a one-shot DB migration that rewrites every `auth.users.email` ending in `@phone.smokzy.internal` to the new suffix (phone digits unchanged). Login flow continues to work transparently because the lookup is derived from the phone number.
 
-Club staff are already excluded via `attendance_tracked = false`.
+## 3. PF & ESI in salary settlement (new module)
 
-The cron job created earlier stays as-is (23:59 IST).
+### Settings (new)
+- **PF Settings** (Owner-only, global): toggle "PF enabled", employee rate %, employer rate %, contribution-base cap (₹), wage-base mode (Basic = Monthly Salary for this app), default enrollment on/off for new staff.
+- **ESI Settings**: globally enabled toggle + default employer rate %; eligibility ceiling (₹). Employee rate % is **per-staff** (per your choice), set on the staff profile.
 
-## Part 3 — 10-hour checkout reminder
+Stored in a new `payroll_statutory_settings` table (singleton row, Owner-managed).
 
-**Schema (migration):**
-- Add column `overtime_reminder_sent boolean not null default false` to `attendance_sessions`.
+### Per-staff enrollment (Staff profile, Owner-only fields)
+- `pf_enrolled` (boolean)
+- `pf_employee_rate_override` (nullable %, falls back to global)
+- `esi_enrolled` (boolean)
+- `esi_employee_rate` (% — required when enrolled, no global default)
 
-**Edge Function `check-overtime-reminder` (new):**
-- Query `attendance_sessions` where `status in ('active','on_break')`, `check_out_at is null`, `overtime_reminder_sent = false`, and `check_in_at <= now() - 10h`.
-- Join staff to get `full_name`, `phone`. Skip rows with no phone.
-- For each, invoke `send-attendance-whatsapp` with `slab: 'checkout_reminder'`, `event_type: 'checkout_reminder'`, `deduction_amount: 0`, `actual_time: now ISO`, `scheduled_time: now ISO` (unused by template).
-- On WhatsApp success, set `overtime_reminder_sent = true` for that session (idempotent so re-runs don't spam).
+### Settlement calculator changes (`src/pages/Settlements.tsx`)
+Extend `SettlementCalculation` with:
+- `pfEmployee`, `pfEmployer`, `esiEmployee`, `esiEmployer`
 
-**`send-attendance-whatsapp` update:**
-- Extend `Slab` union and `event_type` union with `'checkout_reminder'`.
-- New branch builds payload **with no `components` array** — template `attendance_checkout_reminder`, language en/deterministic, no parameters. Exactly the JSON the user specified.
+Formula additions (computed after pro-rata & leave, before advance adjust):
+```
+basicForPf  = min(proRataSalary, pfBaseCap)         // when pf_enrolled
+pfEmployee  = round(basicForPf × pfEmployeeRate%)
+pfEmployer  = round(basicForPf × pfEmployerRate%)
 
-**Cron (via supabase--insert, not migration):**
-- Enable `pg_cron` + `pg_net` if not already.
-- Schedule `check-overtime-reminder` to run every 30 minutes, calling the function URL with `Authorization: Bearer <service role key>` and `apikey` headers.
+esiBase     = proRataSalary                          // gross
+esiEligible = esi_enrolled && esiBase ≤ esiCeiling
+esiEmployee = esiEligible ? round(esiBase × esi_employee_rate%) : 0
+esiEmployer = esiEligible ? round(esiBase × esiEmployerRate%) : 0
 
-## Part 4 — Auto-close stale sessions (16h)
+grossSalary = max(0, proRataSalary − leaveDeduction − disciplineFine − pfEmployee − esiEmployee)
+```
+UI breakdown card adds two new line items (only when > 0): "PF (Employee X%)" and "ESI (Employee X%)", each with a tiny info popover explaining the base & rate used. Logic is fully automatic — Owner just sees the deductions appear.
 
-Extend the same `check-overtime-reminder` function (single cron, two responsibilities) **or** add a sibling block in `check-absent-staff`. Plan: keep it inside `check-overtime-reminder` so it runs every 30 min.
+### Persistence
+Add columns to `salary_settlements`:
+- `pf_employee`, `pf_employer`, `esi_employee`, `esi_employer` (numeric, default 0)
+- `pf_rate_employee`, `pf_rate_employer`, `esi_rate_employee`, `esi_rate_employer` (snapshot %)
+- `pf_base`, `esi_base` (numeric snapshot)
 
-- Find open sessions where `check_in_at <= now() - 16h`.
-- Look up the staff's scheduled shift duration from `staff_shift_assignments` + `shifts` (in/out time, accounting for cross-midnight where out ≤ in → +24h). Fallback: 10h if no assignment.
-- Set `check_out_at = check_in_at + shift_duration`, compute `worked_minutes = (check_out_at - check_in_at) - total_break_minutes`, `status = 'completed'`, and a new flag `auto_closed = true`.
+### Journal entries (`src/lib/journal-entries.ts`)
+Add new account codes & seed via migration:
+- `2100` EPF Payable (Liability)
+- `2200` ESI Payable (Liability)
+- `5050` Employer PF Contribution (Expense)
+- `5060` Employer ESI Contribution (Expense)
 
-**Schema (same migration):**
-- Add column `auto_closed boolean not null default false` to `attendance_sessions`.
-- Display a small "Auto-closed" badge in the session detail drawer and admin list (UI tweak).
+Extend `createSalarySettlementEntry` so each settlement also posts (when amounts > 0):
+- Dr Staff Payable / Cr EPF Payable — `pfEmployee`
+- Dr Staff Payable / Cr ESI Payable — `esiEmployee`
+- Dr Employer PF Expense / Cr EPF Payable — `pfEmployer`
+- Dr Employer ESI Expense / Cr ESI Payable — `esiEmployer`
 
-We will NOT trigger discipline/WhatsApp checkout messages on auto-close (avoid spurious penalties); just close the row so absent detection isn't confused going forward.
+(Existing Salary Expense / Staff Payable lines remain unchanged, balanced by the trigger validator.)
 
-## Testing scenario
+### Confirm dialog & PDF
+- `EnhancedSettlementConfirmDialog` shows PF/ESI lines in the breakdown.
+- Settlement PDF (`pdf-export.ts`) shows the new rows under "Deductions".
 
-1. Tester checks in at 16:00 IST today.
-2. Run `check-absent-staff` manually tomorrow → tester is **not** marked absent (open session from yesterday covers it).
-3. At 02:30 IST (10.5h after check-in), cron fires `check-overtime-reminder` → WhatsApp `attendance_checkout_reminder` sent, `overtime_reminder_sent = true`. Next run at 03:00 does **not** resend.
-4. If tester still hasn't checked out by 08:00 IST (16h), auto-close sets `check_out_at = check_in_at + 10h`, `auto_closed = true`.
+## 4. Memory updates
 
-## Technical summary
+Replace the "No tax logic" core rule scope: GST stays excluded, but statutory payroll (PF/ESI) is now an in-scope module. Update `mem://constraints/no-gst-or-tax-logic` and the `Auth` core line (new pseudo-email suffix). Add a new `mem://accounting/pf-esi-module` memory describing the settings, formulas, account codes, and journal posting.
 
-- **Migration**: add `overtime_reminder_sent boolean default false`, `auto_closed boolean default false` to `attendance_sessions`.
-- **Edge Functions**: edit `send-attendance-whatsapp` (new slab branch with no parameters), edit `check-absent-staff` (open/yesterday-session exclusion), create `check-overtime-reminder` (reminder + auto-close).
-- **Cron**: insert a `cron.schedule('check-overtime-reminder', '*/30 * * * *', ...)` via the insert tool (contains project URL + service key).
-- **UI**: cross-midnight date display in attendance views, "Auto-closed" badge.
-- **No client business-logic changes** — `src/lib/attendance.ts` already anchors `work_date` to check-in date and computes worked time correctly across midnight.
+## Technical notes
+
+- All new tables/columns ship with explicit GRANTs to `authenticated` + `service_role` and Owner-only RLS (read by all authenticated, write by owner).
+- Settlement is still immutable post-confirm — no behavioural change there.
+- No new edge functions, no external integrations.
+- Existing settled rows backfill with `0` for the new columns — historic settlements stay untouched.
+- Pseudo-email migration runs once via SQL `UPDATE auth.users SET email = …` (no other schema touched). Phone numbers themselves are unchanged.
+
+After you approve, I'll implement everything in build mode in one pass.

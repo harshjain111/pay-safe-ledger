@@ -922,6 +922,51 @@ export type Database = {
           },
         ]
       }
+      payroll_statutory_settings: {
+        Row: {
+          esi_eligibility_ceiling: number
+          esi_employer_rate: number
+          esi_enabled: boolean
+          id: string
+          pf_base_cap: number
+          pf_default_enroll: boolean
+          pf_employee_rate: number
+          pf_employer_rate: number
+          pf_enabled: boolean
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          esi_eligibility_ceiling?: number
+          esi_employer_rate?: number
+          esi_enabled?: boolean
+          id?: string
+          pf_base_cap?: number
+          pf_default_enroll?: boolean
+          pf_employee_rate?: number
+          pf_employer_rate?: number
+          pf_enabled?: boolean
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          esi_eligibility_ceiling?: number
+          esi_employer_rate?: number
+          esi_enabled?: boolean
+          id?: string
+          pf_base_cap?: number
+          pf_default_enroll?: boolean
+          pf_employee_rate?: number
+          pf_employer_rate?: number
+          pf_enabled?: boolean
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       petty_cash_transactions: {
         Row: {
           amount: number
@@ -1024,6 +1069,11 @@ export type Database = {
           deduction_adjusted_by: string | null
           deduction_adjustment_reason: string | null
           discipline_fine: number
+          esi_base: number | null
+          esi_employee: number
+          esi_employer: number
+          esi_rate_employee: number | null
+          esi_rate_employer: number | null
           final_deduction_days: number | null
           id: string
           journal_entry_id: string | null
@@ -1037,6 +1087,11 @@ export type Database = {
           paid_by_user_name: string | null
           payment_mode: string | null
           payout_journal_entry_id: string | null
+          pf_base: number | null
+          pf_employee: number
+          pf_employer: number
+          pf_rate_employee: number | null
+          pf_rate_employer: number | null
           settled_at: string | null
           settled_by: string | null
           settlement_month: string
@@ -1056,6 +1111,11 @@ export type Database = {
           deduction_adjusted_by?: string | null
           deduction_adjustment_reason?: string | null
           discipline_fine?: number
+          esi_base?: number | null
+          esi_employee?: number
+          esi_employer?: number
+          esi_rate_employee?: number | null
+          esi_rate_employer?: number | null
           final_deduction_days?: number | null
           id?: string
           journal_entry_id?: string | null
@@ -1069,6 +1129,11 @@ export type Database = {
           paid_by_user_name?: string | null
           payment_mode?: string | null
           payout_journal_entry_id?: string | null
+          pf_base?: number | null
+          pf_employee?: number
+          pf_employer?: number
+          pf_rate_employee?: number | null
+          pf_rate_employer?: number | null
           settled_at?: string | null
           settled_by?: string | null
           settlement_month: string
@@ -1088,6 +1153,11 @@ export type Database = {
           deduction_adjusted_by?: string | null
           deduction_adjustment_reason?: string | null
           discipline_fine?: number
+          esi_base?: number | null
+          esi_employee?: number
+          esi_employer?: number
+          esi_rate_employee?: number | null
+          esi_rate_employer?: number | null
           final_deduction_days?: number | null
           id?: string
           journal_entry_id?: string | null
@@ -1101,6 +1171,11 @@ export type Database = {
           paid_by_user_name?: string | null
           payment_mode?: string | null
           payout_journal_entry_id?: string | null
+          pf_base?: number | null
+          pf_employee?: number
+          pf_employer?: number
+          pf_rate_employee?: number | null
+          pf_rate_employer?: number | null
           settled_at?: string | null
           settled_by?: string | null
           settlement_month?: string
@@ -1190,10 +1265,14 @@ export type Database = {
           designation: string | null
           email: string
           employee_id: string
+          esi_employee_rate: number | null
+          esi_enrolled: boolean
           full_name: string
           id: string
           is_active: boolean | null
           monthly_salary: number
+          pf_employee_rate_override: number | null
+          pf_enrolled: boolean
           phone: string | null
           updated_at: string
           user_id: string | null
@@ -1207,10 +1286,14 @@ export type Database = {
           designation?: string | null
           email: string
           employee_id: string
+          esi_employee_rate?: number | null
+          esi_enrolled?: boolean
           full_name: string
           id?: string
           is_active?: boolean | null
           monthly_salary?: number
+          pf_employee_rate_override?: number | null
+          pf_enrolled?: boolean
           phone?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1224,10 +1307,14 @@ export type Database = {
           designation?: string | null
           email?: string
           employee_id?: string
+          esi_employee_rate?: number | null
+          esi_enrolled?: boolean
           full_name?: string
           id?: string
           is_active?: boolean | null
           monthly_salary?: number
+          pf_employee_rate_override?: number | null
+          pf_enrolled?: boolean
           phone?: string | null
           updated_at?: string
           user_id?: string | null
