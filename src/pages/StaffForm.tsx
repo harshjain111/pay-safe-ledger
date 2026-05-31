@@ -255,6 +255,36 @@ export default function StaffForm() {
         if (canSetSalary) {
           updateData.monthly_salary = monthlySalary;
         }
+
+        // Upload new photo if changed
+        let newPhotoUrl = photoUrl;
+        if (photoFile && id) {
+          try {
+            newPhotoUrl = await uploadStaffPhoto(id, photoFile);
+          } catch (e: any) {
+            toast({ title: 'Photo upload failed', description: e.message, variant: 'destructive' });
+          }
+        }
+
+        // HR profile fields (anyone with edit access)
+        updateData.photo_url = newPhotoUrl;
+        updateData.reporting_manager_id = reportingManagerId || null;
+        updateData.location = location.trim() || null;
+        updateData.address = address.trim() || null;
+        updateData.date_of_birth = dateOfBirth || null;
+        updateData.gender = gender || null;
+        updateData.blood_group = bloodGroup || null;
+        updateData.emergency_contact_name = emergencyName.trim() || null;
+        updateData.emergency_contact_phone = emergencyPhone.trim() || null;
+        updateData.emergency_contact_relation = emergencyRelation.trim() || null;
+        // Bank details — owner only writes
+        if (isOwner) {
+          updateData.bank_account_name = bankAccountName.trim() || null;
+          updateData.bank_account_number = bankAccountNumber.trim() || null;
+          updateData.bank_ifsc = bankIfsc.trim() || null;
+          updateData.bank_name = bankName.trim() || null;
+        }
+
         
         const { error: staffError } = await supabase
           .from('staff')
