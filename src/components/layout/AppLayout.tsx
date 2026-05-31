@@ -601,7 +601,12 @@ function AppHeader() {
             )}
           </h1>
         </div>
+        <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span className="text-[11px] font-medium text-muted-foreground">Konnect 2 Hospitality</span>
+        </div>
       </div>
+      
       
       <div className="flex items-center gap-3">
         <NotificationBell />
