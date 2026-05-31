@@ -208,7 +208,7 @@ export default function Settlements() {
     try {
       const { data, error } = await supabase
         .from('payroll_statutory_settings')
-        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross')
         .limit(1)
         .maybeSingle();
       if (error) throw error;
