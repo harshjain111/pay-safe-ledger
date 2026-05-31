@@ -78,6 +78,16 @@ export default function StaffForm() {
   const [bankName, setBankName] = useState('');
   const [managers, setManagers] = useState<{ id: string; full_name: string }[]>([]);
 
+  // Salary structure & statutory (Owner only)
+  const [basicSalary, setBasicSalary] = useState(0);
+  const [hra, setHra] = useState(0);
+  const [otherAllowances, setOtherAllowances] = useState(0);
+  const [pfEnrolled, setPfEnrolled] = useState(false);
+  const [pfEmployeeRateOverride, setPfEmployeeRateOverride] = useState<string>('');
+  const [esiEnrolled, setEsiEnrolled] = useState(false);
+  const [esiEmployeeRate, setEsiEmployeeRate] = useState<string>('0.75');
+  const [ptExempt, setPtExempt] = useState(false);
+
 
   // Auto-generate employee ID on mount for new staff
   useEffect(() => {
@@ -152,6 +162,16 @@ export default function StaffForm() {
         setBankAccountNumber(data.bank_account_number || '');
         setBankIfsc(data.bank_ifsc || '');
         setBankName(data.bank_name || '');
+
+        // Structure & statutory
+        setBasicSalary(Number(data.basic_salary || 0));
+        setHra(Number(data.hra || 0));
+        setOtherAllowances(Number(data.other_allowances || 0));
+        setPfEnrolled(!!data.pf_enrolled);
+        setPfEmployeeRateOverride(data.pf_employee_rate_override != null ? String(data.pf_employee_rate_override) : '');
+        setEsiEnrolled(!!data.esi_enrolled);
+        setEsiEmployeeRate(data.esi_employee_rate != null ? String(data.esi_employee_rate) : '0.75');
+        setPtExempt(!!data.pt_exempt);
 
         // Fetch role if user_id exists
         if (data.user_id) {
