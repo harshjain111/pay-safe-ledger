@@ -38,11 +38,32 @@ interface SettlementCalculation {
    deductionAdjustmentReason?: string;
   leaveDeduction: number;
   disciplineFine: number;
+  pfEmployee: number;
+  pfEmployer: number;
+  pfBase: number;
+  pfRateEmployee: number;
+  pfRateEmployer: number;
+  esiEmployee: number;
+  esiEmployer: number;
+  esiBase: number;
+  esiRateEmployee: number;
+  esiRateEmployer: number;
+  esiEligible: boolean;
   grossSalary: number;
   advancesOutstanding: number;
   advanceToAdjust: number;
   netPayable: number;
   carryForwardAdvance: number;
+}
+
+interface StatutorySettings {
+  pf_enabled: boolean;
+  pf_employee_rate: number;
+  pf_employer_rate: number;
+  pf_base_cap: number;
+  esi_enabled: boolean;
+  esi_employer_rate: number;
+  esi_eligibility_ceiling: number;
 }
 
 interface ValidationResult {
@@ -81,10 +102,12 @@ export default function Settlements() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [statutorySettings, setStatutorySettings] = useState<StatutorySettings | null>(null);
 
   useEffect(() => {
     if (canAccessSettlements) {
       fetchStaff();
+      fetchStatutorySettings();
     }
   }, [canAccessSettlements]);
 
@@ -97,12 +120,12 @@ export default function Settlements() {
     }
   }, [selectedStaffId, selectedMonth, canAccessSettlements]);
 
-  // Recalculate when deduction days change
+  // Recalculate when deduction days change OR statutory settings load
   useEffect(() => {
     if (canAccessSettlements && selectedStaffId && selectedMonth) {
       calculateSettlement();
     }
-  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements]);
+  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings]);
 
   // Recalculate netPayable when advance adjustment changes (without resetting overrides)
   useEffect(() => {
@@ -150,6 +173,20 @@ export default function Settlements() {
       setStaff(data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchStatutorySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_statutory_settings')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) setStatutorySettings(data as StatutorySettings);
+    } catch (error) {
+      console.error('Error fetching statutory settings:', error);
     }
   };
 
@@ -265,18 +302,46 @@ export default function Settlements() {
         disciplineFine = totalFine;
       }
 
-      const grossSalary = Math.max(0, proRataSalary - leaveDeduction - disciplineFine);
+      // ===== Statutory deductions (PF & ESI) =====
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const s = statutorySettings;
+      const cs = currentStaff as (Staff & {
+        pf_enrolled?: boolean;
+        pf_employee_rate_override?: number | null;
+        esi_enrolled?: boolean;
+        esi_employee_rate?: number | null;
+      }) | undefined;
+
+      // PF — global toggle + per-staff enrollment
+      const pfActive = !!(s?.pf_enabled && cs?.pf_enrolled);
+      const pfRateEmployee = pfActive
+        ? (cs?.pf_employee_rate_override ?? s?.pf_employee_rate ?? 0)
+        : 0;
+      const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
+      const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
+      const pfEmployee = pfActive ? round2(pfBase * pfRateEmployee / 100) : 0;
+      const pfEmployer = pfActive ? round2(pfBase * pfRateEmployer / 100) : 0;
+
+      // ESI — global toggle + per-staff enrollment + eligibility ceiling
+      const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
+      const esiBase = proRataSalary;
+      const esiEligible = esiEnrolled && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
+      const esiRateEmployee = esiEligible ? Number(cs?.esi_employee_rate ?? 0) : 0;
+      const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
+      const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
+      const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
+
+      const grossSalary = Math.max(0, proRataSalary - leaveDeduction - disciplineFine - pfEmployee - esiEmployee);
       const advancesOutstanding = Number(advanceData) || 0;
-      
+
       // Don't auto-set advance adjustment — let admin enter it manually (default 0)
-      // Only use current advanceToAdjust if it's within bounds
       const maxAdjustable = Math.min(advancesOutstanding, grossSalary);
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-      
+
       const netPayable = Math.max(0, grossSalary - currentAdj);
       const carryForwardAdvance = advancesOutstanding - currentAdj;
 
-      const newWarnings = [...warnings.filter(w => !w.includes('leave') && !w.includes('Pro-rata'))];
+      const newWarnings = [...warnings.filter(w => !w.includes('leave') && !w.includes('Pro-rata') && !w.includes('ESI'))];
       if (effectiveDays < daysInMonth) {
         newWarnings.push(`Pro-rata: ${effectiveDays} of ${daysInMonth} days (₹${proRataSalary.toFixed(0)} of ₹${monthlySalary})`);
       }
@@ -286,16 +351,30 @@ export default function Settlements() {
       if (finalDeductionDays > effectiveDays) {
         newWarnings.push(`Leave deduction exceeds effective working days (${effectiveDays})`);
       }
+      if (esiEnrolled && !esiEligible) {
+        newWarnings.push(`ESI not deducted — gross ₹${esiBase.toFixed(0)} exceeds ceiling ₹${(s?.esi_eligibility_ceiling ?? 0).toLocaleString('en-IN')}`);
+      }
       setWarnings(newWarnings);
 
       setCalculation({
-        monthlySalary: proRataSalary, // Store pro-rata as the effective salary
+        monthlySalary: proRataSalary,
         dailySalary,
         systemDeductionDays,
         finalDeductionDays,
         deductionAdjustmentReason,
         leaveDeduction,
         disciplineFine,
+        pfEmployee,
+        pfEmployer,
+        pfBase,
+        pfRateEmployee,
+        pfRateEmployer,
+        esiEmployee,
+        esiEmployer,
+        esiBase,
+        esiRateEmployee,
+        esiRateEmployer,
+        esiEligible,
         grossSalary,
         advancesOutstanding,
         advanceToAdjust: currentAdj,
@@ -458,7 +537,11 @@ export default function Settlements() {
         grossSalary: calculation.grossSalary,
         leaveDeduction: calculation.leaveDeduction,
         advanceAdjustment: calculation.advanceToAdjust,
-        settlementId: '', // Will be updated after settlement record is created
+        pfEmployee: calculation.pfEmployee,
+        pfEmployer: calculation.pfEmployer,
+        esiEmployee: calculation.esiEmployee,
+        esiEmployer: calculation.esiEmployer,
+        settlementId: '',
         createdBy: user.id,
       });
 
@@ -486,6 +569,16 @@ export default function Settlements() {
           deduction_adjusted_by: calculation.finalDeductionDays !== calculation.systemDeductionDays ? user.id : null,
           deduction_adjusted_at: calculation.finalDeductionDays !== calculation.systemDeductionDays ? new Date().toISOString() : null,
           discipline_fine: calculation.disciplineFine,
+          pf_employee: calculation.pfEmployee,
+          pf_employer: calculation.pfEmployer,
+          esi_employee: calculation.esiEmployee,
+          esi_employer: calculation.esiEmployer,
+          pf_rate_employee: calculation.pfRateEmployee || null,
+          pf_rate_employer: calculation.pfRateEmployer || null,
+          esi_rate_employee: calculation.esiRateEmployee || null,
+          esi_rate_employer: calculation.esiRateEmployer || null,
+          pf_base: calculation.pfBase || null,
+          esi_base: calculation.esiBase || null,
           created_by: user.id,
         })
         .select()
@@ -797,6 +890,28 @@ export default function Settlements() {
                     <span className="text-muted-foreground">Discipline Fine</span>
                     <span className="text-destructive font-medium">
                       -<Amount value={calculation.disciplineFine} />
+                    </span>
+                  </div>
+                )}
+
+                {calculation.pfEmployee > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">
+                      PF (Employee {calculation.pfRateEmployee}% of ₹{calculation.pfBase.toFixed(0)})
+                    </span>
+                    <span className="text-destructive font-medium">
+                      -<Amount value={calculation.pfEmployee} />
+                    </span>
+                  </div>
+                )}
+
+                {calculation.esiEmployee > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">
+                      ESI (Employee {calculation.esiRateEmployee}% of ₹{calculation.esiBase.toFixed(0)})
+                    </span>
+                    <span className="text-destructive font-medium">
+                      -<Amount value={calculation.esiEmployee} />
                     </span>
                   </div>
                 )}

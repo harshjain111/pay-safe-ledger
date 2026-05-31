@@ -23,9 +23,9 @@ const Index = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
-        <div className="inline-flex items-center gap-3 mb-6">
-          <Wallet className="h-12 w-12 text-primary" />
-          <span className="text-4xl font-bold text-foreground">Smokzy</span>
+        <div className="inline-flex flex-col items-center gap-3 mb-6">
+          <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-20 w-auto" />
+          <span className="text-3xl font-bold text-foreground tracking-tight">Konnect 2 Hospitality</span>
         </div>
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
