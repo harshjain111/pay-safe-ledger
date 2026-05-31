@@ -192,7 +192,7 @@ function getNavSections(
         items: [
           { title: 'Attendance', href: '/attendance', icon: Clock },
           { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'WhatsApp Logs', href: '/whatsapp-logs', icon: MessageSquare },
+          
           { title: 'Reports', href: '/reports', icon: BarChart3 },
         ],
       },
