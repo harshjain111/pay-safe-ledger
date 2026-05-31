@@ -152,9 +152,6 @@ export default function Expenses() {
   // Only Owner and Admin can approve/reject (NOT Accountant)
   const canApprove = canApproveExpenses;
 
-  // Only Owner, Admin, Accountant can create events (NOT Staff)
-  const canCreateEvent = isOwner || isAdmin || isAccountant;
-
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
       <PageHeader
