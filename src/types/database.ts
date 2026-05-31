@@ -42,9 +42,56 @@ export interface Staff {
   esi_employee_rate?: number | null;
   is_active: boolean;
   attendance_tracked?: boolean;
+  // HR profile (all optional)
+  photo_url?: string | null;
+  reporting_manager_id?: string | null;
+  location?: string | null;
+  address?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  blood_group?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relation?: string | null;
+  bank_account_name?: string | null;
+  bank_account_number?: string | null;
+  bank_ifsc?: string | null;
+  bank_name?: string | null;
   created_at: string;
   updated_at: string;
   created_by?: string;
+}
+
+export type StaffDocumentType =
+  | 'aadhaar' | 'pan' | 'bank_details' | 'education'
+  | 'employment_contract' | 'experience_certificate' | 'other';
+
+export interface StaffDocument {
+  id: string;
+  staff_id: string;
+  doc_type: StaffDocumentType;
+  doc_label?: string | null;
+  doc_number?: string | null;
+  file_url: string;
+  file_name?: string | null;
+  notes?: string | null;
+  uploaded_by?: string | null;
+  created_at: string;
+}
+
+export type EmploymentEventType =
+  | 'promotion' | 'transfer' | 'salary_revision' | 'role_change' | 'other';
+
+export interface EmploymentHistoryEntry {
+  id: string;
+  staff_id: string;
+  event_type: EmploymentEventType;
+  event_date: string;
+  from_value?: string | null;
+  to_value?: string | null;
+  notes?: string | null;
+  created_by?: string | null;
+  created_at: string;
 }
 
 export interface StaffLoan {

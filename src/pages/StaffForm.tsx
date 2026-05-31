@@ -20,7 +20,9 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AmountInput } from '@/components/ui/amount';
-import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, RefreshCw, AlertCircle, Camera } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { uploadStaffPhoto } from '@/lib/staff-uploads';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -57,6 +59,25 @@ export default function StaffForm() {
   const [salaryChangeReason, setSalaryChangeReason] = useState('');
   const [originalSalary, setOriginalSalary] = useState(0);
   const [existingUserId, setExistingUserId] = useState<string | null>(null);
+
+  // Optional HR profile fields (edit mode)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [reportingManagerId, setReportingManagerId] = useState<string>('');
+  const [location, setLocation] = useState('');
+  const [address, setAddress] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [emergencyRelation, setEmergencyRelation] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIfsc, setBankIfsc] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [managers, setManagers] = useState<{ id: string; full_name: string }[]>([]);
+
 
   // Auto-generate employee ID on mount for new staff
   useEffect(() => {
@@ -116,6 +137,22 @@ export default function StaffForm() {
         setIsActive(data.is_active ?? true);
         setExistingUserId(data.user_id);
 
+        // HR profile
+        setPhotoUrl(data.photo_url || null);
+        setReportingManagerId(data.reporting_manager_id || '');
+        setLocation(data.location || '');
+        setAddress(data.address || '');
+        setDateOfBirth(data.date_of_birth || '');
+        setGender(data.gender || '');
+        setBloodGroup(data.blood_group || '');
+        setEmergencyName(data.emergency_contact_name || '');
+        setEmergencyPhone(data.emergency_contact_phone || '');
+        setEmergencyRelation(data.emergency_contact_relation || '');
+        setBankAccountName(data.bank_account_name || '');
+        setBankAccountNumber(data.bank_account_number || '');
+        setBankIfsc(data.bank_ifsc || '');
+        setBankName(data.bank_name || '');
+
         // Fetch role if user_id exists
         if (data.user_id) {
           const { data: roleData } = await supabase
@@ -128,6 +165,15 @@ export default function StaffForm() {
             setRole(roleData.role);
           }
         }
+
+        // Load potential managers (other active staff)
+        const { data: mgrs } = await supabase
+          .from('staff')
+          .select('id, full_name')
+          .eq('is_active', true)
+          .neq('id', id!)
+          .order('full_name');
+        setManagers(mgrs || []);
       }
     } catch (error) {
       console.error('Error fetching staff:', error);
@@ -140,6 +186,7 @@ export default function StaffForm() {
       setIsLoading(false);
     }
   };
+
 
   const generateEmployeeId = () => {
     const prefix = 'EMP';
@@ -208,6 +255,36 @@ export default function StaffForm() {
         if (canSetSalary) {
           updateData.monthly_salary = monthlySalary;
         }
+
+        // Upload new photo if changed
+        let newPhotoUrl = photoUrl;
+        if (photoFile && id) {
+          try {
+            newPhotoUrl = await uploadStaffPhoto(id, photoFile);
+          } catch (e: any) {
+            toast({ title: 'Photo upload failed', description: e.message, variant: 'destructive' });
+          }
+        }
+
+        // HR profile fields (anyone with edit access)
+        updateData.photo_url = newPhotoUrl;
+        updateData.reporting_manager_id = reportingManagerId || null;
+        updateData.location = location.trim() || null;
+        updateData.address = address.trim() || null;
+        updateData.date_of_birth = dateOfBirth || null;
+        updateData.gender = gender || null;
+        updateData.blood_group = bloodGroup || null;
+        updateData.emergency_contact_name = emergencyName.trim() || null;
+        updateData.emergency_contact_phone = emergencyPhone.trim() || null;
+        updateData.emergency_contact_relation = emergencyRelation.trim() || null;
+        // Bank details — owner only writes
+        if (isOwner) {
+          updateData.bank_account_name = bankAccountName.trim() || null;
+          updateData.bank_account_number = bankAccountNumber.trim() || null;
+          updateData.bank_ifsc = bankIfsc.trim() || null;
+          updateData.bank_name = bankName.trim() || null;
+        }
+
         
         const { error: staffError } = await supabase
           .from('staff')
@@ -592,6 +669,131 @@ export default function StaffForm() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Optional HR Profile — only available when editing */}
+        {isEditing && (
+          <>
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">HR Profile (Optional)</CardTitle>
+                <CardDescription>Photo, manager, location and personal details. All fields are optional.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    {photoUrl && <AvatarImage src={photoUrl} alt={fullName} />}
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xl">
+                      {fullName.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    <Label htmlFor="photo" className="inline-flex items-center gap-2 cursor-pointer">
+                      <Camera className="h-4 w-4" /> Change Photo
+                    </Label>
+                    <Input id="photo" type="file" accept="image/*"
+                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                    {photoFile && <p className="text-xs text-muted-foreground">Selected: {photoFile.name}</p>}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Reporting Manager</Label>
+                    <Select value={reportingManagerId || 'none'} onValueChange={(v) => setReportingManagerId(v === 'none' ? '' : v)}>
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="none">— None —</SelectItem>
+                        {managers.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Location / Branch</Label>
+                    <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Guwahati HQ" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date of Birth</Label>
+                    <Input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Gender</Label>
+                    <Select value={gender || 'unset'} onValueChange={(v) => setGender(v === 'unset' ? '' : v)}>
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="unset">— Not specified —</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Blood Group</Label>
+                    <Input value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} placeholder="e.g. O+" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Emergency Contact (Optional)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(formatPhoneInput(e.target.value))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Relation</Label>
+                    <Input value={emergencyRelation} onChange={(e) => setEmergencyRelation(e.target.value)} placeholder="Spouse, Parent..." />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isOwner && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">Bank Details (Optional)</CardTitle>
+                  <CardDescription>Confidential — visible only to owners.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Account Holder Name</Label>
+                      <Input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bank Name</Label>
+                      <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Account Number</Label>
+                      <Input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IFSC Code</Label>
+                      <Input value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value.toUpperCase())} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
 
         {/* Salary Information - Only visible to Owner */}
         {canSetSalary && (

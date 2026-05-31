@@ -378,6 +378,42 @@ export type Database = {
         }
         Relationships: []
       }
+      employment_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_date: string
+          event_type: Database["public"]["Enums"]["employment_event_type"]
+          from_value: string | null
+          id: string
+          notes: string | null
+          staff_id: string
+          to_value: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          event_type: Database["public"]["Enums"]["employment_event_type"]
+          from_value?: string | null
+          id?: string
+          notes?: string | null
+          staff_id: string
+          to_value?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          event_type?: Database["public"]["Enums"]["employment_event_type"]
+          from_value?: string | null
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          to_value?: string | null
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           client_name: string | null
@@ -1320,79 +1356,175 @@ export type Database = {
       }
       staff: {
         Row: {
+          address: string | null
           attendance_tracked: boolean
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
           basic_salary: number
+          blood_group: string | null
           created_at: string
           created_by: string | null
+          date_of_birth: string | null
           date_of_joining: string
           department: string | null
           designation: string | null
           email: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
           employee_id: string
           esi_employee_rate: number | null
           esi_enrolled: boolean
           full_name: string
+          gender: string | null
           hra: number
           id: string
           is_active: boolean | null
+          location: string | null
           monthly_salary: number
           other_allowances: number
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
+          photo_url: string | null
           pt_exempt: boolean
+          reporting_manager_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          address?: string | null
           attendance_tracked?: boolean
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           basic_salary?: number
+          blood_group?: string | null
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           date_of_joining?: string
           department?: string | null
           designation?: string | null
           email: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           employee_id: string
           esi_employee_rate?: number | null
           esi_enrolled?: boolean
           full_name: string
+          gender?: string | null
           hra?: number
           id?: string
           is_active?: boolean | null
+          location?: string | null
           monthly_salary?: number
           other_allowances?: number
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
+          photo_url?: string | null
           pt_exempt?: boolean
+          reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          address?: string | null
           attendance_tracked?: boolean
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           basic_salary?: number
+          blood_group?: string | null
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           date_of_joining?: string
           department?: string | null
           designation?: string | null
           email?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           employee_id?: string
           esi_employee_rate?: number | null
           esi_enrolled?: boolean
           full_name?: string
+          gender?: string | null
           hra?: number
           id?: string
           is_active?: boolean | null
+          location?: string | null
           monthly_salary?: number
           other_allowances?: number
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
+          photo_url?: string | null
           pt_exempt?: boolean
+          reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_documents: {
+        Row: {
+          created_at: string
+          doc_label: string | null
+          doc_number: string | null
+          doc_type: Database["public"]["Enums"]["staff_document_type"]
+          file_name: string | null
+          file_url: string
+          id: string
+          notes: string | null
+          staff_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          doc_label?: string | null
+          doc_number?: string | null
+          doc_type?: Database["public"]["Enums"]["staff_document_type"]
+          file_name?: string | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          staff_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          doc_label?: string | null
+          doc_number?: string | null
+          doc_type?: Database["public"]["Enums"]["staff_document_type"]
+          file_name?: string | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          uploaded_by?: string | null
         }
         Relationships: []
       }
@@ -1703,6 +1835,12 @@ export type Database = {
     }
     Enums: {
       app_role: "owner" | "accountant" | "staff" | "ca" | "admin"
+      employment_event_type:
+        | "promotion"
+        | "transfer"
+        | "salary_revision"
+        | "role_change"
+        | "other"
       expense_category:
         | "travel"
         | "food"
@@ -1727,6 +1865,14 @@ export type Database = {
         | "advance_payment"
       request_status: "pending" | "approved" | "rejected"
       settlement_status: "pending" | "settled"
+      staff_document_type:
+        | "aadhaar"
+        | "pan"
+        | "bank_details"
+        | "education"
+        | "employment_contract"
+        | "experience_certificate"
+        | "other"
       voucher_type:
         | "payment"
         | "journal"
@@ -1862,6 +2008,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["owner", "accountant", "staff", "ca", "admin"],
+      employment_event_type: [
+        "promotion",
+        "transfer",
+        "salary_revision",
+        "role_change",
+        "other",
+      ],
       expense_category: [
         "travel",
         "food",
@@ -1889,6 +2042,15 @@ export const Constants = {
       ],
       request_status: ["pending", "approved", "rejected"],
       settlement_status: ["pending", "settled"],
+      staff_document_type: [
+        "aadhaar",
+        "pan",
+        "bank_details",
+        "education",
+        "employment_contract",
+        "experience_certificate",
+        "other",
+      ],
       voucher_type: [
         "payment",
         "journal",
