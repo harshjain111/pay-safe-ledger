@@ -357,11 +357,6 @@ export default function Expenses() {
         </>
       )}
 
-      {/* Create Event Dialog */}
-      <CreateEventDialog
-        open={showCreateEventDialog}
-        onOpenChange={setShowCreateEventDialog}
-      />
     </div>
   );
 }
