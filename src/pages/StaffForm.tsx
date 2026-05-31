@@ -670,6 +670,131 @@ export default function StaffForm() {
           </CardContent>
         </Card>
 
+        {/* Optional HR Profile — only available when editing */}
+        {isEditing && (
+          <>
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">HR Profile (Optional)</CardTitle>
+                <CardDescription>Photo, manager, location and personal details. All fields are optional.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    {photoUrl && <AvatarImage src={photoUrl} alt={fullName} />}
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xl">
+                      {fullName.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    <Label htmlFor="photo" className="inline-flex items-center gap-2 cursor-pointer">
+                      <Camera className="h-4 w-4" /> Change Photo
+                    </Label>
+                    <Input id="photo" type="file" accept="image/*"
+                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                    {photoFile && <p className="text-xs text-muted-foreground">Selected: {photoFile.name}</p>}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Reporting Manager</Label>
+                    <Select value={reportingManagerId || 'none'} onValueChange={(v) => setReportingManagerId(v === 'none' ? '' : v)}>
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="none">— None —</SelectItem>
+                        {managers.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Location / Branch</Label>
+                    <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Guwahati HQ" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date of Birth</Label>
+                    <Input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Gender</Label>
+                    <Select value={gender || 'unset'} onValueChange={(v) => setGender(v === 'unset' ? '' : v)}>
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="unset">— Not specified —</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Blood Group</Label>
+                    <Input value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} placeholder="e.g. O+" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Emergency Contact (Optional)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(formatPhoneInput(e.target.value))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Relation</Label>
+                    <Input value={emergencyRelation} onChange={(e) => setEmergencyRelation(e.target.value)} placeholder="Spouse, Parent..." />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isOwner && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">Bank Details (Optional)</CardTitle>
+                  <CardDescription>Confidential — visible only to owners.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Account Holder Name</Label>
+                      <Input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bank Name</Label>
+                      <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Account Number</Label>
+                      <Input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IFSC Code</Label>
+                      <Input value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value.toUpperCase())} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+
         {/* Salary Information - Only visible to Owner */}
         {canSetSalary && (
           <Card className="shadow-sm">
