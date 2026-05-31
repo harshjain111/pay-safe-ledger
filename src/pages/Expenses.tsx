@@ -159,17 +159,6 @@ export default function Expenses() {
         description="Submit and review expense claims"
       >
         <div className="flex items-center gap-2">
-          {canCreateEvent && (
-            <Button 
-              variant="outline" 
-              className="text-sm sm:text-base px-3 sm:px-4"
-              onClick={() => setShowCreateEventDialog(true)}
-            >
-              <Calendar className="mr-1.5 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Create Event</span>
-              <span className="sm:hidden">Event</span>
-            </Button>
-          )}
           {canCreateExpense && (
             <Link to="/expenses/new">
               <Button className="text-sm sm:text-base px-3 sm:px-4">
