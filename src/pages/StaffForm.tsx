@@ -297,12 +297,20 @@ export default function StaffForm() {
         updateData.emergency_contact_name = emergencyName.trim() || null;
         updateData.emergency_contact_phone = emergencyPhone.trim() || null;
         updateData.emergency_contact_relation = emergencyRelation.trim() || null;
-        // Bank details — owner only writes
+        // Bank details + Salary structure + Statutory — owner only writes
         if (isOwner) {
           updateData.bank_account_name = bankAccountName.trim() || null;
           updateData.bank_account_number = bankAccountNumber.trim() || null;
           updateData.bank_ifsc = bankIfsc.trim() || null;
           updateData.bank_name = bankName.trim() || null;
+          updateData.basic_salary = basicSalary || 0;
+          updateData.hra = hra || 0;
+          updateData.other_allowances = otherAllowances || 0;
+          updateData.pf_enrolled = pfEnrolled;
+          updateData.pf_employee_rate_override = pfEmployeeRateOverride.trim() === '' ? null : Number(pfEmployeeRateOverride);
+          updateData.esi_enrolled = esiEnrolled;
+          updateData.esi_employee_rate = esiEmployeeRate.trim() === '' ? null : Number(esiEmployeeRate);
+          updateData.pt_exempt = ptExempt;
         }
 
         
