@@ -282,24 +282,25 @@ async function createJournalEntry(params: CreateJournalEntryParams): Promise<str
  * - Advance adjustment has ZERO net effect on staff balance
  */
 export async function createSalarySettlementEntry(params: SalarySettlementParams): Promise<string> {
-  const { 
-    staffId, 
-    staffName, 
-    settlementMonth, 
-    grossSalary,  // This is already NET of leave deduction (monthlySalary - leaveDeduction)
-    leaveDeduction: _leaveDeduction, // Kept for reference but NOT used in calculation
-    advanceAdjustment, 
-    settlementId, 
-    createdBy 
+  const {
+    staffId,
+    staffName,
+    settlementMonth,
+    grossSalary,  // Take-home BEFORE advance adjustment (already net of leave, discipline, employee PF & ESI)
+    leaveDeduction: _leaveDeduction,
+    advanceAdjustment,
+    pfEmployee = 0,
+    pfEmployer = 0,
+    esiEmployee = 0,
+    esiEmployer = 0,
+    settlementId,
+    createdBy,
   } = params;
 
-  // CRITICAL FIX: grossSalary is already net of leave, DO NOT subtract again!
-  // Previous bug: netSalary = grossSalary - leaveDeduction was double-subtracting
   const netSalary = grossSalary;
   const lines: JournalLine[] = [];
 
-  // Entry 1: Salary Expense Dr, Staff Payable Cr
-  // This records the actual salary payable to staff (after leave deduction)
+  // Entry 1: Salary Expense Dr, Staff Payable Cr (take-home)
   if (netSalary > 0) {
     lines.push({
       accountCode: ACCOUNT_CODES.SALARY_EXPENSE,
@@ -307,7 +308,6 @@ export async function createSalarySettlementEntry(params: SalarySettlementParams
       credit: 0,
       description: `Salary expense for ${staffName} - ${settlementMonth}`,
     });
-    
     lines.push({
       accountCode: ACCOUNT_CODES.STAFF_PAYABLE,
       debit: 0,
@@ -317,11 +317,75 @@ export async function createSalarySettlementEntry(params: SalarySettlementParams
     });
   }
 
-  // Entry 2: Advance Adjustment (if any)
-  // This is an INTERNAL settlement - reduces both payable AND advances
-  // Debit: Staff Payable (reduce what we owe staff)
-  // Credit: Staff Advances (reduce what staff owes us)
-  // Net effect on staff balance: ZERO (shifts between accounts only)
+  // Entry 2: Employee PF withheld — Dr Salary Expense / Cr EPF Payable
+  if (pfEmployee > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.SALARY_EXPENSE,
+      debit: pfEmployee,
+      credit: 0,
+      description: `Employee PF for ${staffName} - ${settlementMonth}`,
+    });
+    lines.push({
+      accountCode: ACCOUNT_CODES.EPF_PAYABLE,
+      debit: 0,
+      credit: pfEmployee,
+      staffId,
+      description: `Employee PF withheld - ${staffName} - ${settlementMonth}`,
+    });
+  }
+
+  // Entry 3: Employee ESI withheld — Dr Salary Expense / Cr ESI Payable
+  if (esiEmployee > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.SALARY_EXPENSE,
+      debit: esiEmployee,
+      credit: 0,
+      description: `Employee ESI for ${staffName} - ${settlementMonth}`,
+    });
+    lines.push({
+      accountCode: ACCOUNT_CODES.ESI_PAYABLE,
+      debit: 0,
+      credit: esiEmployee,
+      staffId,
+      description: `Employee ESI withheld - ${staffName} - ${settlementMonth}`,
+    });
+  }
+
+  // Entry 4: Employer PF contribution — Dr Employer PF Expense / Cr EPF Payable
+  if (pfEmployer > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.EMPLOYER_PF_EXPENSE,
+      debit: pfEmployer,
+      credit: 0,
+      description: `Employer PF contribution for ${staffName} - ${settlementMonth}`,
+    });
+    lines.push({
+      accountCode: ACCOUNT_CODES.EPF_PAYABLE,
+      debit: 0,
+      credit: pfEmployer,
+      staffId,
+      description: `Employer PF payable - ${staffName} - ${settlementMonth}`,
+    });
+  }
+
+  // Entry 5: Employer ESI contribution — Dr Employer ESI Expense / Cr ESI Payable
+  if (esiEmployer > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.EMPLOYER_ESI_EXPENSE,
+      debit: esiEmployer,
+      credit: 0,
+      description: `Employer ESI contribution for ${staffName} - ${settlementMonth}`,
+    });
+    lines.push({
+      accountCode: ACCOUNT_CODES.ESI_PAYABLE,
+      debit: 0,
+      credit: esiEmployer,
+      staffId,
+      description: `Employer ESI payable - ${staffName} - ${settlementMonth}`,
+    });
+  }
+
+  // Entry 6: Advance adjustment (internal — reduces payable and advances)
   if (advanceAdjustment > 0) {
     lines.push({
       accountCode: ACCOUNT_CODES.STAFF_PAYABLE,
@@ -330,7 +394,6 @@ export async function createSalarySettlementEntry(params: SalarySettlementParams
       staffId,
       description: `Advance adjustment against ${settlementMonth} salary`,
     });
-    
     lines.push({
       accountCode: ACCOUNT_CODES.STAFF_ADVANCES,
       debit: 0,
