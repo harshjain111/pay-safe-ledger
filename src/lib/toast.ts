@@ -22,7 +22,7 @@ function show(
   options?: ToastOptions,
 ) {
   return shadcnToast({
-    title: message,
+    title: message as any,
     description: options?.description,
     variant,
   });

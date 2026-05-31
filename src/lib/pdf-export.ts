@@ -77,7 +77,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Internal Payroll System', 14, 26);
+  doc.text('Powered by VIBRND HR BUDDY', 14, 26);
   
   // Report title
   doc.setFontSize(14);
@@ -154,7 +154,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
       );
       
       doc.text(
-        'Konnect 2 Hospitality Payroll - Confidential',
+        'Konnect 2 Hospitality — Powered by VIBRND HR BUDDY (Confidential)',
         14,
         doc.internal.pageSize.getHeight() - 10
       );

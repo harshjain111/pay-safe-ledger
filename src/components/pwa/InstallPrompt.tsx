@@ -37,7 +37,7 @@ export function InstallPrompt() {
       <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-elevated">
         <Download className="h-5 w-5 shrink-0 text-primary" />
         <p className="flex-1 text-sm font-medium text-card-foreground">
-          Install Konnect 2 Hospitality for a better experience
+          Install VIBRND HR BUDDY for a better experience
         </p>
         <Button size="sm" onClick={handleInstall}>
           Install App

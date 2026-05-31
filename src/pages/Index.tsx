@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Wallet } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { BRAND } from '@/lib/brand';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -24,8 +25,8 @@ const Index = () => {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
         <div className="inline-flex flex-col items-center gap-3 mb-6">
-          <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-20 w-auto" />
-          <span className="text-3xl font-bold text-foreground tracking-tight">Konnect 2 Hospitality</span>
+          <img src={BRAND.logo} alt={BRAND.productName} className="h-20 w-auto" />
+          <span className="text-3xl font-bold text-foreground tracking-tight">{BRAND.productName}</span>
         </div>
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
