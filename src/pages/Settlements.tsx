@@ -28,14 +28,30 @@ import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustme
 import { LeaveDeductionSection } from '@/components/settlements/LeaveDeductionSection';
 import { createSalarySettlementEntry } from '@/lib/journal-entries';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
+import {
+  getStaffStructure,
+  prorateStructure,
+  computeProfessionalTax,
+  computeAutoOvertime,
+  getLoanEMIsForMonth,
+  type LoanEMI,
+} from '@/lib/payroll';
 import type { Staff, PaymentMode } from '@/types/database';
 
 interface SettlementCalculation {
-  monthlySalary: number;
+  monthlySalary: number; // pro-rata contractual (Basic+HRA+Allow)
+  basic: number;
+  hra: number;
+  allowances: number;
+  incentives: number;
+  bonus: number;
+  overtimeAuto: number;
+  overtimeAmount: number;
+  overtimeOverrideReason: string;
   dailySalary: number;
-   systemDeductionDays: number;
-   finalDeductionDays: number;
-   deductionAdjustmentReason?: string;
+  systemDeductionDays: number;
+  finalDeductionDays: number;
+  deductionAdjustmentReason?: string;
   leaveDeduction: number;
   disciplineFine: number;
   pfEmployee: number;
@@ -49,6 +65,9 @@ interface SettlementCalculation {
   esiRateEmployee: number;
   esiRateEmployer: number;
   esiEligible: boolean;
+  ptAmount: number;
+  loanEmis: LoanEMI[];
+  loanEmiTotal: number;
   grossSalary: number;
   advancesOutstanding: number;
   advanceToAdjust: number;
@@ -64,6 +83,9 @@ interface StatutorySettings {
   esi_enabled: boolean;
   esi_employer_rate: number;
   esi_eligibility_ceiling: number;
+  pt_enabled: boolean;
+  pt_monthly_amount: number;
+  pt_min_gross: number;
 }
 
 interface ValidationResult {
