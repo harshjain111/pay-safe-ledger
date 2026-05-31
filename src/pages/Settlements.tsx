@@ -302,18 +302,46 @@ export default function Settlements() {
         disciplineFine = totalFine;
       }
 
-      const grossSalary = Math.max(0, proRataSalary - leaveDeduction - disciplineFine);
+      // ===== Statutory deductions (PF & ESI) =====
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const s = statutorySettings;
+      const cs = currentStaff as (Staff & {
+        pf_enrolled?: boolean;
+        pf_employee_rate_override?: number | null;
+        esi_enrolled?: boolean;
+        esi_employee_rate?: number | null;
+      }) | undefined;
+
+      // PF — global toggle + per-staff enrollment
+      const pfActive = !!(s?.pf_enabled && cs?.pf_enrolled);
+      const pfRateEmployee = pfActive
+        ? (cs?.pf_employee_rate_override ?? s?.pf_employee_rate ?? 0)
+        : 0;
+      const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
+      const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
+      const pfEmployee = pfActive ? round2(pfBase * pfRateEmployee / 100) : 0;
+      const pfEmployer = pfActive ? round2(pfBase * pfRateEmployer / 100) : 0;
+
+      // ESI — global toggle + per-staff enrollment + eligibility ceiling
+      const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
+      const esiBase = proRataSalary;
+      const esiEligible = esiEnrolled && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
+      const esiRateEmployee = esiEligible ? Number(cs?.esi_employee_rate ?? 0) : 0;
+      const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
+      const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
+      const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
+
+      const grossSalary = Math.max(0, proRataSalary - leaveDeduction - disciplineFine - pfEmployee - esiEmployee);
       const advancesOutstanding = Number(advanceData) || 0;
-      
+
       // Don't auto-set advance adjustment — let admin enter it manually (default 0)
-      // Only use current advanceToAdjust if it's within bounds
       const maxAdjustable = Math.min(advancesOutstanding, grossSalary);
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-      
+
       const netPayable = Math.max(0, grossSalary - currentAdj);
       const carryForwardAdvance = advancesOutstanding - currentAdj;
 
-      const newWarnings = [...warnings.filter(w => !w.includes('leave') && !w.includes('Pro-rata'))];
+      const newWarnings = [...warnings.filter(w => !w.includes('leave') && !w.includes('Pro-rata') && !w.includes('ESI'))];
       if (effectiveDays < daysInMonth) {
         newWarnings.push(`Pro-rata: ${effectiveDays} of ${daysInMonth} days (₹${proRataSalary.toFixed(0)} of ₹${monthlySalary})`);
       }
@@ -323,16 +351,30 @@ export default function Settlements() {
       if (finalDeductionDays > effectiveDays) {
         newWarnings.push(`Leave deduction exceeds effective working days (${effectiveDays})`);
       }
+      if (esiEnrolled && !esiEligible) {
+        newWarnings.push(`ESI not deducted — gross ₹${esiBase.toFixed(0)} exceeds ceiling ₹${(s?.esi_eligibility_ceiling ?? 0).toLocaleString('en-IN')}`);
+      }
       setWarnings(newWarnings);
 
       setCalculation({
-        monthlySalary: proRataSalary, // Store pro-rata as the effective salary
+        monthlySalary: proRataSalary,
         dailySalary,
         systemDeductionDays,
         finalDeductionDays,
         deductionAdjustmentReason,
         leaveDeduction,
         disciplineFine,
+        pfEmployee,
+        pfEmployer,
+        pfBase,
+        pfRateEmployee,
+        pfRateEmployer,
+        esiEmployee,
+        esiEmployer,
+        esiBase,
+        esiRateEmployee,
+        esiRateEmployer,
+        esiEligible,
         grossSalary,
         advancesOutstanding,
         advanceToAdjust: currentAdj,
