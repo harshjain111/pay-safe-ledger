@@ -224,7 +224,6 @@ export default function NewExpense() {
           status: asDraft ? 'draft' as const : 'pending' as const,
           submitted_at: asDraft ? null : new Date().toISOString(),
           created_by: user?.id,
-          event_id: selectedEventId || null,
           club_id: selectedClubId || null,
         })
         .select()
@@ -426,27 +425,6 @@ export default function NewExpense() {
             </Popover>
           </div>
 
-          {/* Related Event (Optional) */}
-          <div className="space-y-2">
-            <Label htmlFor="event" className="text-sm">Related Event (Optional)</Label>
-            <Select value={selectedEventId || 'none'} onValueChange={(v) => setSelectedEventId(v === 'none' ? '' : v)}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select an event (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No event</SelectItem>
-                {events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {format(new Date(event.event_date), 'dd MMM yyyy')} - {event.location}
-                    {event.client_name && ` (${event.client_name})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Optionally link this expense to an event or party
-            </p>
-          </div>
 
           {/* Description */}
           <div className="space-y-2">
