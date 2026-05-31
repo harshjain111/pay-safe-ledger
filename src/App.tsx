@@ -34,7 +34,7 @@ import PettyCash from "./pages/PettyCash";
 import Attendance from "./pages/Attendance";
 import MyAttendance from "./pages/MyAttendance";
 import Shifts from "./pages/Shifts";
-import WhatsAppLogs from "./pages/WhatsAppLogs";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
