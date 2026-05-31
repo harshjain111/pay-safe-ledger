@@ -1,0 +1,2 @@
+ALTER TABLE public.journal_entries DROP CONSTRAINT journal_entries_transaction_type_check;
+ALTER TABLE public.journal_entries ADD CONSTRAINT journal_entries_transaction_type_check CHECK (transaction_type = ANY (ARRAY['salary_settlement','salary_payout','expense_approval','expense_payout','advance_paid','advance_adjustment','rectification','cancellation']));
