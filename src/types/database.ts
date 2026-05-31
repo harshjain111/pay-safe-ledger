@@ -32,10 +32,33 @@ export interface Staff {
   designation?: string;
   date_of_joining: string;
   monthly_salary: number;
+  basic_salary?: number;
+  hra?: number;
+  other_allowances?: number;
+  pt_exempt?: boolean;
+  pf_enrolled?: boolean;
+  pf_employee_rate_override?: number | null;
+  esi_enrolled?: boolean;
+  esi_employee_rate?: number | null;
   is_active: boolean;
+  attendance_tracked?: boolean;
   created_at: string;
   updated_at: string;
   created_by?: string;
+}
+
+export interface StaffLoan {
+  id: string;
+  staff_id: string;
+  principal: number;
+  emi_amount: number;
+  start_month: string;
+  remaining_balance: number;
+  status: 'active' | 'paused' | 'closed';
+  notes?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StaffPublic {
