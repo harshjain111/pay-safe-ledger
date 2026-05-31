@@ -209,40 +209,11 @@ export function PenaltiesPanel() {
       if (error) throw error;
 
       if (mode === 'cancel') {
-        const phone = (target.staff_phone || '').replace(/^\+/, '');
-        if (phone) {
-          try {
-            const { data: waData, error: waErr } = await supabase.functions.invoke(
-              'send-attendance-whatsapp',
-              {
-                body: {
-                  staff_name: target.staff_name,
-                  staff_phone: phone,
-                  staff_id: target.staff_id,
-                  event_type: 'penalty_waived',
-                  actual_time: new Date().toISOString(),
-                  scheduled_time: new Date().toISOString(),
-                  slab: 'penalty_waived',
-                  deduction_amount: Number(target.fine_amount) || 0,
-                  penalty_date: target.work_date,
-                },
-              },
-            );
-            if (waErr || (waData && waData.success === false)) {
-              toast.error('Penalty waived but WhatsApp notification failed');
-            } else {
-              toast.success(`Penalty waived — WhatsApp notification sent to ${target.staff_name}`);
-            }
-          } catch (e) {
-            console.error('WhatsApp waiver notify failed', e);
-            toast.error('Penalty waived but WhatsApp notification failed');
-          }
-        } else {
-          toast.success('Penalty cancelled');
-        }
+        toast.success('Penalty cancelled');
       } else {
         toast.success('Penalty restored');
       }
+
       setTarget(null);
       await load();
     } catch (e) {
