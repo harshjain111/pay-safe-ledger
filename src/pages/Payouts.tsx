@@ -351,22 +351,8 @@ export default function Payouts() {
         description: `₹${selectedItem.amount.toLocaleString('en-IN')} paid to ${selectedItem.staffName}. Balance cleared.`,
       });
 
-      // Sync payout to financial core (non-blocking)
-      try {
-        await supabase.functions.invoke('sync-to-financial', {
-          body: {
-            staff_id: selectedItem.staffId,
-            staff_name: selectedItem.staffName,
-            payout_type: selectedItem.type,
-            amount: selectedItem.amount,
-            payment_mode: paymentMode,
-            reference_number: journalEntryId,
-            payout_date: format(new Date(), 'yyyy-MM-dd'),
-          },
-        });
-      } catch (syncError) {
-        console.error('Financial sync failed (non-blocking):', syncError);
-      }
+
+
 
       setSelectedItem(null);
       setPaymentMode('cash');

@@ -76,47 +76,14 @@ Deno.serve(async (req) => {
         if (!row.staff_id) continue;
         const staff = staffMap.get(row.staff_id);
         if (!staff || staff.attendance_tracked === false) continue;
-        if (!staff.phone) {
-          // No phone — still mark sent so we don't loop on it
-          await supabase
-            .from('attendance_sessions')
-            .update({ overtime_reminder_sent: true })
-            .eq('id', row.id);
-          continue;
-        }
-        const phone = staff.phone.replace(/^\+/, '');
-        try {
-          const { data: waData, error: waErr } = await supabase.functions.invoke(
-            'send-attendance-whatsapp',
-            {
-              body: {
-                staff_name: staff.full_name,
-                staff_phone: phone,
-                staff_id: row.staff_id,
-                event_type: 'checkout_reminder',
-                actual_time: new Date(now).toISOString(),
-                scheduled_time: new Date(now).toISOString(),
-                slab: 'checkout_reminder',
-                deduction_amount: 0,
-              },
-            },
-          );
-          if (waErr || (waData && (waData as { success?: boolean }).success === false)) {
-            reminder_failures++;
-            console.error('overtime reminder failed', staff.full_name, waErr || waData);
-          } else {
-            reminders_sent++;
-            await supabase
-              .from('attendance_sessions')
-              .update({ overtime_reminder_sent: true })
-              .eq('id', row.id);
-          }
-        } catch (e) {
-          reminder_failures++;
-          console.error('overtime reminder threw', staff.full_name, e);
-        }
+        // Mark sent regardless (WhatsApp reminders disabled)
+        await supabase
+          .from('attendance_sessions')
+          .update({ overtime_reminder_sent: true })
+          .eq('id', row.id);
       }
     }
+
 
     // ---------- 2) 16-hour auto-close ----------
     const { data: stale } = await supabase
