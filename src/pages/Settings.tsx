@@ -48,6 +48,7 @@ import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard
 import { ManageClubsCard } from '@/components/settings/ManageClubsCard';
 import { DisciplineRulesCard } from '@/components/settings/DisciplineRulesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
+import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
 
 export default function Settings() {
   const { user, userRole, signOut, staffData } = useAuth();
@@ -408,6 +409,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Statutory Compliance (Owner) */}
+        <StatutorySettingsCard />
 
         {/* Attendance Coverage (Owner) */}
         <AttendanceCoverageCard />
