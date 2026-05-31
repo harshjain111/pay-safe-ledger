@@ -1,4 +1,4 @@
- import { useState, useEffect } from 'react';
+ import { useState, useEffect, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { Calendar, ChevronDown, ChevronUp, Info, Gift, CheckCircle } from 'lucid
  import { Amount } from '@/components/ui/amount';
  import type { LeaveRecord } from '@/types/leave';
  import { LEAVE_TYPE_CONFIG } from '@/types/leave';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
  
  interface LeaveDeductionSectionProps {
    staffId: string;
@@ -48,16 +48,11 @@ import { cn } from '@/lib/utils';
    const hasOverride = finalDeductionDays !== systemDeductionDays;
  
    useEffect(() => {
-     if (staffId && month) {
-       fetchLeaveData();
-     }
-   }, [staffId, month]);
- 
-   useEffect(() => {
      onDeductionChange(systemDeductionDays, finalDeductionDays, adjustmentReason);
+     // eslint-disable-next-line react-hooks/exhaustive-deps -- onDeductionChange is an unstable parent callback; this effect must fire only when the deduction values change, not on every parent re-render.
    }, [systemDeductionDays, finalDeductionDays, adjustmentReason]);
  
-   const fetchLeaveData = async () => {
+   const fetchLeaveData = useCallback(async () => {
      try {
        setIsLoading(true);
  
@@ -70,7 +65,7 @@ import { cn } from '@/lib/utils';
  
        if (deductionError) throw deductionError;
  
-       const systemDays = Number(deductionData) || 0;
+       const systemDays = toAmount(deductionData);
        setSystemDeductionDays(systemDays);
        setFinalDeductionDays(systemDays); // Default to system value
  
@@ -89,7 +84,13 @@ import { cn } from '@/lib/utils';
      } finally {
        setIsLoading(false);
      }
-   };
+   }, [staffId, month]);
+
+   useEffect(() => {
+     if (staffId && month) {
+       fetchLeaveData();
+     }
+   }, [staffId, month, fetchLeaveData]);
  
   const handleFinalDeductionChange = (value: number) => {
     // Owner can freely set deduction days (increase or decrease)
@@ -198,7 +199,7 @@ import { cn } from '@/lib/utils';
                   min="0"
                   step="0.5"
                   value={finalDeductionDays}
-                  onChange={(e) => handleFinalDeductionChange(Number(e.target.value) || 0)}
+                  onChange={(e) => handleFinalDeductionChange(toAmount(e.target.value))}
                   disabled={disabled}
                   className="w-20 h-8 text-center"
                 />

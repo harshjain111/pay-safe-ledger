@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Building2, Plus, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 
 interface Club {
@@ -20,6 +20,7 @@ export function ManageClubsCard() {
   const [newName, setNewName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [busy, setBusy] = useState<{ id: string; action: 'toggle' | 'delete' } | null>(null);
 
   const canManage = isOwner || isAdmin || isAccountant;
 
@@ -54,27 +55,37 @@ export function ManageClubsCard() {
   };
 
   const toggleActive = async (club: Club) => {
-    const { error } = await supabase
-      .from('clubs')
-      .update({ is_active: !club.is_active })
-      .eq('id', club.id);
-    if (error) {
-      toast.error('Failed to update');
-    } else {
-      fetchClubs();
+    try {
+      setBusy({ id: club.id, action: 'toggle' });
+      const { error } = await supabase
+        .from('clubs')
+        .update({ is_active: !club.is_active })
+        .eq('id', club.id);
+      if (error) {
+        toast.error('Failed to update');
+      } else {
+        await fetchClubs();
+      }
+    } finally {
+      setBusy(null);
     }
   };
 
   const deleteClub = async (club: Club) => {
-    const { error } = await supabase
-      .from('clubs')
-      .delete()
-      .eq('id', club.id);
-    if (error) {
-      toast.error('Cannot delete: club may be in use');
-    } else {
-      toast.success('Club deleted');
-      fetchClubs();
+    try {
+      setBusy({ id: club.id, action: 'delete' });
+      const { error } = await supabase
+        .from('clubs')
+        .delete()
+        .eq('id', club.id);
+      if (error) {
+        toast.error('Cannot delete: club may be in use');
+      } else {
+        toast.success('Club deleted');
+        await fetchClubs();
+      }
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -114,11 +125,11 @@ export function ManageClubsCard() {
                   {!club.is_active && <Badge variant="secondary" className="text-[10px]">Disabled</Badge>}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(club)} title={club.is_active ? 'Disable' : 'Enable'}>
-                    {club.is_active ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(club)} disabled={busy?.id === club.id} title={club.is_active ? 'Disable' : 'Enable'}>
+                    {busy?.id === club.id && busy.action === 'toggle' ? <Loader2 className="h-4 w-4 animate-spin" /> : club.is_active ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteClub(club)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteClub(club)} disabled={busy?.id === club.id}>
+                    {busy?.id === club.id && busy.action === 'delete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

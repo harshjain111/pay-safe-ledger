@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { 
   Trash2, 
   Download, 
@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import * as XLSX from 'xlsx';
 
 export function ClearTransactionDataCard() {
   const { isOwner, user } = useAuth();
@@ -194,6 +193,7 @@ export function ClearTransactionDataCard() {
       }));
 
       // Create workbook
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
 
       // Add sheets

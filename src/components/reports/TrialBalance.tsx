@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -52,8 +53,8 @@ export function TrialBalance() {
   };
 
   // Calculate totals
-  const totalDebits = data.reduce((sum, row) => sum + Number(row.total_debit), 0);
-  const totalCredits = data.reduce((sum, row) => sum + Number(row.total_credit), 0);
+  const totalDebits = data.reduce((sum, row) => sum + toAmount(row.total_debit), 0);
+  const totalCredits = data.reduce((sum, row) => sum + toAmount(row.total_credit), 0);
   const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
   const difference = Math.abs(totalDebits - totalCredits);
 
@@ -156,14 +157,14 @@ export function TrialBalance() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {Number(row.total_debit) > 0 ? <Amount value={row.total_debit} /> : '-'}
+                      {toAmount(row.total_debit) > 0 ? <Amount value={row.total_debit} /> : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {Number(row.total_credit) > 0 ? <Amount value={row.total_credit} /> : '-'}
+                      {toAmount(row.total_credit) > 0 ? <Amount value={row.total_credit} /> : '-'}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${Number(row.balance) < 0 ? 'text-red-600' : ''}`}>
+                    <TableCell className={`text-right font-medium ${toAmount(row.balance) < 0 ? 'text-red-600' : ''}`}>
                       <Amount value={Math.abs(row.balance)} />
-                      {Number(row.balance) < 0 && ' Cr'}
+                      {toAmount(row.balance) < 0 && ' Cr'}
                     </TableCell>
                   </TableRow>
                 ))

@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
+import { toAmount } from '@/lib/utils';
+import { queryKeys } from '@/lib/query-keys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -106,7 +109,8 @@ export default function Settlements() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, staffData, canAccessSettlements } = useAuth();
-  
+  const queryClient = useQueryClient();
+
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(searchParams.get('staff') || '');
   const [selectedMonth, setSelectedMonth] = useState<string>(searchParams.get('month') || format(subMonths(new Date(), 1), 'yyyy-MM'));
@@ -133,101 +137,14 @@ export default function Settlements() {
   const [overtimeOverride, setOvertimeOverride] = useState<number | null>(null);
   const [overtimeOverrideReason, setOvertimeOverrideReason] = useState<string>('');
 
-  useEffect(() => {
-    if (canAccessSettlements) {
-      fetchStaff();
-      fetchStatutorySettings();
-    }
-  }, [canAccessSettlements]);
-
-  useEffect(() => {
-    if (canAccessSettlements && selectedStaffId && selectedMonth) {
-      // Reset overrides when staff/month changes
-      setAdvanceToAdjust(0);
-      setNetPayableOverride(null);
-      validateSettlement();
-    }
-  }, [selectedStaffId, selectedMonth, canAccessSettlements]);
-
-  // Recalculate when deduction days change OR statutory settings load
-  useEffect(() => {
-    if (canAccessSettlements && selectedStaffId && selectedMonth) {
-      calculateSettlement();
-    }
-  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings, incentivesInput, bonusInput, overtimeOverride]);
-
-  // Recalculate netPayable when advance adjustment changes (without resetting overrides)
-  useEffect(() => {
-    if (calculation) {
-      const loanTotal = calculation.loanEmiTotal || 0;
-      const maxAdjustable = Math.min(calculation.advancesOutstanding, Math.max(0, calculation.grossSalary - loanTotal));
-      const clampedAdjustment = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = Math.max(0, calculation.grossSalary - clampedAdjustment - loanTotal);
-      const carryForward = calculation.advancesOutstanding - clampedAdjustment;
-
-      setCalculation(prev => prev ? {
-        ...prev,
-        advanceToAdjust: clampedAdjustment,
-        netPayable,
-        carryForwardAdvance: carryForward,
-      } : null);
-    }
-  }, [advanceToAdjust]);
-
-  // STRICT ACCESS CONTROL: Only Owner can access settlements
-  if (!canAccessSettlements) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <ShieldX className="h-16 w-16 text-destructive" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Salary settlements contain confidential compensation data and are restricted to the Owner only.
-        </p>
-        <Button onClick={() => navigate('/dashboard')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Button>
-      </div>
-    );
-  }
-
-  const fetchStaff = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('is_active', true)
-        .order('full_name');
-
-      if (error) throw error;
-      setStaff(data || []);
-    } catch (error) {
-      console.error('Error fetching staff:', error);
-    }
-  };
-
-  const fetchStatutorySettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payroll_statutory_settings')
-        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross')
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      if (data) setStatutorySettings(data as StatutorySettings);
-    } catch (error) {
-      console.error('Error fetching statutory settings:', error);
-    }
-  };
-
-  const validateSettlement = async () => {
+  const validateSettlement = useCallback(async () => {
     try {
       const { data: settledData } = await supabase
         .rpc('is_salary_settled', {
           _staff_id: selectedStaffId,
           _month: selectedMonth,
         });
-      
+
       setIsAlreadySettled(settledData);
 
       const { data: validationData, error } = await supabase
@@ -237,12 +154,12 @@ export default function Settlements() {
         });
 
       if (error) throw error;
-      
+
       const result = validationData as unknown as ValidationResult;
       setValidation(result);
 
       const newWarnings: string[] = [];
-      
+
       if (result.warning) {
         newWarnings.push('Staff is inactive');
       }
@@ -251,15 +168,9 @@ export default function Settlements() {
     } catch (error) {
       console.error('Error validating settlement:', error);
     }
-  };
-  // Handle leave deduction changes from LeaveDeductionSection
-  const handleLeaveDeductionChange = (systemDays: number, finalDays: number, reason?: string) => {
-    setSystemDeductionDays(systemDays);
-    setFinalDeductionDays(finalDays);
-    setDeductionAdjustmentReason(reason || '');
-  };
+  }, [selectedStaffId, selectedMonth]);
 
-  const calculateSettlement = async () => {
+  const calculateSettlement = useCallback(async () => {
     if (!selectedStaffId || !selectedMonth) return;
 
     try {
@@ -281,7 +192,7 @@ export default function Settlements() {
 
       if (advanceError) throw advanceError;
 
-      const monthlySalary = Number(salaryData) || 0;
+      const monthlySalary = toAmount(salaryData);
       const daysInMonth = getDaysInMonth(parseISO(selectedMonth + '-01'));
       const dailySalary = monthlySalary / daysInMonth;
 
@@ -323,7 +234,7 @@ export default function Settlements() {
       const cs = currentStaff;
 
       const pfActive = !!(s?.pf_enabled && cs?.pf_enrolled);
-      const pfRateEmployee = pfActive ? (cs?.pf_employee_rate_override ?? s?.pf_employee_rate ?? 0) : 0;
+      const pfRateEmployee = pfActive ? toAmount(cs?.pf_employee_rate_override ?? s?.pf_employee_rate) : 0;
       const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
       const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
       const pfEmployee = pfActive ? round2(pfBase * pfRateEmployee / 100) : 0;
@@ -332,7 +243,7 @@ export default function Settlements() {
       const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
       const esiBase = proRataSalary;
       const esiEligible = esiEnrolled && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
-      const esiRateEmployee = esiEligible ? Number(cs?.esi_employee_rate ?? 0) : 0;
+      const esiRateEmployee = esiEligible ? toAmount(cs?.esi_employee_rate) : 0;
       const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
       const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
       const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
@@ -350,7 +261,7 @@ export default function Settlements() {
 
       // Loan EMIs
       const loanEmis = await getLoanEMIsForMonth(selectedStaffId, selectedMonth);
-      const loanEmiTotal = loanEmis.reduce((sum, l) => sum + l.amount, 0);
+      const loanEmiTotal = loanEmis.reduce((sum, l) => sum + toAmount(l.amount), 0);
 
       // Gross earnings before statutory + leave + discipline
       const grossEarnings = proRataSalary + incentivesInput + bonusInput + overtimeAmount;
@@ -359,7 +270,7 @@ export default function Settlements() {
       const ptAmount = computeProfessionalTax(currentStaff ?? {}, grossEarnings, s);
 
       const grossSalary = Math.max(0, grossEarnings - leaveDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
-      const advancesOutstanding = Number(advanceData) || 0;
+      const advancesOutstanding = toAmount(advanceData);
       const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
       const netPayable = Math.max(0, grossSalary - currentAdj - loanEmiTotal);
@@ -409,6 +320,102 @@ export default function Settlements() {
     } finally {
       setIsCalculating(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 'advanceToAdjust' intentionally excluded: advance-adjustment changes are handled by the dedicated lightweight effect below to avoid a full DB recalculation.
+  }, [selectedStaffId, selectedMonth, staff, finalDeductionDays, statutorySettings, overtimeOverride, incentivesInput, bonusInput, systemDeductionDays, deductionAdjustmentReason, overtimeOverrideReason]);
+
+  useEffect(() => {
+    if (canAccessSettlements) {
+      fetchStaff();
+      fetchStatutorySettings();
+    }
+  }, [canAccessSettlements]);
+
+  useEffect(() => {
+    if (canAccessSettlements && selectedStaffId && selectedMonth) {
+      // Reset overrides when staff/month changes
+      setAdvanceToAdjust(0);
+      setNetPayableOverride(null);
+      validateSettlement();
+    }
+  }, [canAccessSettlements, selectedStaffId, selectedMonth, validateSettlement]);
+
+  // Recalculate when deduction days change OR statutory settings load
+  useEffect(() => {
+    if (canAccessSettlements && selectedStaffId && selectedMonth) {
+      calculateSettlement();
+    }
+  }, [canAccessSettlements, selectedStaffId, selectedMonth, calculateSettlement]);
+
+  // Recalculate netPayable when advance adjustment changes (without resetting overrides)
+  useEffect(() => {
+    if (calculation) {
+      const loanTotal = calculation.loanEmiTotal || 0;
+      const maxAdjustable = Math.min(calculation.advancesOutstanding, Math.max(0, calculation.grossSalary - loanTotal));
+      const clampedAdjustment = Math.min(advanceToAdjust, maxAdjustable);
+      const netPayable = Math.max(0, calculation.grossSalary - clampedAdjustment - loanTotal);
+      const carryForward = calculation.advancesOutstanding - clampedAdjustment;
+
+      setCalculation(prev => prev ? {
+        ...prev,
+        advanceToAdjust: clampedAdjustment,
+        netPayable,
+        carryForwardAdvance: carryForward,
+      } : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 'calculation' is updated inside this effect; including it would cause an infinite update loop. Advance-adjustment changes drive this recalc.
+  }, [advanceToAdjust]);
+
+  // STRICT ACCESS CONTROL: Only Owner can access settlements
+  if (!canAccessSettlements) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <ShieldX className="h-16 w-16 text-destructive" />
+        <h2 className="text-xl font-semibold">Access Denied</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          Salary settlements contain confidential compensation data and are restricted to the Owner only.
+        </p>
+        <Button onClick={() => navigate('/dashboard')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
+  const fetchStaff = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (error) throw error;
+      setStaff(data || []);
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchStatutorySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_statutory_settings')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) setStatutorySettings(data as StatutorySettings);
+    } catch (error) {
+      console.error('Error fetching statutory settings:', error);
+    }
+  };
+
+  // Handle leave deduction changes from LeaveDeductionSection
+  const handleLeaveDeductionChange = (systemDays: number, finalDays: number, reason?: string) => {
+    setSystemDeductionDays(systemDays);
+    setFinalDeductionDays(finalDays);
+    setDeductionAdjustmentReason(reason || '');
   };
 
   const handleAdvanceAdjustmentChange = (amount: number) => {
@@ -657,6 +664,12 @@ export default function Settlements() {
         description: `Salary for ${monthLabel} has been recorded. ${calculation.netPayable > 0 ? 'Go to Payouts to execute payment.' : ''}`,
       });
 
+      // Refresh balance-derived views now that the settlement changed payable/advance balances
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staffBalance.byStaff(selectedStaffId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ledger.byStaff(selectedStaffId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.advancesOutstanding.all });
+
       // Reset form
       setSelectedStaffId('');
       setSystemDeductionDays(0);
@@ -770,7 +783,7 @@ export default function Settlements() {
                           toast({ title: 'Error', description: 'Could not load settlement for payslip', variant: 'destructive' });
                           return;
                         }
-                        downloadPayslipPDF(selectedStaff as any, data as any);
+                        await downloadPayslipPDF(selectedStaff as any, data as any);
                       }}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -848,7 +861,7 @@ export default function Settlements() {
                         // Recalculate with original leave days
                         calculateSettlement();
                       } else {
-                        handleNetPayableOverride(Number(val));
+                        handleNetPayableOverride(toAmount(val));
                       }
                     }}
                     className="pl-8 font-mono"

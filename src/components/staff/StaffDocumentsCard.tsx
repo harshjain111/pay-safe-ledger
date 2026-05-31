@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { FileText, Upload, Download, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -37,6 +47,8 @@ export function StaffDocumentsCard({ staffId }: Props) {
   const [docs, setDocs] = useState<StaffDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StaffDocument | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // form
   const [docType, setDocType] = useState<StaffDocumentType>('aadhaar');
@@ -45,9 +57,7 @@ export function StaffDocumentsCard({ staffId }: Props) {
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
-  useEffect(() => { fetchDocs(); }, [staffId]);
-
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('staff_documents')
@@ -56,7 +66,9 @@ export function StaffDocumentsCard({ staffId }: Props) {
       .order('created_at', { ascending: false });
     if (!error && data) setDocs(data as StaffDocument[]);
     setLoading(false);
-  };
+  }, [staffId]);
+
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
   const handleUpload = async () => {
     if (!file) {
@@ -101,12 +113,21 @@ export function StaffDocumentsCard({ staffId }: Props) {
     }
   };
 
-  const handleDelete = async (doc: StaffDocument) => {
-    if (!confirm('Delete this document?')) return;
-    await deleteStaffDocumentFile(doc.file_url);
-    await supabase.from('staff_documents').delete().eq('id', doc.id);
-    toast({ title: 'Document deleted' });
-    fetchDocs();
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      await deleteStaffDocumentFile(deleteTarget.file_url);
+      const { error } = await supabase.from('staff_documents').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+      toast({ title: 'Document deleted' });
+      setDeleteTarget(null);
+      fetchDocs();
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -181,7 +202,7 @@ export function StaffDocumentsCard({ staffId }: Props) {
                     <Download className="h-4 w-4" />
                   </Button>
                   {canManage && (
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(d)}>
+                    <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(d)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
@@ -191,6 +212,31 @@ export function StaffDocumentsCard({ staffId }: Props) {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{' '}
+              <span className="font-medium text-foreground">
+                {deleteTarget ? (DOC_TYPES.find((t) => t.value === deleteTarget.doc_type)?.label ?? deleteTarget.doc_type) : ''}
+              </span>
+              {deleteTarget?.file_name ? ` — ${deleteTarget.file_name}` : ''}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              disabled={isDeleting}
+              className={buttonVariants({ variant: 'destructive' })}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

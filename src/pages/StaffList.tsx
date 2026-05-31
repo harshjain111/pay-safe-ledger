@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -190,7 +191,9 @@ export default function StaffList() {
       {/* Staff List */}
       <Card>
         <CardContent className="p-0">
-          {filteredStaff.length === 0 && !isLoading ? (
+          {isLoading ? (
+            <ListSkeleton variant="rows" />
+          ) : filteredStaff.length === 0 ? (
             <EmptyState
               icon={Users}
               title="No staff found"

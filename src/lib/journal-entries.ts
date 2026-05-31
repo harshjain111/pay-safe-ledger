@@ -953,7 +953,7 @@ export async function createRectificationEntry(params: RectificationParams): Pro
 
   // Create reversed lines (swap debit and credit)
   const reversedLines: JournalLine[] = originalLines.map(line => ({
-    accountCode: (line.account as any)?.code || '',
+    accountCode: (line.account as { code?: string } | null)?.code || '',
     debit: Number(line.credit),   // Swap: original credit becomes debit
     credit: Number(line.debit),   // Swap: original debit becomes credit
     staffId: line.staff_id || undefined,
@@ -1021,7 +1021,7 @@ export async function createCancellationReversalEntry(params: CancellationParams
 
   // Create reversed lines (swap debit and credit)
   const reversedLines: JournalLine[] = originalLines.map(line => ({
-    accountCode: (line.account as any)?.code || '',
+    accountCode: (line.account as { code?: string } | null)?.code || '',
     debit: Number(line.credit),
     credit: Number(line.debit),
     staffId: line.staff_id || undefined,

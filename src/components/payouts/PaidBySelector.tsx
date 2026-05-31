@@ -37,7 +37,10 @@ export function PaidBySelector({ value, onChange, disabled }: PaidBySelectorProp
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch the eligible payer list once on mount. value/onChange are intentionally
+    // excluded so the dropdown does not re-hit the edge function on every selection.
     fetchEligibleUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchEligibleUsers = async () => {

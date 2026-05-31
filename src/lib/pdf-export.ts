@@ -1,5 +1,4 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
 
 interface PDFExportOptions {
@@ -11,10 +10,64 @@ interface PDFExportOptions {
   totals?: (string | number)[];
 }
 
-export function exportToPDF(options: PDFExportOptions) {
+// Report row shapes — these consume joined/computed query results, not raw DB rows.
+interface StaffRef {
+  full_name?: string | null;
+  employee_id?: string | null;
+}
+
+interface LedgerReportRow {
+  entry_date: string;
+  voucher_no: string;
+  description?: string | null;
+  debit: number;
+  credit: number;
+}
+
+interface SalaryReportRow {
+  staff?: StaffRef | null;
+  base_salary: number;
+  leave_days?: number | null;
+  leave_deduction: number;
+  net_salary: number;
+  advances_adjusted: number;
+  balance_payable: number;
+}
+
+interface PaymentReportRow {
+  entry_date: string;
+  voucher_no: string;
+  staff?: StaffRef | null;
+  voucher_type?: string | null;
+  payment_mode?: string | null;
+  debit: number;
+  credit: number;
+}
+
+interface ExpenseReportRow {
+  expense_date: string;
+  staff?: StaffRef | null;
+  category?: string | null;
+  description?: string | null;
+  amount: number;
+}
+
+interface AdvanceReportRow {
+  staff?: StaffRef | null;
+  totalAdvances: number;
+  totalAdjusted: number;
+  outstanding: number;
+}
+
+export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   const { title, subtitle, headers, data, dateRange, totals } = options;
-  
-  const doc = new jsPDF('p', 'mm', 'a4');
+
+  const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+
+  const doc = new JsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Header
@@ -116,8 +169,8 @@ export function downloadPDF(doc: jsPDF, filename: string) {
 }
 
 // Pre-built report exporters
-export function exportLedgerPDF(
-  data: any[],
+export async function exportLedgerPDF(
+  data: LedgerReportRow[],
   staffName: string,
   dateRange: { from: Date; to: Date }
 ) {
@@ -140,7 +193,7 @@ export function exportLedgerPDF(
   const totalDebit = data.reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
   const totalCredit = data.reduce((sum, e) => sum + (Number(e.credit) || 0), 0);
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Staff Ledger Report',
     subtitle: staffName,
     headers: ['Date', 'Voucher', 'Description', 'Debit', 'Credit', 'Balance'],
@@ -159,8 +212,8 @@ export function exportLedgerPDF(
   downloadPDF(doc, `ledger_${staffName.replace(/\s+/g, '_')}`);
 }
 
-export function exportSalaryRegisterPDF(
-  data: any[],
+export async function exportSalaryRegisterPDF(
+  data: SalaryReportRow[],
   month: string,
   canViewSalaries: boolean
 ) {
@@ -195,7 +248,7 @@ export function exportSalaryRegisterPDF(
     ? ['Total', '', '', '', '', '', `₹${totalPaid.toLocaleString('en-IN')}`]
     : ['Total', '', '', `₹${totalPaid.toLocaleString('en-IN')}`];
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Salary Register',
     subtitle: format(new Date(month + '-01'), 'MMMM yyyy'),
     headers,
@@ -206,8 +259,8 @@ export function exportSalaryRegisterPDF(
   downloadPDF(doc, `salary_register_${month}`);
 }
 
-export function exportPaymentRegisterPDF(
-  data: any[],
+export async function exportPaymentRegisterPDF(
+  data: PaymentReportRow[],
   dateRange: { from: Date; to: Date }
 ) {
   const tableData = data.map(entry => [
@@ -221,7 +274,7 @@ export function exportPaymentRegisterPDF(
   
   const total = data.reduce((sum, e) => sum + (Number(e.credit) || Number(e.debit) || 0), 0);
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Payment Register',
     headers: ['Date', 'Voucher', 'Staff', 'Type', 'Mode', 'Amount'],
     data: tableData,
@@ -232,8 +285,8 @@ export function exportPaymentRegisterPDF(
   downloadPDF(doc, 'payment_register');
 }
 
-export function exportExpenseReportPDF(
-  data: any[],
+export async function exportExpenseReportPDF(
+  data: ExpenseReportRow[],
   dateRange: { from: Date; to: Date }
 ) {
   const tableData = data.map(expense => [
@@ -246,7 +299,7 @@ export function exportExpenseReportPDF(
   
   const total = data.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Expense Reimbursement Report',
     headers: ['Date', 'Staff', 'Category', 'Description', 'Amount'],
     data: tableData,
@@ -257,7 +310,7 @@ export function exportExpenseReportPDF(
   downloadPDF(doc, 'expense_reimbursement');
 }
 
-export function exportAdvanceReportPDF(data: any[]) {
+export async function exportAdvanceReportPDF(data: AdvanceReportRow[]) {
   const tableData = data.map(item => [
     item.staff?.full_name || '',
     item.staff?.employee_id || '',
@@ -268,7 +321,7 @@ export function exportAdvanceReportPDF(data: any[]) {
   
   const totalOutstanding = data.reduce((sum, e) => sum + (Number(e.outstanding) || 0), 0);
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Advance Outstanding Report',
     subtitle: `As of ${format(new Date(), 'dd MMM yyyy')}`,
     headers: ['Staff Name', 'Employee ID', 'Total Advances', 'Adjusted', 'Outstanding'],
@@ -279,7 +332,7 @@ export function exportAdvanceReportPDF(data: any[]) {
   downloadPDF(doc, 'advance_outstanding');
 }
 
-export function exportSummaryPDF(
+export async function exportSummaryPDF(
   stats: {
     totalPayroll: number;
     totalAdvances: number;
@@ -297,7 +350,7 @@ export function exportSummaryPDF(
     ['Expenses Reimbursed', `₹${stats.totalExpenses.toLocaleString('en-IN')}`],
   ];
   
-  const doc = exportToPDF({
+  const doc = await exportToPDF({
     title: 'Monthly Payroll Summary',
     subtitle: format(new Date(month + '-01'), 'MMMM yyyy'),
     headers: ['Metric', 'Value'],

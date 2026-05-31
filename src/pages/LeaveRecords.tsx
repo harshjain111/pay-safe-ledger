@@ -1,4 +1,4 @@
- import { useState, useEffect } from 'react';
+ import { useState, useEffect, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/contexts/AuthContext';
  import { PageHeader } from '@/components/layout/PageHeader';
@@ -22,6 +22,7 @@
    TableRow,
  } from '@/components/ui/table';
  import { EmptyState } from '@/components/layout/EmptyState';
+ import { ListSkeleton } from '@/components/layout/ListSkeleton';
  import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
  import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
  import { Plus, Calendar, Search, Clock, CheckCircle, XCircle, CalendarX, CalendarMinus, Eye } from 'lucide-react';
@@ -54,14 +55,7 @@
    const isStaff = userRole === 'staff';
    const canApprove = userRole === 'owner' || userRole === 'admin' || userRole === 'accountant';
  
-   useEffect(() => {
-     fetchLeaveRecords();
-     if (!isStaff) {
-       fetchStaff();
-     }
-   }, [selectedMonth, selectedStaffId, selectedStatus, userRole]);
- 
-   const fetchStaff = async () => {
+   const fetchStaff = useCallback(async () => {
      try {
        const { data, error } = await supabase
          .from('staff')
@@ -74,9 +68,9 @@
      } catch (error) {
        console.error('Error fetching staff:', error);
      }
-   };
- 
-   const fetchLeaveRecords = async () => {
+   }, []);
+
+   const fetchLeaveRecords = useCallback(async () => {
      try {
        setIsLoading(true);
  
@@ -114,8 +108,15 @@
      } finally {
        setIsLoading(false);
      }
-   };
- 
+   }, [selectedMonth, selectedStaffId, selectedStatus]);
+
+   useEffect(() => {
+     fetchLeaveRecords();
+     if (!isStaff) {
+       fetchStaff();
+     }
+   }, [fetchLeaveRecords, fetchStaff, isStaff]);
+
    const filteredRecords = leaveRecords.filter((record) => {
      if (searchQuery) {
        const search = searchQuery.toLowerCase();
@@ -325,9 +326,7 @@
        <Card>
          <CardContent className="p-0">
            {isLoading ? (
-             <div className="flex items-center justify-center py-12">
-               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-             </div>
+             <ListSkeleton variant="rows" />
            ) : filteredRecords.length === 0 ? (
              <EmptyState
                icon={Calendar}

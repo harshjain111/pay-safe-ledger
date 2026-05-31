@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Tags, Plus, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 
 interface Category {
@@ -22,6 +22,7 @@ export function ManageCategoriesCard() {
   const [newName, setNewName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [busy, setBusy] = useState<{ id: string; action: 'toggle' | 'delete' } | null>(null);
 
   const canManage = isOwner || isAdmin || isAccountant;
 
@@ -60,27 +61,37 @@ export function ManageCategoriesCard() {
   };
 
   const toggleActive = async (cat: Category) => {
-    const { error } = await supabase
-      .from('custom_expense_categories')
-      .update({ is_active: !cat.is_active })
-      .eq('id', cat.id);
-    if (error) {
-      toast.error('Failed to update');
-    } else {
-      fetchCategories();
+    try {
+      setBusy({ id: cat.id, action: 'toggle' });
+      const { error } = await supabase
+        .from('custom_expense_categories')
+        .update({ is_active: !cat.is_active })
+        .eq('id', cat.id);
+      if (error) {
+        toast.error('Failed to update');
+      } else {
+        await fetchCategories();
+      }
+    } finally {
+      setBusy(null);
     }
   };
 
   const deleteCategory = async (cat: Category) => {
-    const { error } = await supabase
-      .from('custom_expense_categories')
-      .delete()
-      .eq('id', cat.id);
-    if (error) {
-      toast.error('Cannot delete: category may be in use');
-    } else {
-      toast.success('Category deleted');
-      fetchCategories();
+    try {
+      setBusy({ id: cat.id, action: 'delete' });
+      const { error } = await supabase
+        .from('custom_expense_categories')
+        .delete()
+        .eq('id', cat.id);
+      if (error) {
+        toast.error('Cannot delete: category may be in use');
+      } else {
+        toast.success('Category deleted');
+        await fetchCategories();
+      }
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -120,11 +131,11 @@ export function ManageCategoriesCard() {
                   {!cat.is_active && <Badge variant="secondary" className="text-[10px]">Disabled</Badge>}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(cat)} title={cat.is_active ? 'Disable' : 'Enable'}>
-                    {cat.is_active ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(cat)} disabled={busy?.id === cat.id} title={cat.is_active ? 'Disable' : 'Enable'}>
+                    {busy?.id === cat.id && busy.action === 'toggle' ? <Loader2 className="h-4 w-4 animate-spin" /> : cat.is_active ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteCategory(cat)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteCategory(cat)} disabled={busy?.id === cat.id}>
+                    {busy?.id === cat.id && busy.action === 'delete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

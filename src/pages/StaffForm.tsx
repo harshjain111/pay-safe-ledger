@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +24,7 @@ import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, R
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { uploadStaffPhoto } from '@/lib/staff-uploads';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
 export default function StaffForm() {
@@ -96,35 +96,7 @@ export default function StaffForm() {
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    // Access control
-    if (!canAddStaff && !isEditing) {
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to add staff.',
-        variant: 'destructive',
-      });
-      navigate('/dashboard');
-      return;
-    }
-    
-    // Check edit permissions
-    if (isEditing && !canEditStaff) {
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to edit staff.',
-        variant: 'destructive',
-      });
-      navigate('/staff');
-      return;
-    }
-    
-    if (isEditing) {
-      fetchStaffData();
-    }
-  }, [id, canAddStaff, canEditStaff]);
-
-  const fetchStaffData = async () => {
+  const fetchStaffData = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('staff')
@@ -141,8 +113,8 @@ export default function StaffForm() {
         setEmail(data.email || '');
         setDepartment(data.department || '');
         setDesignation(data.designation || '');
-        setMonthlySalary(Number(data.monthly_salary));
-        setOriginalSalary(Number(data.monthly_salary));
+        setMonthlySalary(toAmount(data.monthly_salary));
+        setOriginalSalary(toAmount(data.monthly_salary));
         setDateOfJoining(new Date(data.date_of_joining));
         setIsActive(data.is_active ?? true);
         setExistingUserId(data.user_id);
@@ -164,9 +136,9 @@ export default function StaffForm() {
         setBankName(data.bank_name || '');
 
         // Structure & statutory
-        setBasicSalary(Number(data.basic_salary || 0));
-        setHra(Number(data.hra || 0));
-        setOtherAllowances(Number(data.other_allowances || 0));
+        setBasicSalary(toAmount(data.basic_salary));
+        setHra(toAmount(data.hra));
+        setOtherAllowances(toAmount(data.other_allowances));
         setPfEnrolled(!!data.pf_enrolled);
         setPfEmployeeRateOverride(data.pf_employee_rate_override != null ? String(data.pf_employee_rate_override) : '');
         setEsiEnrolled(!!data.esi_enrolled);
@@ -205,7 +177,35 @@ export default function StaffForm() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    // Access control
+    if (!canAddStaff && !isEditing) {
+      toast({
+        title: 'Access Denied',
+        description: 'You do not have permission to add staff.',
+        variant: 'destructive',
+      });
+      navigate('/dashboard');
+      return;
+    }
+
+    // Check edit permissions
+    if (isEditing && !canEditStaff) {
+      toast({
+        title: 'Access Denied',
+        description: 'You do not have permission to edit staff.',
+        variant: 'destructive',
+      });
+      navigate('/staff');
+      return;
+    }
+
+    if (isEditing) {
+      fetchStaffData();
+    }
+  }, [canAddStaff, canEditStaff, isEditing, navigate, fetchStaffData]);
 
 
   const generateEmployeeId = () => {
@@ -307,9 +307,9 @@ export default function StaffForm() {
           updateData.hra = hra || 0;
           updateData.other_allowances = otherAllowances || 0;
           updateData.pf_enrolled = pfEnrolled;
-          updateData.pf_employee_rate_override = pfEmployeeRateOverride.trim() === '' ? null : Number(pfEmployeeRateOverride);
+          updateData.pf_employee_rate_override = pfEmployeeRateOverride.trim() === '' ? null : toAmount(pfEmployeeRateOverride);
           updateData.esi_enrolled = esiEnrolled;
-          updateData.esi_employee_rate = esiEmployeeRate.trim() === '' ? null : Number(esiEmployeeRate);
+          updateData.esi_employee_rate = esiEmployeeRate.trim() === '' ? null : toAmount(esiEmployeeRate);
           updateData.pt_exempt = ptExempt;
         }
 

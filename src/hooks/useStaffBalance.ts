@@ -10,7 +10,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { queryKeys } from '@/lib/query-keys';
 
 interface StaffBalanceData {
   // Net balance (positive = company owes staff, negative = staff owes company)
@@ -34,82 +36,71 @@ interface StaffBalanceData {
   error: string | null;
 }
 
+type StaffBalanceComputed = Omit<StaffBalanceData, 'isLoading' | 'error'>;
+
+const EMPTY_BALANCE: StaffBalanceComputed = {
+  netBalance: 0,
+  payableBalance: 0,
+  advanceBalance: 0,
+  payableCredit: 0,
+  payableDebit: 0,
+  advanceDebit: 0,
+  advanceCredit: 0,
+  advanceOutstanding: 0,
+  salaryPayable: 0,
+};
+
+async function fetchStaffBalance(staffId: string): Promise<StaffBalanceComputed> {
+  // CRITICAL: Use SECURITY DEFINER RPC functions for Staff users
+  // Staff cannot read accounts table due to RLS, so we use the server-side functions
+  const [advancesResult, payableResult] = await Promise.all([
+    supabase.rpc('get_staff_advances_from_journals', { _staff_id: staffId }),
+    supabase.rpc('get_staff_payable_from_journals', { _staff_id: staffId }),
+  ]);
+
+  if (advancesResult.error) throw advancesResult.error;
+  if (payableResult.error) throw payableResult.error;
+
+  // advanceBalance = outstanding advances (positive = staff owes company)
+  const advanceBalance = Number(advancesResult.data) || 0;
+
+  // payableBalance = salary/expense payable (positive = company owes staff)
+  const payableBalance = Number(payableResult.data) || 0;
+
+  // Net Staff Balance = What we owe them - What they owe us
+  const netBalance = payableBalance - advanceBalance;
+
+  // Derived values for UI
+  const advanceOutstanding = Math.max(0, advanceBalance); // Only show positive (they owe us)
+  const salaryPayable = Math.max(0, netBalance); // Only show positive (we owe them)
+
+  return {
+    netBalance,
+    payableBalance,
+    advanceBalance,
+    payableCredit: payableBalance > 0 ? payableBalance : 0,
+    payableDebit: payableBalance < 0 ? Math.abs(payableBalance) : 0,
+    advanceDebit: advanceBalance > 0 ? advanceBalance : 0,
+    advanceCredit: advanceBalance < 0 ? Math.abs(advanceBalance) : 0,
+    advanceOutstanding,
+    salaryPayable,
+  };
+}
+
 export function useStaffBalance(staffId: string | null | undefined): StaffBalanceData {
-  const [data, setData] = useState<StaffBalanceData>({
-    netBalance: 0,
-    payableBalance: 0,
-    advanceBalance: 0,
-    payableCredit: 0,
-    payableDebit: 0,
-    advanceDebit: 0,
-    advanceCredit: 0,
-    advanceOutstanding: 0,
-    salaryPayable: 0,
-    isLoading: true,
-    error: null,
+  const { data, isLoading, error } = useQuery({
+    queryKey: queryKeys.staffBalance.byStaff(staffId),
+    queryFn: () => fetchStaffBalance(staffId as string),
+    enabled: !!staffId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
-  const fetchBalance = useCallback(async () => {
-    if (!staffId) {
-      setData(prev => ({ ...prev, isLoading: false }));
-      return;
-    }
-
-    try {
-      // CRITICAL: Use SECURITY DEFINER RPC functions for Staff users
-      // Staff cannot read accounts table due to RLS, so we use the server-side functions
-      const [advancesResult, payableResult] = await Promise.all([
-        supabase.rpc('get_staff_advances_from_journals', { _staff_id: staffId }),
-        supabase.rpc('get_staff_payable_from_journals', { _staff_id: staffId }),
-      ]);
-
-      if (advancesResult.error) throw advancesResult.error;
-      if (payableResult.error) throw payableResult.error;
-
-      // advanceBalance = outstanding advances (positive = staff owes company)
-      const advanceBalance = Number(advancesResult.data) || 0;
-      
-      // payableBalance = salary/expense payable (positive = company owes staff)
-      const payableBalance = Number(payableResult.data) || 0;
-      
-      // Net Staff Balance = What we owe them - What they owe us
-      const netBalance = payableBalance - advanceBalance;
-      
-      console.log('[useStaffBalance] Staff:', staffId, 
-        'Advances:', advanceBalance, 'Payable:', payableBalance, 'Net:', netBalance);
-      
-      // Derived values for UI
-      const advanceOutstanding = Math.max(0, advanceBalance); // Only show positive (they owe us)
-      const salaryPayable = Math.max(0, netBalance); // Only show positive (we owe them)
-
-      setData({
-        netBalance,
-        payableBalance,
-        advanceBalance,
-        payableCredit: payableBalance > 0 ? payableBalance : 0,
-        payableDebit: payableBalance < 0 ? Math.abs(payableBalance) : 0,
-        advanceDebit: advanceBalance > 0 ? advanceBalance : 0,
-        advanceCredit: advanceBalance < 0 ? Math.abs(advanceBalance) : 0,
-        advanceOutstanding,
-        salaryPayable,
-        isLoading: false,
-        error: null,
-      });
-    } catch (err: any) {
-      console.error('Error fetching staff balance:', err);
-      setData(prev => ({
-        ...prev,
-        isLoading: false,
-        error: err.message || 'Failed to fetch balance',
-      }));
-    }
-  }, [staffId]);
-
-  useEffect(() => {
-    fetchBalance();
-  }, [fetchBalance]);
-
-  return data;
+  return {
+    ...(data ?? EMPTY_BALANCE),
+    isLoading,
+    error: error ? error.message : null,
+  };
 }
 
 /**

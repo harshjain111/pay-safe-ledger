@@ -72,7 +72,7 @@ serve(async (req) => {
       const authUser = authMap.get(userId);
 
       // Priority: staff.full_name > auth.user_metadata.full_name > email prefix
-      let name = staff?.full_name 
+      const name = staff?.full_name 
         || authUser?.user_metadata?.full_name 
         || authUser?.email?.split('@')[0] 
         || 'Unknown';

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Amount } from '@/components/ui/amount';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import {
   Select,
   SelectContent,
@@ -56,11 +58,7 @@ export default function SalariesAdvances() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'settled' | 'paid'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>(format(subMonths(new Date(), 1), 'yyyy-MM'));
 
-  useEffect(() => {
-    fetchStaffWithFinancials();
-  }, [selectedMonth]);
-
-  const fetchStaffWithFinancials = async () => {
+  const fetchStaffWithFinancials = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -125,7 +123,7 @@ export default function SalariesAdvances() {
 
           return {
             ...s,
-            totalAdvanceOutstanding: Number(advanceData) || 0,
+            totalAdvanceOutstanding: toAmount(advanceData),
             lastSettlementMonth: lastSettlement?.settlement_month || null,
             lastSettlementAmount: lastSettlement?.balance_payable || null,
             isCurrentMonthSettled: !!currentSettlement,
@@ -140,7 +138,11 @@ export default function SalariesAdvances() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    fetchStaffWithFinancials();
+  }, [fetchStaffWithFinancials]);
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const date = subMonths(new Date(), i);
@@ -285,7 +287,7 @@ export default function SalariesAdvances() {
                 toast({ title: 'No payslips', description: 'No settled salaries found for this month.', variant: 'destructive' });
                 return;
               }
-              downloadBulkPayslipsPDF(
+              await downloadBulkPayslipsPDF(
                 selectedMonth,
                 data.map((s: any) => ({ staff: s.staff, settlement: s })),
               );
@@ -300,24 +302,13 @@ export default function SalariesAdvances() {
 
       {/* Staff Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i}>
-              <CardContent className="pt-6 space-y-4">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-8 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <ListSkeleton variant="cards" rows={6} className="md:grid-cols-2 lg:grid-cols-3" />
       ) : filteredStaff.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Users className="h-12 w-12 mb-4 opacity-50" />
-            <p>No staff found matching your criteria</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Users}
+          title="No staff found"
+          description="No staff match your current filters."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStaff.map((s) => (

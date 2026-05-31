@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,13 +39,7 @@ export default function StaffDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchStaffDetails();
-    }
-  }, [id]);
-
-  const fetchStaffDetails = async () => {
+  const fetchStaffDetails = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('staff')
@@ -89,7 +83,11 @@ export default function StaffDetails() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) fetchStaffDetails();
+  }, [id, fetchStaffDetails]);
 
   const handleDelete = async () => {
     if (!staff) return;

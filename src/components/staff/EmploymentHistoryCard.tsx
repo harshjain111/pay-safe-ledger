@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { History, Plus, Loader2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +39,8 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<EmploymentHistoryEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [eventType, setEventType] = useState<EmploymentEventType>('promotion');
   const [eventDate, setEventDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -36,9 +48,7 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
   const [toValue, setToValue] = useState('');
   const [notes, setNotes] = useState('');
 
-  useEffect(() => { fetchEntries(); }, [staffId]);
-
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from('employment_history')
@@ -47,7 +57,9 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
       .order('event_date', { ascending: false });
     setEntries((data || []) as EmploymentHistoryEntry[]);
     setLoading(false);
-  };
+  }, [staffId]);
+
+  useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   const handleAdd = async () => {
     try {
@@ -71,10 +83,20 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
     } finally { setAdding(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this entry?')) return;
-    await supabase.from('employment_history').delete().eq('id', id);
-    fetchEntries();
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      const { error } = await supabase.from('employment_history').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+      toast({ title: 'Entry deleted' });
+      setDeleteTarget(null);
+      fetchEntries();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const maskIfSalary = (entry: EmploymentHistoryEntry, val?: string | null) => {
@@ -159,7 +181,7 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
                   {e.notes && <p className="text-xs text-muted-foreground mt-1">{e.notes}</p>}
                 </div>
                 {canManage && (
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(e.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(e)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
@@ -168,6 +190,31 @@ export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete history entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the{' '}
+              <span className="font-medium text-foreground">
+                {deleteTarget ? (EVENT_TYPES.find((t) => t.value === deleteTarget.event_type)?.label ?? deleteTarget.event_type) : ''}
+              </span>
+              {deleteTarget ? ` entry from ${format(new Date(deleteTarget.event_date), 'PP')}` : ''}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(ev) => { ev.preventDefault(); confirmDelete(); }}
+              disabled={isDeleting}
+              className={buttonVariants({ variant: 'destructive' })}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

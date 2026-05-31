@@ -393,11 +393,12 @@ function AppSidebar() {
                   variant="ghost"
                   className={cn(
                     'w-full h-9 rounded-lg transition-all',
-                    accountingMode 
-                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white' 
+                    accountingMode
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white'
                       : 'bg-sidebar-accent/40 text-sidebar-muted hover:text-sidebar-foreground'
                   )}
                   onClick={() => setAccountingMode(!accountingMode)}
+                  aria-label={accountingMode ? 'Switch to My Account' : 'Switch to Accounting'}
                 >
                   {accountingMode ? <Briefcase className="h-4 w-4" /> : <User className="h-4 w-4" />}
                 </Button>
@@ -571,6 +572,7 @@ function AppHeader() {
           size="icon"
           className="h-8 w-8 rounded-lg"
           onClick={toggleSidebar}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? (
             <PanelLeft className="h-4 w-4" />

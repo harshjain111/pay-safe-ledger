@@ -27,7 +27,7 @@ import { DisciplineLogRow, formatScheduleRange } from '@/lib/discipline';
 import { format } from 'date-fns';
 import { Ban, Loader2, RotateCcw, ShieldAlert, AlertTriangle, UserX, PlayCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface Row extends DisciplineLogRow {
   staff_name?: string;

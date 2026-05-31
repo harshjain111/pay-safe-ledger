@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -49,13 +49,7 @@ export function StaffDashboard() {
   
   const [showAdvanceForm, setShowAdvanceForm] = useState(false);
 
-  useEffect(() => {
-    if (staffData?.id) {
-      fetchRecentItems();
-    }
-  }, [staffData?.id]);
-
-  const fetchRecentItems = async () => {
+  const fetchRecentItems = useCallback(async () => {
     if (!staffData?.id) return;
 
     try {
@@ -102,7 +96,13 @@ export function StaffDashboard() {
     } finally {
       setIsLoadingRecent(false);
     }
-  };
+  }, [staffData?.id]);
+
+  useEffect(() => {
+    if (staffData?.id) {
+      fetchRecentItems();
+    }
+  }, [fetchRecentItems, staffData?.id]);
 
   const handleFormSuccess = () => {
     // Refetch recent items - balance will auto-update via useStaffBalance

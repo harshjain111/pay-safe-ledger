@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Key, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface ResetPasswordDialogProps {

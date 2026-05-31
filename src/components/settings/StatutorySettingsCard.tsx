@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Loader2, Receipt, Save } from 'lucide-react';
 
 interface StatutoryRow {
@@ -125,17 +126,17 @@ export function StatutorySettingsCard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Employee Rate (%)</Label>
                     <Input type="number" step="0.01" value={row.pf_employee_rate}
-                      onChange={(e) => set('pf_employee_rate', Number(e.target.value))} />
+                      onChange={(e) => set('pf_employee_rate', toAmount(e.target.value))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Employer Rate (%)</Label>
                     <Input type="number" step="0.01" value={row.pf_employer_rate}
-                      onChange={(e) => set('pf_employer_rate', Number(e.target.value))} />
+                      onChange={(e) => set('pf_employer_rate', toAmount(e.target.value))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Wage Cap (₹)</Label>
                     <Input type="number" value={row.pf_base_cap}
-                      onChange={(e) => set('pf_base_cap', Number(e.target.value))} />
+                      onChange={(e) => set('pf_base_cap', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Statutory ceiling — usually ₹15,000</p>
                   </div>
                   <div className="space-y-1.5 flex flex-col">
@@ -166,13 +167,13 @@ export function StatutorySettingsCard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Employer Rate (%)</Label>
                     <Input type="number" step="0.01" value={row.esi_employer_rate}
-                      onChange={(e) => set('esi_employer_rate', Number(e.target.value))} />
+                      onChange={(e) => set('esi_employer_rate', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Default 3.25%</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Eligibility Ceiling (₹)</Label>
                     <Input type="number" value={row.esi_eligibility_ceiling}
-                      onChange={(e) => set('esi_eligibility_ceiling', Number(e.target.value))} />
+                      onChange={(e) => set('esi_eligibility_ceiling', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Default ₹21,000 gross/month</p>
                   </div>
                 </div>
@@ -193,12 +194,12 @@ export function StatutorySettingsCard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Monthly Amount (₹)</Label>
                     <Input type="number" value={row.pt_monthly_amount}
-                      onChange={(e) => set('pt_monthly_amount', Number(e.target.value))} />
+                      onChange={(e) => set('pt_monthly_amount', toAmount(e.target.value))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Apply When Gross ≥ (₹)</Label>
                     <Input type="number" value={row.pt_min_gross}
-                      onChange={(e) => set('pt_min_gross', Number(e.target.value))} />
+                      onChange={(e) => set('pt_min_gross', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Skip PT for gross below this</p>
                   </div>
                 </div>

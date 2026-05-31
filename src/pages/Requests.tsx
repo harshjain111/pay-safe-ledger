@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -30,7 +31,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, ClipboardList, Check, X, Loader2, ArrowRight, Ban } from 'lucide-react';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import type { PaymentRequest, StaffPublic } from '@/types/database';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
@@ -59,11 +60,7 @@ export default function Requests() {
   const [activeTab, setActiveTab] = useState('pending');
   const [cancelRequest, setCancelRequest] = useState<RequestWithStaff | null>(null);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [staffData?.id, activeTab, accountingMode]);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -107,7 +104,11 @@ export default function Requests() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isStaff, isAccountant, accountingMode, staffData?.id, activeTab]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   const handleApprove = async (request: RequestWithStaff) => {
     // Prevent self-benefit approval - cannot approve requests where YOU are the beneficiary
@@ -269,7 +270,9 @@ export default function Requests() {
 
       <Card>
         <CardContent className="p-0">
-          {requests.length === 0 && !isLoading ? (
+          {isLoading ? (
+            <ListSkeleton variant="rows" />
+          ) : requests.length === 0 ? (
             <EmptyState
               icon={ClipboardList}
               title="No requests found"

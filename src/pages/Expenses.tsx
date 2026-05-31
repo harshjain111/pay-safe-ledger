@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -51,11 +52,7 @@ export default function Expenses() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  useEffect(() => {
-    fetchExpenses();
-  }, [activeTab, staffData?.id, accountingMode]);
-
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     try {
       setIsLoading(true);
       let query = supabase
@@ -100,7 +97,11 @@ export default function Expenses() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab, staffData?.id, accountingMode, isStaff, isAccountant]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const filteredExpenses = expenses.filter((expense) => {
     if (!searchQuery) return true;
@@ -197,9 +198,7 @@ export default function Expenses() {
 
         <TabsContent value={activeTab} className="mt-4 sm:mt-6">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <ListSkeleton variant="cards" rows={5} />
           ) : filteredExpenses.length === 0 ? (
             <EmptyState
               icon={Receipt}

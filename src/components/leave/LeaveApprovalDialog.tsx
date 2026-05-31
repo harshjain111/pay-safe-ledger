@@ -1,5 +1,6 @@
  import { useState, useEffect } from 'react';
  import { supabase } from '@/integrations/supabase/client';
+ import { toAmount } from '@/lib/utils';
  import { useAuth } from '@/contexts/AuthContext';
  import {
    Dialog,
@@ -231,7 +232,7 @@
                max="10"
                step="0.5"
                value={deductionDays}
-               onChange={(e) => setDeductionDays(Number(e.target.value) || 0)}
+               onChange={(e) => setDeductionDays(toAmount(e.target.value))}
                disabled={leaveType !== 'custom'}
              />
              {leaveType !== 'custom' && (

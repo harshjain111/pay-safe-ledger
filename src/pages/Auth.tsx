@@ -7,16 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Wallet, Eye, EyeOff, Loader2, Phone, WifiOff, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
+import { phoneToEmail } from '@/lib/auth-email';
 import { z } from 'zod';
 
 const phoneSchema = z.string().min(10, 'Please enter a valid phone number').max(15, 'Phone number too long');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
-
-const phoneToEmail = (phone: string) => {
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
-  return `${cleanPhone}@phone.konnect2hospitality.internal`;
-};
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SIGN_IN_TIMEOUT_MS = 12000;

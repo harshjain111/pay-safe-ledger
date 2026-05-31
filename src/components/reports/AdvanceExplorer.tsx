@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,14 +41,12 @@ export function AdvanceExplorer() {
     }
   }, [datePreset]);
 
-  useEffect(() => { fetchAdvances(); }, [selectedStaffId, dateRange]);
-
   const fetchStaff = async () => {
     const { data } = await supabase.from('staff_public').select('id, full_name, employee_id').order('full_name');
     setStaff(data || []);
   };
 
-  const fetchAdvances = async () => {
+  const fetchAdvances = useCallback(async () => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -72,7 +71,9 @@ export function AdvanceExplorer() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedStaffId, dateRange]);
+
+  useEffect(() => { fetchAdvances(); }, [fetchAdvances]);
 
   const staffSummary = useMemo(() => {
     const map: Record<string, { name: string; empId: string; total: number; paid: number; pending: number; items: any[] }> = {};
@@ -80,7 +81,7 @@ export function AdvanceExplorer() {
     advances.filter(a => a.status !== 'rejected').forEach(a => {
       const sid = a.staff_id;
       if (!map[sid]) map[sid] = { name: a.staff?.full_name || 'Unknown', empId: a.staff?.employee_id || '', total: 0, paid: 0, pending: 0, items: [] };
-      const amt = Number(a.amount);
+      const amt = toAmount(a.amount);
       map[sid].total += amt;
       if (a.status === 'approved') map[sid].paid += amt;
       if (a.status === 'pending') map[sid].pending += amt;
@@ -92,9 +93,9 @@ export function AdvanceExplorer() {
   const activeAdvances = useMemo(() => advances.filter(a => a.status !== 'rejected'), [advances]);
 
   const totals = useMemo(() => ({
-    total: activeAdvances.reduce((s, a) => s + Number(a.amount), 0),
-    paid: activeAdvances.filter(a => a.status === 'approved').reduce((s, a) => s + Number(a.amount), 0),
-    pending: activeAdvances.filter(a => a.status === 'pending').reduce((s, a) => s + Number(a.amount), 0),
+    total: activeAdvances.reduce((s, a) => s + toAmount(a.amount), 0),
+    paid: activeAdvances.filter(a => a.status === 'approved').reduce((s, a) => s + toAmount(a.amount), 0),
+    pending: activeAdvances.filter(a => a.status === 'pending').reduce((s, a) => s + toAmount(a.amount), 0),
     count: activeAdvances.length,
   }), [activeAdvances]);
 
@@ -103,7 +104,11 @@ export function AdvanceExplorer() {
   const toggleExpand = (id: string) => {
     setExpandedStaff(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };

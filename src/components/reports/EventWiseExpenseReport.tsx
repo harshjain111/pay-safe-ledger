@@ -1,5 +1,6 @@
- import { useState, useEffect, useMemo } from 'react';
+ import { useState, useEffect, useMemo, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
+ import { toAmount } from '@/lib/utils';
  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  import { Label } from '@/components/ui/label';
  import {
@@ -79,10 +80,6 @@
      }
    }, [datePreset]);
  
-   useEffect(() => {
-     fetchExpenses();
-   }, [selectedEventId, selectedStaffId, selectedCategory, dateRange]);
- 
    const fetchFiltersData = async () => {
      const [eventsRes, staffRes] = await Promise.all([
        supabase.from('events').select('id, event_date, location, client_name').order('event_date', { ascending: false }),
@@ -92,7 +89,7 @@
      setStaff((staffRes.data || []) as Staff[]);
    };
  
-   const fetchExpenses = async () => {
+   const fetchExpenses = useCallback(async () => {
      setIsLoading(true);
      try {
        let query = supabase
@@ -131,8 +128,12 @@
      } finally {
        setIsLoading(false);
      }
-   };
- 
+   }, [selectedEventId, selectedStaffId, selectedCategory, dateRange]);
+
+   useEffect(() => {
+     fetchExpenses();
+   }, [fetchExpenses]);
+
    // Aggregated data by event
    const eventSummary = useMemo(() => {
      const byEvent: Record<string, { event: any; total: number; byCategory: Record<string, number>; byStaff: Record<string, { name: string; amount: number }> }> = {};
@@ -147,15 +148,15 @@
            byStaff: {},
          };
        }
-       byEvent[eventKey].total += Number(exp.amount);
+       byEvent[eventKey].total += toAmount(exp.amount);
        const category = exp.category as ExpenseCategory;
-       byEvent[eventKey].byCategory[category] = (byEvent[eventKey].byCategory[category] || 0) + Number(exp.amount);
+       byEvent[eventKey].byCategory[category] = (byEvent[eventKey].byCategory[category] || 0) + toAmount(exp.amount);
        
        const staffId = exp.staff_id;
        if (!byEvent[eventKey].byStaff[staffId]) {
          byEvent[eventKey].byStaff[staffId] = { name: exp.staff?.full_name || 'Unknown', amount: 0 };
        }
-       byEvent[eventKey].byStaff[staffId].amount += Number(exp.amount);
+       byEvent[eventKey].byStaff[staffId].amount += toAmount(exp.amount);
      });
  
      return Object.entries(byEvent).map(([key, val]) => ({
@@ -169,7 +170,7 @@
    const categoryBreakdown = useMemo(() => {
      const byCategory: Record<string, number> = {};
      expenses.forEach(exp => {
-       byCategory[exp.category] = (byCategory[exp.category] || 0) + Number(exp.amount);
+       byCategory[exp.category] = (byCategory[exp.category] || 0) + toAmount(exp.amount);
      });
      return Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
    }, [expenses]);
@@ -182,12 +183,12 @@
        if (!byStaff[staffId]) {
          byStaff[staffId] = { name: exp.staff?.full_name || 'Unknown', amount: 0 };
        }
-       byStaff[staffId].amount += Number(exp.amount);
+       byStaff[staffId].amount += toAmount(exp.amount);
      });
      return Object.values(byStaff).sort((a, b) => b.amount - a.amount);
    }, [expenses]);
  
-   const totalExpense = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+   const totalExpense = expenses.reduce((sum, e) => sum + toAmount(e.amount), 0);
  
    const categories = Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[];
  

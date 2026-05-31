@@ -1,5 +1,4 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
 
 export interface PayslipStaff {
@@ -45,7 +44,8 @@ const inr = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement, startY = 14) {
+async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement, startY = 14) {
+  const { default: autoTable } = await import('jspdf-autotable');
   const pageWidth = doc.internal.pageSize.getWidth();
   const monthLabel = format(new Date(s.settlement_month + '-01'), 'MMMM yyyy');
 
@@ -170,9 +170,10 @@ function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement, star
   }
 }
 
-export function downloadPayslipPDF(staff: PayslipStaff, settlement: PayslipSettlement) {
-  const doc = new jsPDF('p', 'mm', 'a4');
-  drawPayslip(doc, staff, settlement);
+export async function downloadPayslipPDF(staff: PayslipStaff, settlement: PayslipSettlement) {
+  const { default: JsPDF } = await import('jspdf');
+  const doc = new JsPDF('p', 'mm', 'a4');
+  await drawPayslip(doc, staff, settlement);
 
   // Footer
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -188,14 +189,16 @@ export function downloadPayslipPDF(staff: PayslipStaff, settlement: PayslipSettl
   doc.save(`payslip_${staff.employee_id}_${settlement.settlement_month}.pdf`);
 }
 
-export function downloadBulkPayslipsPDF(
+export async function downloadBulkPayslipsPDF(
   month: string,
   items: Array<{ staff: PayslipStaff; settlement: PayslipSettlement }>,
 ) {
-  const doc = new jsPDF('p', 'mm', 'a4');
-  items.forEach((item, idx) => {
+  const { default: JsPDF } = await import('jspdf');
+  const doc = new JsPDF('p', 'mm', 'a4');
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
     if (idx > 0) doc.addPage();
-    drawPayslip(doc, item.staff, item.settlement);
+    await drawPayslip(doc, item.staff, item.settlement);
     const pageHeight = doc.internal.pageSize.getHeight();
     doc.setFontSize(7);
     doc.setFont('helvetica', 'italic');
@@ -205,6 +208,6 @@ export function downloadBulkPayslipsPDF(
       pageHeight - 8,
       { align: 'center' },
     );
-  });
+  }
   doc.save(`payslips_${month}.pdf`);
 }

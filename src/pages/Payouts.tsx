@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
+import { queryKeys } from '@/lib/query-keys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -85,7 +88,8 @@ type PayoutItem = {
 
 export default function Payouts() {
   const { user, staffData, isOwner, isAdmin, isAccountant, isStaff, canRecordSalaryPayments } = useAuth();
-  
+  const queryClient = useQueryClient();
+
   // Access check - Staff cannot execute payouts
   const canExecutePayout = isOwner || isAdmin || isAccountant;
   
@@ -103,16 +107,7 @@ export default function Payouts() {
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0);
   const [cancelItem, setCancelItem] = useState<PayoutItem | null>(null);
 
-  useEffect(() => {
-    if (canExecutePayout) {
-      fetchApprovedItems();
-      fetchPettyCashBalance();
-    } else {
-      setIsLoading(false);
-    }
-  }, [canExecutePayout]);
-
-  const fetchPettyCashBalance = async () => {
+  const fetchPettyCashBalance = useCallback(async () => {
     try {
       const { data, error } = await (supabase.from as any)('petty_cash_transactions')
         .select('balance_after')
@@ -124,9 +119,9 @@ export default function Payouts() {
     } catch (e) {
       console.error('Failed to fetch petty cash balance:', e);
     }
-  };
+  }, []);
 
-  const fetchApprovedItems = async () => {
+  const fetchApprovedItems = useCallback(async () => {
     setIsLoading(true);
     try {
       // Fetch approved expenses (not yet reimbursed)
@@ -183,7 +178,16 @@ export default function Payouts() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [canRecordSalaryPayments]);
+
+  useEffect(() => {
+    if (canExecutePayout) {
+      fetchApprovedItems();
+      fetchPettyCashBalance();
+    } else {
+      setIsLoading(false);
+    }
+  }, [canExecutePayout, fetchApprovedItems, fetchPettyCashBalance]);
 
   const handleExecutePayout = async () => {
     if (!selectedItem || !user) return;
@@ -353,6 +357,13 @@ export default function Payouts() {
 
 
 
+
+      // Refresh balance-derived views now that the payout changed a staff balance
+      const payoutStaffId = selectedItem.staffId;
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staffBalance.byStaff(payoutStaffId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ledger.byStaff(payoutStaffId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.advancesOutstanding.all });
 
       setSelectedItem(null);
       setPaymentMode('cash');
@@ -556,9 +567,7 @@ export default function Payouts() {
 
         <TabsContent value={activeTab} className="mt-6">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <ListSkeleton variant="cards" rows={5} />
           ) : payoutItems.length === 0 ? (
             <EmptyState
               icon={CheckCircle2}

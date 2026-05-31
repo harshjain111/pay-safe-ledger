@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,7 @@ import { getUserDisplayName } from '@/lib/get-user-display-name';
 import type { Expense } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
+import { queryKeys } from '@/lib/query-keys';
 
 interface ApproveExpenseDialogProps {
   expense: Expense;
@@ -33,6 +35,7 @@ export function ApproveExpenseDialog({
   onSuccess,
 }: ApproveExpenseDialogProps) {
   const { user, staffData } = useAuth();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleApprove = async () => {
@@ -126,6 +129,12 @@ export function ApproveExpenseDialog({
         title: 'Expense approved',
         description: 'The expense has been approved for reimbursement. Journal entry created.',
       });
+
+      // Refresh balance-derived views now that approval created a staff payable
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staffBalance.byStaff(expense.staff_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ledger.byStaff(expense.staff_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.advancesOutstanding.all });
 
       // Immediately update notification counts
       refetchNotificationCounts();

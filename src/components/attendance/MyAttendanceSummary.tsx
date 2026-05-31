@@ -12,7 +12,7 @@ import {
 import { AttendanceSession, formatMinutes } from '@/lib/attendance';
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { CheckCircle2, Clock, Coffee, AlertTriangle, CalendarMinus, TrendingUp, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
 
 interface LeaveLite {
   leave_date: string;
@@ -92,7 +92,7 @@ export function MyAttendanceSummary() {
     const presentDays = new Set(completed.map((s) => s.work_date)).size;
     const leaveDays = leaves
       .filter((l) => l.status === 'approved')
-      .reduce((sum, l) => sum + Number(l.deduction_days || 0), 0);
+      .reduce((sum, l) => sum + toAmount(l.deduction_days), 0);
     const avg = presentDays > 0 ? Math.round(totalMinutes / presentDays) : 0;
     return { presentDays, totalMinutes, breakMinutes, lateCount, leaveDays, avg };
   }, [sessions, leaves]);

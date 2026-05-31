@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,12 +97,12 @@ export default function Ledger() {
       if (line.staff_id && line.account) {
         const accountCode = line.account.code;
         return {
-          debit: acc.debit + Number(line.debit),
-          credit: acc.credit + Number(line.credit),
-          payableDebit: acc.payableDebit + (accountCode === '2000' ? Number(line.debit) : 0),
-          payableCredit: acc.payableCredit + (accountCode === '2000' ? Number(line.credit) : 0),
-          advanceDebit: acc.advanceDebit + (accountCode === '1200' ? Number(line.debit) : 0),
-          advanceCredit: acc.advanceCredit + (accountCode === '1200' ? Number(line.credit) : 0),
+          debit: acc.debit + toAmount(line.debit),
+          credit: acc.credit + toAmount(line.credit),
+          payableDebit: acc.payableDebit + (accountCode === '2000' ? toAmount(line.debit) : 0),
+          payableCredit: acc.payableCredit + (accountCode === '2000' ? toAmount(line.credit) : 0),
+          advanceDebit: acc.advanceDebit + (accountCode === '1200' ? toAmount(line.debit) : 0),
+          advanceCredit: acc.advanceCredit + (accountCode === '1200' ? toAmount(line.credit) : 0),
         };
       }
       return acc;
@@ -142,11 +144,7 @@ export default function Ledger() {
     }
   }, [staffBalances, totals, selectedStaff]);
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedStaff, selectedMonth, staffData?.id, accountingMode]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setValidationError(null);
     try {
@@ -239,8 +237,8 @@ export default function Ledger() {
           };
           
           const accountCode = line.account.code;
-          const debit = Number(line.debit);
-          const credit = Number(line.credit);
+          const debit = toAmount(line.debit);
+          const credit = toAmount(line.credit);
           
           const updated = {
             debit: existing.debit + debit,
@@ -290,8 +288,8 @@ export default function Ledger() {
       const linesWithBalance = (linesData || []).map(line => {
         if (line.staff_id && line.account) {
           const accountCode = line.account.code;
-          const debit = Number(line.debit);
-          const credit = Number(line.credit);
+          const debit = toAmount(line.debit);
+          const credit = toAmount(line.credit);
           
           if (accountCode === '2000') { // Staff Payable
             runningPayableDr += debit;
@@ -312,7 +310,12 @@ export default function Ledger() {
     } finally {
       setIsLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- staffList is set within fetchData; listing it would cause an infinite refetch loop
+  }, [selectedStaff, selectedMonth, staffData?.id, accountingMode, isOwner, isAdmin, isAccountant, isCA, isStaff]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Generate month options
   const generateMonthOptions = () => {
@@ -526,7 +529,9 @@ export default function Ledger() {
       {/* Ledger Table */}
       <Card className="rounded-2xl shadow-card border-0 overflow-hidden">
         <CardContent className="p-0">
-          {journalLines.length === 0 && !isLoading ? (
+          {isLoading ? (
+            <ListSkeleton variant="rows" />
+          ) : journalLines.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="No entries found"
@@ -569,11 +574,11 @@ export default function Ledger() {
                       <div className="text-right shrink-0">
                         {line.debit > 0 ? (
                           <span className="text-destructive font-medium font-mono text-xs sm:text-sm">
-                            -₹{Number(line.debit).toLocaleString('en-IN')}
+                            -₹{toAmount(line.debit).toLocaleString('en-IN')}
                           </span>
                         ) : line.credit > 0 ? (
                           <span className="text-success font-medium font-mono text-xs sm:text-sm">
-                            +₹{Number(line.credit).toLocaleString('en-IN')}
+                            +₹{toAmount(line.credit).toLocaleString('en-IN')}
                           </span>
                         ) : null}
                         <p className={`text-[10px] sm:text-xs font-mono mt-0.5 ${
@@ -655,7 +660,7 @@ export default function Ledger() {
                         <TableCell className="text-right font-mono tabular-nums">
                           {line.debit > 0 ? (
                             <span className="text-destructive font-medium">
-                              ₹{Number(line.debit).toLocaleString('en-IN')}
+                              ₹{toAmount(line.debit).toLocaleString('en-IN')}
                             </span>
                           ) : (
                             <span className="text-muted-foreground/50">-</span>
@@ -664,7 +669,7 @@ export default function Ledger() {
                         <TableCell className="text-right font-mono tabular-nums">
                           {line.credit > 0 ? (
                             <span className="text-success font-medium">
-                              ₹{Number(line.credit).toLocaleString('en-IN')}
+                              ₹{toAmount(line.credit).toLocaleString('en-IN')}
                             </span>
                           ) : (
                             <span className="text-muted-foreground/50">-</span>

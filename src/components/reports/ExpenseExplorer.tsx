@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,8 +52,6 @@ export function ExpenseExplorer() {
     }
   }, [datePreset]);
 
-  useEffect(() => { fetchExpenses(); }, [selectedStaffId, selectedEventId, selectedCategory, selectedStatus, dateRange]);
-
   const fetchFiltersData = async () => {
     const [eventsRes, staffRes] = await Promise.all([
       supabase.from('events').select('id, event_date, location, client_name').order('event_date', { ascending: false }),
@@ -62,7 +61,7 @@ export function ExpenseExplorer() {
     setStaff(staffRes.data || []);
   };
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -90,13 +89,15 @@ export function ExpenseExplorer() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedStaffId, selectedEventId, selectedCategory, selectedStatus, dateRange]);
+
+  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
   const totals = useMemo(() => {
-    const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
-    const reimbursed = expenses.filter(e => e.status === 'reimbursed').reduce((s, e) => s + Number(e.amount), 0);
-    const pending = expenses.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
-    const approved = expenses.filter(e => e.status === 'approved').reduce((s, e) => s + Number(e.amount), 0);
+    const total = expenses.reduce((s, e) => s + toAmount(e.amount), 0);
+    const reimbursed = expenses.filter(e => e.status === 'reimbursed').reduce((s, e) => s + toAmount(e.amount), 0);
+    const pending = expenses.filter(e => e.status === 'pending').reduce((s, e) => s + toAmount(e.amount), 0);
+    const approved = expenses.filter(e => e.status === 'approved').reduce((s, e) => s + toAmount(e.amount), 0);
     return { total, reimbursed, pending, approved, count: expenses.length };
   }, [expenses]);
 
@@ -105,7 +106,7 @@ export function ExpenseExplorer() {
     expenses.forEach(e => {
       const cat = e.category as string;
       if (!map[cat]) map[cat] = { total: 0, count: 0 };
-      map[cat].total += Number(e.amount);
+      map[cat].total += toAmount(e.amount);
       map[cat].count++;
     });
     return Object.entries(map).map(([k, v]) => ({
@@ -121,10 +122,10 @@ export function ExpenseExplorer() {
     expenses.forEach(e => {
       const sid = e.staff_id;
       if (!map[sid]) map[sid] = { name: e.staff?.full_name || 'Unknown', total: 0, count: 0, reimbursed: 0, pending: 0 };
-      map[sid].total += Number(e.amount);
+      map[sid].total += toAmount(e.amount);
       map[sid].count++;
-      if (e.status === 'reimbursed') map[sid].reimbursed += Number(e.amount);
-      if (e.status === 'pending') map[sid].pending += Number(e.amount);
+      if (e.status === 'reimbursed') map[sid].reimbursed += toAmount(e.amount);
+      if (e.status === 'pending') map[sid].pending += toAmount(e.amount);
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [expenses]);
@@ -139,7 +140,7 @@ export function ExpenseExplorer() {
           total: 0, count: 0,
         };
       }
-      map[eid].total += Number(e.amount);
+      map[eid].total += toAmount(e.amount);
       map[eid].count++;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);

@@ -1,5 +1,6 @@
- import { useState, useEffect, useMemo } from 'react';
+ import { useState, useEffect, useMemo, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
+ import { toAmount } from '@/lib/utils';
  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  import { Label } from '@/components/ui/label';
  import {
@@ -72,10 +73,6 @@
      }
    }, [datePreset]);
  
-   useEffect(() => {
-     fetchExpenses();
-   }, [selectedCategory, selectedEventId, dateRange]);
- 
    const fetchEvents = async () => {
      const { data } = await supabase
        .from('events')
@@ -84,7 +81,7 @@
      setEvents(data || []);
    };
  
-   const fetchExpenses = async () => {
+   const fetchExpenses = useCallback(async () => {
      setIsLoading(true);
      try {
        let query = supabase
@@ -120,8 +117,12 @@
      } finally {
        setIsLoading(false);
      }
-   };
- 
+   }, [selectedCategory, selectedEventId, dateRange]);
+
+   useEffect(() => {
+     fetchExpenses();
+   }, [fetchExpenses]);
+
    // Aggregated data by category
    const categorySummary = useMemo(() => {
      const byCategory: Record<string, { total: number; count: number; details: any[] }> = {};
@@ -131,7 +132,7 @@
        if (!byCategory[cat]) {
          byCategory[cat] = { total: 0, count: 0, details: [] };
        }
-       byCategory[cat].total += Number(exp.amount);
+       byCategory[cat].total += toAmount(exp.amount);
        byCategory[cat].count += 1;
        byCategory[cat].details.push(exp);
      });
@@ -145,7 +146,7 @@
        .sort((a, b) => b.total - a.total);
    }, [expenses]);
  
-   const totalExpense = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+   const totalExpense = expenses.reduce((sum, e) => sum + toAmount(e.amount), 0);
    const categories = Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[];
  
    return (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,25 +42,7 @@ export default function UserForm() {
   // Available staff for linking
   const [availableStaff, setAvailableStaff] = useState<StaffPublic[]>([]);
 
-  useEffect(() => {
-    if (!isOwner) {
-      toast({
-        title: 'Access Denied',
-        description: 'Only owners can manage users.',
-        variant: 'destructive',
-      });
-      navigate('/dashboard');
-      return;
-    }
-
-    fetchAvailableStaff();
-    
-    if (isEditing) {
-      fetchUserData();
-    }
-  }, [id, isOwner]);
-
-  const fetchAvailableStaff = async () => {
+  const fetchAvailableStaff = useCallback(async () => {
     try {
       // Get staff without linked user_id (unlinked staff)
       const { data, error } = await supabase
@@ -74,9 +56,9 @@ export default function UserForm() {
     } catch (error) {
       console.error('Error fetching available staff:', error);
     }
-  };
+  }, []);
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       // Fetch user details via edge function (gets auth metadata + staff data)
       const { data: session } = await supabase.auth.getSession();
@@ -114,7 +96,23 @@ export default function UserForm() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (!isOwner) {
+      toast({
+        title: 'Access Denied',
+        description: 'Only owners can manage users.',
+        variant: 'destructive',
+      });
+      navigate('/dashboard');
+      return;
+    }
+    fetchAvailableStaff();
+    if (isEditing) {
+      fetchUserData();
+    }
+  }, [isOwner, isEditing, navigate, fetchAvailableStaff, fetchUserData]);
 
   const formatPhoneInput = (value: string) => {
     return value.replace(/\D/g, '');

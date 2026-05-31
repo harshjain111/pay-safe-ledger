@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Info, AlertTriangle, ArrowRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
 
 interface AdvanceAdjustmentInputProps {
   totalAdvanceOutstanding: number;
@@ -32,7 +32,7 @@ export function AdvanceAdjustmentInput({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(e.target.value) || 0;
+    const value = toAmount(e.target.value);
     // Clamp value between 0 and maxAdjustable
     const clampedValue = Math.min(maxAdjustable, Math.max(0, value));
     onAdjustmentChange(clampedValue);

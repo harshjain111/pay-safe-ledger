@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,14 +49,12 @@ export function TransactionsExplorer() {
     }
   }, [datePreset]);
 
-  useEffect(() => { fetchTransactions(); }, [selectedStaffId, selectedType, dateRange]);
-
   const fetchStaff = async () => {
     const { data } = await supabase.from('staff_public').select('id, full_name, employee_id').order('full_name');
     setStaff(data || []);
   };
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -90,14 +89,16 @@ export function TransactionsExplorer() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedStaffId, selectedType, dateRange]);
+
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
   const totals = useMemo(() => {
     let totalDebit = 0, totalCredit = 0;
     transactions.forEach(t => {
       (t.lines || []).forEach((l: any) => {
-        totalDebit += Number(l.debit) || 0;
-        totalCredit += Number(l.credit) || 0;
+        totalDebit += toAmount(l.debit) || 0;
+        totalCredit += toAmount(l.credit) || 0;
       });
     });
     return { totalDebit: totalDebit / 2, totalCredit: totalCredit / 2, count: transactions.length };
@@ -105,7 +106,7 @@ export function TransactionsExplorer() {
 
   const getTxnAmount = (txn: any) => {
     const lines = txn.lines || [];
-    return lines.reduce((s: number, l: any) => s + (Number(l.debit) || 0), 0);
+    return lines.reduce((s: number, l: any) => s + (toAmount(l.debit) || 0), 0);
   };
 
   const getTxnTypeBadge = (type: string) => {
@@ -262,8 +263,8 @@ export function TransactionsExplorer() {
                     {(selectedTxn.lines || []).map((line: any) => (
                       <TableRow key={line.id}>
                         <TableCell className="text-sm">{line.account?.name || line.account?.code}</TableCell>
-                        <TableCell className="text-right">{Number(line.debit) > 0 ? <Amount value={line.debit} /> : '-'}</TableCell>
-                        <TableCell className="text-right">{Number(line.credit) > 0 ? <Amount value={line.credit} /> : '-'}</TableCell>
+                        <TableCell className="text-right">{toAmount(line.debit) > 0 ? <Amount value={line.debit} /> : '-'}</TableCell>
+                        <TableCell className="text-right">{toAmount(line.credit) > 0 ? <Amount value={line.credit} /> : '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -1,5 +1,6 @@
- import { useState, useEffect, useMemo } from 'react';
+ import { useState, useEffect, useMemo, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
+ import { toAmount } from '@/lib/utils';
  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  import { Label } from '@/components/ui/label';
  import {
@@ -79,10 +80,6 @@
      }
    }, [datePreset]);
  
-   useEffect(() => {
-     fetchExpenses();
-   }, [selectedStaffId, selectedEventId, dateRange]);
- 
    const fetchFiltersData = async () => {
      const [eventsRes, staffRes] = await Promise.all([
        supabase.from('events').select('id, event_date, location, client_name').order('event_date', { ascending: false }),
@@ -92,7 +89,7 @@
      setStaff((staffRes.data || []) as Staff[]);
    };
  
-   const fetchExpenses = async () => {
+   const fetchExpenses = useCallback(async () => {
      setIsLoading(true);
      try {
        let query = supabase
@@ -127,8 +124,12 @@
      } finally {
        setIsLoading(false);
      }
-   };
- 
+   }, [selectedStaffId, selectedEventId, dateRange]);
+
+   useEffect(() => {
+     fetchExpenses();
+   }, [fetchExpenses]);
+
    // Staff summary
    const staffSummary = useMemo(() => {
      const byStaff: Record<string, {
@@ -155,7 +156,7 @@
          };
        }
  
-       const amount = Number(exp.amount);
+       const amount = toAmount(exp.amount);
        byStaff[staffId].totalRaised += amount;
  
        if (exp.status === 'reimbursed') {

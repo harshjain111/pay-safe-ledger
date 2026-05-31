@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { DisciplineLogRow, formatScheduleRange } from '@/lib/discipline';
 import { Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
@@ -37,7 +38,7 @@ export function MyDisciplineTab() {
   const totals = useMemo(() => {
     return {
       fine: rows.reduce(
-        (s, r) => s + (r.is_cancelled ? 0 : Number(r.fine_amount || 0)),
+        (s, r) => s + (r.is_cancelled ? 0 : toAmount(r.fine_amount)),
         0,
       ),
       late: rows.filter((r) => r.late_in_minutes > 0 && !r.is_cancelled).length,
@@ -113,7 +114,7 @@ export function MyDisciplineTab() {
                           variant={r.is_cancelled ? 'secondary' : 'destructive'}
                           className={`text-[10px] ${r.is_cancelled ? 'line-through' : ''}`}
                         >
-                          ₹{Number(r.fine_amount).toFixed(0)}
+                          ₹{toAmount(r.fine_amount).toFixed(0)}
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px] gap-1">

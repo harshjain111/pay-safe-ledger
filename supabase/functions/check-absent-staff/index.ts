@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
 
   const workDate = istToday();
   let total_absent = 0;
-  let notifications_sent = 0;
-  let failures = 0;
+  const notifications_sent = 0;
+  const failures = 0;
 
   try {
     const { data: rules } = await supabase

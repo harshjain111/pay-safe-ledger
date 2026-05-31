@@ -17,7 +17,7 @@ import {
   ArrowUpRight, Receipt, FileDown, Scale, Sparkles, ListOrdered,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import {
   exportLedgerPDF, exportSalaryRegisterPDF, exportPaymentRegisterPDF,
@@ -53,45 +53,12 @@ export default function Reports() {
     totalPayroll: 0, totalAdvances: 0, totalExpenses: 0, totalPayments: 0, staffCount: 0,
   });
 
-  useEffect(() => {
-    if (!isOwner && !isCA && !isAccountant && !isAdmin) {
-      toast({ title: 'Access Denied', description: 'You do not have permission to view reports.', variant: 'destructive' });
-      navigate('/dashboard');
-      return;
-    }
-    fetchStaff();
-  }, [isOwner, isCA, isAccountant, isAdmin]);
-
-  useEffect(() => {
-    setReportData([]);
-    if (['summary', 'ledger', 'salary', 'payment'].includes(activeReport)) {
-      fetchReportData();
-    }
-  }, [activeReport, selectedStaffId, selectedMonth, dateRange]);
-
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     const { data } = await supabase.from('staff_public').select('*').order('full_name');
     setStaff(data as Staff[] || []);
-  };
+  }, []);
 
-  const fetchReportData = async () => {
-    setIsLoading(true);
-    try {
-      switch (activeReport) {
-        case 'summary': await fetchSummaryReport(); break;
-        case 'ledger': await fetchLedgerReport(); break;
-        case 'salary': await fetchSalaryReport(); break;
-        case 'payment': await fetchPaymentReport(); break;
-      }
-    } catch (error) {
-      console.error('Error fetching report:', error);
-      toast({ title: 'Error', description: 'Failed to load report data.', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchSummaryReport = async () => {
+  const fetchSummaryReport = useCallback(async () => {
     const [staffData, settlements, advances, expenses] = await Promise.all([
       supabase.from('staff').select('id, monthly_salary').eq('is_active', true),
       supabase.from('salary_settlements').select('balance_payable').eq('settlement_month', selectedMonth).eq('status', 'settled'),
@@ -100,15 +67,15 @@ export default function Reports() {
     ]);
 
     setSummaryStats({
-      totalPayroll: staffData.data?.reduce((sum, s) => sum + Number(s.monthly_salary), 0) || 0,
-      totalAdvances: advances.data?.reduce((sum, a) => sum + Number(a.debit) - Number(a.credit), 0) || 0,
-      totalExpenses: expenses.data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0,
-      totalPayments: settlements.data?.reduce((sum, s) => sum + Number(s.balance_payable), 0) || 0,
+      totalPayroll: staffData.data?.reduce((sum, s) => sum + toAmount(s.monthly_salary), 0) || 0,
+      totalAdvances: advances.data?.reduce((sum, a) => sum + toAmount(a.debit) - toAmount(a.credit), 0) || 0,
+      totalExpenses: expenses.data?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
+      totalPayments: settlements.data?.reduce((sum, s) => sum + toAmount(s.balance_payable), 0) || 0,
       staffCount: staffData.data?.length || 0,
     });
-  };
+  }, [selectedMonth]);
 
-  const fetchLedgerReport = async () => {
+  const fetchLedgerReport = useCallback(async () => {
     let query = supabase
       .from('journal_lines')
       .select(`
@@ -132,18 +99,18 @@ export default function Reports() {
       return entryDate && entryDate >= fromStr && entryDate <= toStr;
     });
     setReportData(filtered);
-  };
+  }, [selectedStaffId, dateRange]);
 
-  const fetchSalaryReport = async () => {
+  const fetchSalaryReport = useCallback(async () => {
     let query = supabase.from('salary_settlements').select('*, staff:staff_public(full_name, employee_id)')
       .eq('settlement_month', selectedMonth).order('created_at', { ascending: false });
     if (selectedStaffId !== 'all') query = query.eq('staff_id', selectedStaffId);
     const { data, error } = await query;
     if (error) throw error;
     setReportData(data || []);
-  };
+  }, [selectedMonth, selectedStaffId]);
 
-  const fetchPaymentReport = async () => {
+  const fetchPaymentReport = useCallback(async () => {
     let query = supabase
       .from('journal_entries')
       .select(`
@@ -160,20 +127,53 @@ export default function Reports() {
     const { data, error } = await query;
     if (error) throw error;
     setReportData(data || []);
-  };
+  }, [dateRange, selectedStaffId]);
+
+  const fetchReportData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      switch (activeReport) {
+        case 'summary': await fetchSummaryReport(); break;
+        case 'ledger': await fetchLedgerReport(); break;
+        case 'salary': await fetchSalaryReport(); break;
+        case 'payment': await fetchPaymentReport(); break;
+      }
+    } catch (error) {
+      console.error('Error fetching report:', error);
+      toast({ title: 'Error', description: 'Failed to load report data.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeReport, fetchSummaryReport, fetchLedgerReport, fetchSalaryReport, fetchPaymentReport]);
+
+  useEffect(() => {
+    if (!isOwner && !isCA && !isAccountant && !isAdmin) {
+      toast({ title: 'Access Denied', description: 'You do not have permission to view reports.', variant: 'destructive' });
+      navigate('/dashboard');
+      return;
+    }
+    fetchStaff();
+  }, [isOwner, isCA, isAccountant, isAdmin, navigate, fetchStaff]);
+
+  useEffect(() => {
+    setReportData([]);
+    if (['summary', 'ledger', 'salary', 'payment'].includes(activeReport)) {
+      fetchReportData();
+    }
+  }, [activeReport, fetchReportData]);
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const date = subMonths(new Date(), i);
     return { value: format(date, 'yyyy-MM'), label: format(date, 'MMMM yyyy') };
   });
 
-  const handlePDFExport = () => {
+  const handlePDFExport = async () => {
     const selectedStaffName = staff.find(s => s.id === selectedStaffId)?.full_name || 'All Staff';
     switch (activeReport) {
-      case 'summary': exportSummaryPDF(summaryStats, selectedMonth); break;
-      case 'ledger': exportLedgerPDF(reportData, selectedStaffName, dateRange); break;
-      case 'salary': exportSalaryRegisterPDF(reportData, selectedMonth, canViewSalaries); break;
-      case 'payment': exportPaymentRegisterPDF(reportData, dateRange); break;
+      case 'summary': await exportSummaryPDF(summaryStats, selectedMonth); break;
+      case 'ledger': await exportLedgerPDF(reportData, selectedStaffName, dateRange); break;
+      case 'salary': await exportSalaryRegisterPDF(reportData, selectedMonth, canViewSalaries); break;
+      case 'payment': await exportPaymentRegisterPDF(reportData, dateRange); break;
     }
     toast({ title: 'PDF Exported', description: 'Report downloaded.' });
   };
@@ -326,8 +326,8 @@ export default function Reports() {
                         <TableCell className="font-mono text-xs">{line.journal_entry?.reference_no}</TableCell>
                         <TableCell className="text-sm">{line.account?.name || line.account?.code}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{line.journal_entry?.description || line.description}</TableCell>
-                        <TableCell className="text-right">{Number(line.debit) > 0 && <Amount value={line.debit} />}</TableCell>
-                        <TableCell className="text-right">{Number(line.credit) > 0 && <Amount value={line.credit} />}</TableCell>
+                        <TableCell className="text-right">{toAmount(line.debit) > 0 && <Amount value={line.debit} />}</TableCell>
+                        <TableCell className="text-right">{toAmount(line.credit) > 0 && <Amount value={line.credit} />}</TableCell>
                       </TableRow>
                     ))}
                     {reportData.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No entries found</TableCell></TableRow>}
@@ -384,7 +384,7 @@ export default function Reports() {
                   </TableRow></TableHeader>
                   <TableBody>
                     {reportData.map((entry: any) => {
-                      const amount = (entry.lines || []).reduce((s: number, l: any) => s + (Number(l.debit) || 0), 0) / 2;
+                      const amount = (entry.lines || []).reduce((s: number, l: any) => s + toAmount(l.debit), 0) / 2;
                       const typeLabel = entry.transaction_type?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
                       return (
                         <TableRow key={entry.id}>

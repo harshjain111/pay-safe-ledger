@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,11 +63,7 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
     salary: 0,
   });
 
-  useEffect(() => {
-    fetchPendingPayouts();
-  }, [canRecordSalaryPayments]);
-
-  const fetchPendingPayouts = async () => {
+  const fetchPendingPayouts = useCallback(async () => {
     try {
       setIsLoading(true);
       const items: PendingItem[] = [];
@@ -147,16 +144,20 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
         salary: salaryData.length,
       });
       setTotals({
-        expenses: expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0,
-        requests: requests?.reduce((sum, r) => sum + Number(r.amount), 0) || 0,
-        salary: salaryData.reduce((sum, s) => sum + Number(s.balance_payable), 0),
+        expenses: expenses?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
+        requests: requests?.reduce((sum, r) => sum + toAmount(r.amount), 0) || 0,
+        salary: salaryData.reduce((sum, s) => sum + toAmount(s.balance_payable), 0),
       });
     } catch (error) {
       console.error('Error fetching pending payouts:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [canRecordSalaryPayments, showSalary]);
+
+  useEffect(() => {
+    fetchPendingPayouts();
+  }, [fetchPendingPayouts]);
 
   const totalCount = counts.expenses + counts.requests + (showSalary ? counts.salary : 0);
   const totalAmount = totals.expenses + totals.requests + (showSalary ? totals.salary : 0);

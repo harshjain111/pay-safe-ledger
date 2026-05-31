@@ -23,10 +23,14 @@ interface CreateStaffUserRequest {
   };
 }
 
+// Synthetic email domain for phone-number logins. Override via the PHONE_EMAIL_DOMAIN
+// env var; must match the frontend (VITE_PHONE_EMAIL_DOMAIN) and existing auth.users rows.
+const PHONE_EMAIL_DOMAIN = Deno.env.get("PHONE_EMAIL_DOMAIN") ?? "phone.payroll.internal";
+
 // Convert phone to pseudo-email for Supabase auth
 const phoneToEmail = (phone: string): string => {
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  return `${cleanPhone}@phone.konnect2hospitality.internal`;
+  return `${cleanPhone}@${PHONE_EMAIL_DOMAIN}`;
 };
 
 serve(async (req) => {
@@ -86,7 +90,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: CreateStaffUserRequest = await req.json();
-    let { phone, password, full_name, role, staff_data } = body;
+    const { phone, password, full_name, role, staff_data } = body;
 
     // Validate required fields
     if (!phone || !password || !full_name || !role || !staff_data) {

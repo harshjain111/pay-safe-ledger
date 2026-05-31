@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -9,33 +8,32 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
-// Pages
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import StaffList from "./pages/StaffList";
-import StaffForm from "./pages/StaffForm";
-import StaffDetails from "./pages/StaffDetails";
-import UsersList from "./pages/UsersList";
-import UserForm from "./pages/UserForm";
-import Ledger from "./pages/Ledger";
-import Requests from "./pages/Requests";
-import NewRequest from "./pages/NewRequest";
-import Expenses from "./pages/Expenses";
-import NewExpense from "./pages/NewExpense";
-import Settlements from "./pages/Settlements";
-import SalariesAdvances from "./pages/SalariesAdvances";
-import Payouts from "./pages/Payouts";
-import Reports from "./pages/Reports";
-import AuditLog from "./pages/AuditLog";
-import Settings from "./pages/Settings";
-import LeaveRecords from "./pages/LeaveRecords";
-import PettyCash from "./pages/PettyCash";
-import Attendance from "./pages/Attendance";
-import MyAttendance from "./pages/MyAttendance";
-import Shifts from "./pages/Shifts";
-
-import NotFound from "./pages/NotFound";
+// Pages (lazy-loaded so each route is a separate chunk)
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const StaffList = lazy(() => import("./pages/StaffList"));
+const StaffForm = lazy(() => import("./pages/StaffForm"));
+const StaffDetails = lazy(() => import("./pages/StaffDetails"));
+const UsersList = lazy(() => import("./pages/UsersList"));
+const UserForm = lazy(() => import("./pages/UserForm"));
+const Ledger = lazy(() => import("./pages/Ledger"));
+const Requests = lazy(() => import("./pages/Requests"));
+const NewRequest = lazy(() => import("./pages/NewRequest"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const NewExpense = lazy(() => import("./pages/NewExpense"));
+const Settlements = lazy(() => import("./pages/Settlements"));
+const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
+const Payouts = lazy(() => import("./pages/Payouts"));
+const Reports = lazy(() => import("./pages/Reports"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
+const Settings = lazy(() => import("./pages/Settings"));
+const LeaveRecords = lazy(() => import("./pages/LeaveRecords"));
+const PettyCash = lazy(() => import("./pages/PettyCash"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const MyAttendance = lazy(() => import("./pages/MyAttendance"));
+const Shifts = lazy(() => import("./pages/Shifts"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -76,9 +74,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+// Fallback shown while a lazily-loaded route chunk is being fetched
+function PageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
+
 // App routes
 function AppRoutes() {
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
@@ -113,6 +121,7 @@ function AppRoutes() {
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
   );
 }
 
@@ -121,7 +130,6 @@ const App = () => (
     <LanguageProvider>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
         <BrowserRouter>
           <AuthProvider>
             <AppRoutes />

@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Shift, ShiftAssignment, fetchShifts, fetchAssignments } from '@/lib/discipline';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Plus, Loader2, Clock } from 'lucide-react';
 
 interface StaffLite {
@@ -47,6 +47,7 @@ export default function Shifts() {
   const [name, setName] = useState('');
   const [checkIn, setCheckIn] = useState('16:00');
   const [checkOut, setCheckOut] = useState('02:00');
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -95,19 +96,24 @@ export default function Shifts() {
   const saveShift = async () => {
     if (!name.trim()) return toast.error('Shift name required');
     const payload = { name, check_in_time: checkIn, check_out_time: checkOut } as never;
-    if (editing) {
-      const { error } = await supabase
-        .from('shifts' as never)
-        .update(payload)
-        .eq('id', editing.id);
-      if (error) return toast.error(error.message);
-    } else {
-      const { error } = await supabase.from('shifts' as never).insert(payload);
-      if (error) return toast.error(error.message);
+    try {
+      setSaving(true);
+      if (editing) {
+        const { error } = await supabase
+          .from('shifts' as never)
+          .update(payload)
+          .eq('id', editing.id);
+        if (error) return toast.error(error.message);
+      } else {
+        const { error } = await supabase.from('shifts' as never).insert(payload);
+        if (error) return toast.error(error.message);
+      }
+      toast.success('Saved');
+      setDialogOpen(false);
+      load();
+    } finally {
+      setSaving(false);
     }
-    toast.success('Saved');
-    setDialogOpen(false);
-    load();
   };
 
   const assignShift = async (staffId: string, shiftId: string | null) => {
@@ -209,10 +215,12 @@ export default function Shifts() {
                   </p>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
                     Cancel
                   </Button>
-                  <Button onClick={saveShift}>Save</Button>
+                  <Button onClick={saveShift} disabled={saving}>
+                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : 'Save'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

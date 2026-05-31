@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import {
   Dialog,
   DialogContent,
@@ -102,7 +103,7 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
   };
 
   const handleSubmit = async () => {
-    const numAmount = parseFloat(amount);
+    const numAmount = toAmount(amount);
     if (!numAmount || numAmount <= 0) {
       toast.error(t('enter_valid_amount'));
       return;

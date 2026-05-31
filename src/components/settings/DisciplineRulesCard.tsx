@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Trash2, Plus, Shield, Loader2, Save, PowerOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DisciplineRules, Slab, fetchDisciplineRules } from '@/lib/discipline';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
+import { cn, toAmount } from '@/lib/utils';
 
 function SlabEditor({
   title,
@@ -35,7 +35,7 @@ function SlabEditor({
             <Input
               type="number"
               value={s.from_min}
-              onChange={(e) => update(i, 'from_min', Number(e.target.value))}
+              onChange={(e) => update(i, 'from_min', toAmount(e.target.value))}
               className="h-9 w-20"
               placeholder="From"
             />
@@ -43,7 +43,7 @@ function SlabEditor({
             <Input
               type="number"
               value={s.to_min}
-              onChange={(e) => update(i, 'to_min', Number(e.target.value))}
+              onChange={(e) => update(i, 'to_min', toAmount(e.target.value))}
               className="h-9 w-20"
               placeholder="To"
             />
@@ -51,7 +51,7 @@ function SlabEditor({
             <Input
               type="number"
               value={s.amount}
-              onChange={(e) => update(i, 'amount', Number(e.target.value))}
+              onChange={(e) => update(i, 'amount', toAmount(e.target.value))}
               className="h-9 w-24"
               placeholder="Fine"
             />
@@ -217,7 +217,7 @@ export function DisciplineRulesCard() {
               <Input
                 type="number"
                 value={rules.grace_minutes_in}
-                onChange={(e) => set('grace_minutes_in', Number(e.target.value))}
+                onChange={(e) => set('grace_minutes_in', toAmount(e.target.value))}
                 className="h-9"
               />
             </div>
@@ -227,7 +227,7 @@ export function DisciplineRulesCard() {
                 type="number"
                 value={rules.late_in_half_day_after_min}
                 onChange={(e) =>
-                  set('late_in_half_day_after_min', Number(e.target.value))
+                  set('late_in_half_day_after_min', toAmount(e.target.value))
                 }
                 className="h-9"
               />
@@ -238,7 +238,7 @@ export function DisciplineRulesCard() {
                 type="number"
                 value={rules.late_in_full_day_after_min}
                 onChange={(e) =>
-                  set('late_in_full_day_after_min', Number(e.target.value))
+                  set('late_in_full_day_after_min', toAmount(e.target.value))
                 }
                 className="h-9"
               />
@@ -262,7 +262,7 @@ export function DisciplineRulesCard() {
               <Input
                 type="number"
                 value={rules.grace_minutes_out}
-                onChange={(e) => set('grace_minutes_out', Number(e.target.value))}
+                onChange={(e) => set('grace_minutes_out', toAmount(e.target.value))}
                 className="h-9"
               />
             </div>
@@ -272,7 +272,7 @@ export function DisciplineRulesCard() {
                 type="number"
                 value={rules.early_out_half_day_after_min}
                 onChange={(e) =>
-                  set('early_out_half_day_after_min', Number(e.target.value))
+                  set('early_out_half_day_after_min', toAmount(e.target.value))
                 }
                 className="h-9"
               />
@@ -283,7 +283,7 @@ export function DisciplineRulesCard() {
                 type="number"
                 value={rules.early_out_full_day_after_min}
                 onChange={(e) =>
-                  set('early_out_full_day_after_min', Number(e.target.value))
+                  set('early_out_full_day_after_min', toAmount(e.target.value))
                 }
                 className="h-9"
               />

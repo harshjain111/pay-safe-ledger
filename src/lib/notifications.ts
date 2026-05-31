@@ -87,9 +87,7 @@ export async function sendNotificationsByRole(
       );
     }
 
-    // Send Telegram to owner for all important events
-    if (recipients.owners) {
-    }
+    // TODO: Send Telegram to owner for all important events (recipients.owners)
   } catch (error) {
     console.error('Failed to send notifications by role:', error);
   }

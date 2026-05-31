@@ -24,7 +24,7 @@
  import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
  import { format } from 'date-fns';
- import { cn } from '@/lib/utils';
+ import { cn, toAmount } from '@/lib/utils';
  import { toast } from '@/hooks/use-toast';
  import type { LeaveType } from '@/types/leave';
  import { LEAVE_TYPE_CONFIG } from '@/types/leave';
@@ -274,7 +274,7 @@ import { CalendarIcon } from 'lucide-react';
                  max="10"
                  step="0.5"
                  value={deductionDays}
-                 onChange={(e) => setDeductionDays(Number(e.target.value) || 0)}
+                 onChange={(e) => setDeductionDays(toAmount(e.target.value))}
                  disabled={leaveType !== 'custom'}
                />
                {leaveType !== 'custom' && (

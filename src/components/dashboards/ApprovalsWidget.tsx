@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Amount } from '@/components/ui/amount';
@@ -114,8 +115,8 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
         requests: requests?.length || 0,
       });
       setTotals({
-        expenses: expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0,
-        requests: requests?.reduce((sum, r) => sum + Number(r.amount), 0) || 0,
+        expenses: expenses?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
+        requests: requests?.reduce((sum, r) => sum + toAmount(r.amount), 0) || 0,
       });
     } catch (error) {
       console.error('Error fetching pending approvals:', error);

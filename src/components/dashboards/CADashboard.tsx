@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,7 @@ export function CADashboard() {
 
       setStats({
         totalStaff: 0,
-        monthlyPayroll: settled.reduce((sum, s) => sum + Number(s.net_salary), 0),
+        monthlyPayroll: settled.reduce((sum, s) => sum + toAmount(s.net_salary), 0),
         settledThisMonth: settled.length,
         pendingSettlements: pending.length,
       });

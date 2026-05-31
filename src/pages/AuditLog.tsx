@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,20 +76,7 @@ export default function AuditLogPage() {
   });
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  useEffect(() => {
-    if (!isOwner && !isCA) {
-      toast({
-        title: 'Access Denied',
-        description: 'Only owners and CA can view audit logs.',
-        variant: 'destructive',
-      });
-      navigate('/dashboard');
-      return;
-    }
-    fetchLogs();
-  }, [isOwner, isCA, selectedModule, selectedAction, dateRange]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -123,7 +110,20 @@ export default function AuditLogPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedModule, selectedAction, dateRange]);
+
+  useEffect(() => {
+    if (!isOwner && !isCA) {
+      toast({
+        title: 'Access Denied',
+        description: 'Only owners and CA can view audit logs.',
+        variant: 'destructive',
+      });
+      navigate('/dashboard');
+      return;
+    }
+    fetchLogs();
+  }, [isOwner, isCA, navigate, fetchLogs]);
 
   const getActionBadge = (action: string) => {
     switch (action) {

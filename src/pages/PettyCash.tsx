@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toAmount } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -167,11 +168,11 @@ export default function PettyCash() {
   }, [canAccess, fetchTransactions]);
 
   const handleAddTopUp = async () => {
-    if (!user || !topUpAmount || Number(topUpAmount) <= 0) return;
+    if (!user || !topUpAmount || toAmount(topUpAmount) <= 0) return;
 
     setIsSubmitting(true);
     try {
-      const amount = Number(topUpAmount);
+      const amount = toAmount(topUpAmount);
       const newBalance = currentBalance + amount;
 
       const { error } = await (supabase.from as any)('petty_cash_transactions').insert({
@@ -411,11 +412,11 @@ export default function PettyCash() {
                 <span className="text-muted-foreground">Current Balance:</span>
                 <span className="font-medium">₹{currentBalance.toLocaleString('en-IN')}</span>
               </div>
-              {topUpAmount && Number(topUpAmount) > 0 && (
+              {topUpAmount && toAmount(topUpAmount) > 0 && (
                 <div className="flex justify-between mt-1">
                   <span className="text-muted-foreground">New Balance:</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    ₹{(currentBalance + Number(topUpAmount)).toLocaleString('en-IN')}
+                    ₹{(currentBalance + toAmount(topUpAmount)).toLocaleString('en-IN')}
                   </span>
                 </div>
               )}
@@ -428,7 +429,7 @@ export default function PettyCash() {
             </Button>
             <Button
               onClick={handleAddTopUp}
-              disabled={isSubmitting || !topUpAmount || Number(topUpAmount) <= 0}
+              disabled={isSubmitting || !topUpAmount || toAmount(topUpAmount) <= 0}
             >
               {isSubmitting ? (
                 <>

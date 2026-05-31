@@ -44,9 +44,8 @@ import {
   FileText,
   AlertTriangle,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { exportToPDF, downloadPDF } from '@/lib/pdf-export';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface StaffRow {
   id: string;
@@ -275,7 +274,8 @@ export default function Attendance() {
 
   const periodLabel = `${format(parseISO(from), 'dd MMM yyyy')} – ${format(parseISO(to), 'dd MMM yyyy')}`;
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     // Daily Detail sheet
@@ -338,8 +338,8 @@ export default function Attendance() {
     toast.success('Excel exported');
   };
 
-  const handleExportPDF = () => {
-    const doc = exportToPDF({
+  const handleExportPDF = async () => {
+    const doc = await exportToPDF({
       title: 'Attendance Report — Daily Punch Detail',
       subtitle: department !== 'all' ? `Department: ${department}` : 'All Departments',
       headers: [

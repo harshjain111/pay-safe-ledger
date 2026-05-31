@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
   const tenAgoIso = new Date(now - TEN_HOURS_MS).toISOString();
   const sixteenAgoIso = new Date(now - SIXTEEN_HOURS_MS).toISOString();
 
-  let reminders_sent = 0;
-  let reminder_failures = 0;
+  const reminders_sent = 0;
+  const reminder_failures = 0;
   let auto_closed = 0;
 
   try {

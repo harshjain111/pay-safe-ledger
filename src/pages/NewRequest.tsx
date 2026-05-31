@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { AmountInput } from '@/components/ui/amount';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { z } from 'zod';
 import type { StaffPublic } from '@/types/database';
 
