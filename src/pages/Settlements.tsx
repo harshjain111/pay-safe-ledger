@@ -569,6 +569,16 @@ export default function Settlements() {
           deduction_adjusted_by: calculation.finalDeductionDays !== calculation.systemDeductionDays ? user.id : null,
           deduction_adjusted_at: calculation.finalDeductionDays !== calculation.systemDeductionDays ? new Date().toISOString() : null,
           discipline_fine: calculation.disciplineFine,
+          pf_employee: calculation.pfEmployee,
+          pf_employer: calculation.pfEmployer,
+          esi_employee: calculation.esiEmployee,
+          esi_employer: calculation.esiEmployer,
+          pf_rate_employee: calculation.pfRateEmployee || null,
+          pf_rate_employer: calculation.pfRateEmployer || null,
+          esi_rate_employee: calculation.esiRateEmployee || null,
+          esi_rate_employer: calculation.esiRateEmployer || null,
+          pf_base: calculation.pfBase || null,
+          esi_base: calculation.esiBase || null,
           created_by: user.id,
         })
         .select()
@@ -880,6 +890,28 @@ export default function Settlements() {
                     <span className="text-muted-foreground">Discipline Fine</span>
                     <span className="text-destructive font-medium">
                       -<Amount value={calculation.disciplineFine} />
+                    </span>
+                  </div>
+                )}
+
+                {calculation.pfEmployee > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">
+                      PF (Employee {calculation.pfRateEmployee}% of ₹{calculation.pfBase.toFixed(0)})
+                    </span>
+                    <span className="text-destructive font-medium">
+                      -<Amount value={calculation.pfEmployee} />
+                    </span>
+                  </div>
+                )}
+
+                {calculation.esiEmployee > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">
+                      ESI (Employee {calculation.esiRateEmployee}% of ₹{calculation.esiBase.toFixed(0)})
+                    </span>
+                    <span className="text-destructive font-medium">
+                      -<Amount value={calculation.esiEmployee} />
                     </span>
                   </div>
                 )}
