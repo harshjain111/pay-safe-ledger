@@ -35,6 +35,7 @@ export default function StaffDetails() {
   
   const [staff, setStaff] = useState<Staff | null>(null);
   const [staffRole, setStaffRole] = useState<AppRole | null>(null);
+  const [managerName, setManagerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
