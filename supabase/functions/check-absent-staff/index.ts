@@ -203,40 +203,8 @@ Deno.serve(async (req) => {
       }
       total_absent++;
 
-      // Skip WhatsApp if penalties master switch is off, or no phone
-      if (rules.penalties_enabled === false) continue;
-      if (!s.phone) continue;
-      const phone = s.phone.replace(/^\+/, '');
-
-      const schedIso = scheduledIso(workDate, scheduledIn);
-      try {
-        const { data: waData, error: waErr } = await supabase.functions.invoke(
-          'send-attendance-whatsapp',
-          {
-            body: {
-              staff_name: s.full_name,
-              staff_phone: phone,
-              staff_id: s.id,
-              event_type: 'absent',
-              actual_time: new Date().toISOString(),
-              scheduled_time: schedIso,
-              slab: 'absent',
-              deduction_amount: fine,
-              penalty_date: workDate,
-            },
-          },
-        );
-        if (waErr || (waData && (waData as { success?: boolean }).success === false)) {
-          failures++;
-          console.error('absent whatsapp failed', s.full_name, waErr || waData);
-        } else {
-          notifications_sent++;
-        }
-      } catch (e) {
-        failures++;
-        console.error('absent whatsapp threw', s.full_name, e);
-      }
     }
+
 
     return new Response(
       JSON.stringify({ ok: true, work_date: workDate, total_absent, notifications_sent, failures }),
