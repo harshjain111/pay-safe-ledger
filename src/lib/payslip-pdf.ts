@@ -56,6 +56,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Konnect 2 Hospitality', pageWidth / 2, startY + 6, { align: 'center' });
+  // (Employer name — kept on payslip; product footer below)
   doc.setFontSize(9);
   doc.text(`Pay Period: ${monthLabel}`, pageWidth / 2, startY + 11, { align: 'center' });
 
@@ -203,7 +204,7 @@ export async function downloadBulkPayslipsPDF(
     doc.setFontSize(7);
     doc.setFont('helvetica', 'italic');
     doc.text(
-      'System-generated payslip — Konnect 2 Hospitality',
+      'System-generated payslip — Powered by VIBRND HR BUDDY',
       doc.internal.pageSize.getWidth() / 2,
       pageHeight - 8,
       { align: 'center' },

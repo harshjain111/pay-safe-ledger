@@ -214,10 +214,13 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center justify-center gap-3 mb-4">
-            <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-20 w-auto" />
-            <span className="text-2xl font-bold text-foreground tracking-tight">Konnect 2 Hospitality</span>
+            <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-20 w-auto" />
+            <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND HR BUDDY</span>
           </div>
-          <p className="text-muted-foreground">Internal Payroll & Accounting System</p>
+          <p className="text-muted-foreground">HR & Payroll Suite</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            for <span className="font-medium text-foreground">Konnect 2 Hospitality</span>
+          </p>
         </div>
 
         {/* Network error banner */}
@@ -331,7 +334,7 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Konnect 2 Hospitality. All rights reserved.</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Vibrnd. VIBRND HR BUDDY. All rights reserved.</p>
       </div>
     </div>
   );

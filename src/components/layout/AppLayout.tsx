@@ -340,15 +340,26 @@ function AppSidebar() {
           isCollapsed && "justify-center"
         )}>
           <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0 p-1">
-            <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-full w-full object-contain" />
+            <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-full w-full object-contain" />
           </div>
           {!isCollapsed && (
-            <div className="animate-fade-in leading-tight">
-              <span className="text-sm font-bold text-sidebar-foreground block">Konnect 2 Hospitality</span>
-              <p className="text-[10px] text-sidebar-muted">Payroll System</p>
+            <div className="animate-fade-in leading-tight min-w-0">
+              <span className="text-sm font-bold text-sidebar-foreground block tracking-wide">VIBRND HR BUDDY</span>
+              <p className="text-[10px] text-sidebar-muted">HR & Payroll Suite</p>
             </div>
           )}
         </div>
+        {!isCollapsed && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 py-1.5">
+            <div className="h-5 w-5 rounded-md bg-white/90 flex items-center justify-center shrink-0">
+              <span className="text-[9px] font-bold text-sidebar-background">K2</span>
+            </div>
+            <div className="min-w-0 leading-tight">
+              <p className="text-[9px] uppercase tracking-wider text-sidebar-muted">Organization</p>
+              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">Konnect 2 Hospitality</p>
+            </div>
+          </div>
+        )}
       </SidebarHeader>
 
       {/* Accountant mode toggle - Cleaner design */}
