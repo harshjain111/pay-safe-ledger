@@ -54,13 +54,22 @@ interface SalarySettlementParams {
   staffId: string;
   staffName: string;
   settlementMonth: string;
+  /**
+   * Take-home accrued BEFORE advance & loan adjustments. Equals
+   *   (Basic + HRA + Allowances) pro-rated + Incentives + Bonus + Overtime
+   *   − Leave − Discipline − Employee PF − Employee ESI − PT
+   */
   grossSalary: number;
   leaveDeduction: number;
   advanceAdjustment: number;
+  bonus?: number;
+  overtimeAmount?: number;
   pfEmployee?: number;
   pfEmployer?: number;
   esiEmployee?: number;
   esiEmployer?: number;
+  ptAmount?: number;
+  loanEmiTotal?: number;
   settlementId: string;
   createdBy: string;
 }
@@ -115,13 +124,17 @@ const ACCOUNT_CODES = {
   CASH: '1000',
   BANK: '1100',
   STAFF_ADVANCES: '1200',
+  STAFF_LOANS: '1250',
   PETTY_CASH: '1300',
   STAFF_PAYABLE: '2000',
   EPF_PAYABLE: '2100',
   ESI_PAYABLE: '2200',
+  PT_PAYABLE: '2300',
   SALARY_EXPENSE: '5000',
   EMPLOYER_PF_EXPENSE: '5050',
   EMPLOYER_ESI_EXPENSE: '5060',
+  BONUS_EXPENSE: '5070',
+  OVERTIME_EXPENSE: '5080',
   TRAVEL_EXPENSE: '5100',
   FOOD_EXPENSE: '5200',
   LOGISTICS_EXPENSE: '5300',
