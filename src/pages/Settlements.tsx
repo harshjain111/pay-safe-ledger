@@ -537,7 +537,11 @@ export default function Settlements() {
         grossSalary: calculation.grossSalary,
         leaveDeduction: calculation.leaveDeduction,
         advanceAdjustment: calculation.advanceToAdjust,
-        settlementId: '', // Will be updated after settlement record is created
+        pfEmployee: calculation.pfEmployee,
+        pfEmployer: calculation.pfEmployer,
+        esiEmployee: calculation.esiEmployee,
+        esiEmployer: calculation.esiEmployer,
+        settlementId: '',
         createdBy: user.id,
       });
 
