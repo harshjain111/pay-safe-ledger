@@ -30,9 +30,12 @@ import {
   Wallet,
   TrendingUp,
   CreditCard,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
+import { downloadBulkPayslipsPDF } from '@/lib/payslip-pdf';
 import type { Staff, SalarySettlement } from '@/types/database';
 
 interface StaffWithFinancials extends Staff {
@@ -264,7 +267,35 @@ export default function SalariesAdvances() {
               <SelectItem value="paid">Paid</SelectItem>
             </SelectContent>
           </Select>
+      </div>
+
+      {isOwner && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={async () => {
+              const { data, error } = await supabase
+                .from('salary_settlements')
+                .select('*, staff:staff_id(full_name, employee_id, designation, department, date_of_joining, bank_account_number, bank_name, bank_ifsc)')
+                .eq('settlement_month', selectedMonth)
+                .eq('status', 'settled');
+              if (error || !data?.length) {
+                toast({ title: 'No payslips', description: 'No settled salaries found for this month.', variant: 'destructive' });
+                return;
+              }
+              downloadBulkPayslipsPDF(
+                selectedMonth,
+                data.map((s: any) => ({ staff: s.staff, settlement: s })),
+              );
+            }}
+          >
+            <Download className="h-4 w-4" />
+            Download All Payslips
+          </Button>
         </div>
+      )}
       </div>
 
       {/* Staff Grid */}
