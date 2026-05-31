@@ -137,6 +137,22 @@ export default function StaffForm() {
         setIsActive(data.is_active ?? true);
         setExistingUserId(data.user_id);
 
+        // HR profile
+        setPhotoUrl(data.photo_url || null);
+        setReportingManagerId(data.reporting_manager_id || '');
+        setLocation(data.location || '');
+        setAddress(data.address || '');
+        setDateOfBirth(data.date_of_birth || '');
+        setGender(data.gender || '');
+        setBloodGroup(data.blood_group || '');
+        setEmergencyName(data.emergency_contact_name || '');
+        setEmergencyPhone(data.emergency_contact_phone || '');
+        setEmergencyRelation(data.emergency_contact_relation || '');
+        setBankAccountName(data.bank_account_name || '');
+        setBankAccountNumber(data.bank_account_number || '');
+        setBankIfsc(data.bank_ifsc || '');
+        setBankName(data.bank_name || '');
+
         // Fetch role if user_id exists
         if (data.user_id) {
           const { data: roleData } = await supabase
@@ -149,6 +165,15 @@ export default function StaffForm() {
             setRole(roleData.role);
           }
         }
+
+        // Load potential managers (other active staff)
+        const { data: mgrs } = await supabase
+          .from('staff')
+          .select('id, full_name')
+          .eq('is_active', true)
+          .neq('id', id!)
+          .order('full_name');
+        setManagers(mgrs || []);
       }
     } catch (error) {
       console.error('Error fetching staff:', error);
@@ -161,6 +186,7 @@ export default function StaffForm() {
       setIsLoading(false);
     }
   };
+
 
   const generateEmployeeId = () => {
     const prefix = 'EMP';
