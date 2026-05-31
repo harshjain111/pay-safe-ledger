@@ -933,6 +933,9 @@ export type Database = {
           pf_employee_rate: number
           pf_employer_rate: number
           pf_enabled: boolean
+          pt_enabled: boolean
+          pt_min_gross: number
+          pt_monthly_amount: number
           singleton: boolean
           updated_at: string
           updated_by: string | null
@@ -947,6 +950,9 @@ export type Database = {
           pf_employee_rate?: number
           pf_employer_rate?: number
           pf_enabled?: boolean
+          pt_enabled?: boolean
+          pt_min_gross?: number
+          pt_monthly_amount?: number
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -961,6 +967,9 @@ export type Database = {
           pf_employee_rate?: number
           pf_employer_rate?: number
           pf_enabled?: boolean
+          pt_enabled?: boolean
+          pt_min_gross?: number
+          pt_monthly_amount?: number
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1057,11 +1066,36 @@ export type Database = {
           },
         ]
       }
+      salary_settlement_loan_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          loan_id: string
+          settlement_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          loan_id: string
+          settlement_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          loan_id?: string
+          settlement_id?: string
+        }
+        Relationships: []
+      }
       salary_settlements: {
         Row: {
           advances_adjusted: number | null
           balance_payable: number
           base_salary: number
+          bonus: number
           closing_advance_balance: number | null
           created_at: string
           created_by: string | null
@@ -1069,6 +1103,9 @@ export type Database = {
           deduction_adjusted_by: string | null
           deduction_adjustment_reason: string | null
           discipline_fine: number
+          earnings_allowances: number
+          earnings_basic: number
+          earnings_hra: number
           esi_base: number | null
           esi_employee: number
           esi_employer: number
@@ -1076,12 +1113,17 @@ export type Database = {
           esi_rate_employer: number | null
           final_deduction_days: number | null
           id: string
+          incentives: number
           journal_entry_id: string | null
           leave_days: number | null
           leave_deduction: number | null
           ledger_entry_id: string | null
+          loan_emi_total: number
           net_salary: number
           opening_advance_balance: number | null
+          overtime_amount: number
+          overtime_auto: number
+          overtime_override_reason: string | null
           paid_at: string | null
           paid_by: string | null
           paid_by_user_name: string | null
@@ -1092,6 +1134,7 @@ export type Database = {
           pf_employer: number
           pf_rate_employee: number | null
           pf_rate_employer: number | null
+          pt_amount: number
           settled_at: string | null
           settled_by: string | null
           settlement_month: string
@@ -1104,6 +1147,7 @@ export type Database = {
           advances_adjusted?: number | null
           balance_payable: number
           base_salary: number
+          bonus?: number
           closing_advance_balance?: number | null
           created_at?: string
           created_by?: string | null
@@ -1111,6 +1155,9 @@ export type Database = {
           deduction_adjusted_by?: string | null
           deduction_adjustment_reason?: string | null
           discipline_fine?: number
+          earnings_allowances?: number
+          earnings_basic?: number
+          earnings_hra?: number
           esi_base?: number | null
           esi_employee?: number
           esi_employer?: number
@@ -1118,12 +1165,17 @@ export type Database = {
           esi_rate_employer?: number | null
           final_deduction_days?: number | null
           id?: string
+          incentives?: number
           journal_entry_id?: string | null
           leave_days?: number | null
           leave_deduction?: number | null
           ledger_entry_id?: string | null
+          loan_emi_total?: number
           net_salary: number
           opening_advance_balance?: number | null
+          overtime_amount?: number
+          overtime_auto?: number
+          overtime_override_reason?: string | null
           paid_at?: string | null
           paid_by?: string | null
           paid_by_user_name?: string | null
@@ -1134,6 +1186,7 @@ export type Database = {
           pf_employer?: number
           pf_rate_employee?: number | null
           pf_rate_employer?: number | null
+          pt_amount?: number
           settled_at?: string | null
           settled_by?: string | null
           settlement_month: string
@@ -1146,6 +1199,7 @@ export type Database = {
           advances_adjusted?: number | null
           balance_payable?: number
           base_salary?: number
+          bonus?: number
           closing_advance_balance?: number | null
           created_at?: string
           created_by?: string | null
@@ -1153,6 +1207,9 @@ export type Database = {
           deduction_adjusted_by?: string | null
           deduction_adjustment_reason?: string | null
           discipline_fine?: number
+          earnings_allowances?: number
+          earnings_basic?: number
+          earnings_hra?: number
           esi_base?: number | null
           esi_employee?: number
           esi_employer?: number
@@ -1160,12 +1217,17 @@ export type Database = {
           esi_rate_employer?: number | null
           final_deduction_days?: number | null
           id?: string
+          incentives?: number
           journal_entry_id?: string | null
           leave_days?: number | null
           leave_deduction?: number | null
           ledger_entry_id?: string | null
+          loan_emi_total?: number
           net_salary?: number
           opening_advance_balance?: number | null
+          overtime_amount?: number
+          overtime_auto?: number
+          overtime_override_reason?: string | null
           paid_at?: string | null
           paid_by?: string | null
           paid_by_user_name?: string | null
@@ -1176,6 +1238,7 @@ export type Database = {
           pf_employer?: number
           pf_rate_employee?: number | null
           pf_rate_employer?: number | null
+          pt_amount?: number
           settled_at?: string | null
           settled_by?: string | null
           settlement_month?: string
@@ -1258,6 +1321,7 @@ export type Database = {
       staff: {
         Row: {
           attendance_tracked: boolean
+          basic_salary: number
           created_at: string
           created_by: string | null
           date_of_joining: string
@@ -1268,17 +1332,21 @@ export type Database = {
           esi_employee_rate: number | null
           esi_enrolled: boolean
           full_name: string
+          hra: number
           id: string
           is_active: boolean | null
           monthly_salary: number
+          other_allowances: number
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
+          pt_exempt: boolean
           updated_at: string
           user_id: string | null
         }
         Insert: {
           attendance_tracked?: boolean
+          basic_salary?: number
           created_at?: string
           created_by?: string | null
           date_of_joining?: string
@@ -1289,17 +1357,21 @@ export type Database = {
           esi_employee_rate?: number | null
           esi_enrolled?: boolean
           full_name: string
+          hra?: number
           id?: string
           is_active?: boolean | null
           monthly_salary?: number
+          other_allowances?: number
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
+          pt_exempt?: boolean
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           attendance_tracked?: boolean
+          basic_salary?: number
           created_at?: string
           created_by?: string | null
           date_of_joining?: string
@@ -1310,14 +1382,59 @@ export type Database = {
           esi_employee_rate?: number | null
           esi_enrolled?: boolean
           full_name?: string
+          hra?: number
           id?: string
           is_active?: boolean | null
           monthly_salary?: number
+          other_allowances?: number
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
+          pt_exempt?: boolean
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      staff_loans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          emi_amount: number
+          id: string
+          notes: string | null
+          principal: number
+          remaining_balance: number
+          staff_id: string
+          start_month: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          emi_amount: number
+          id?: string
+          notes?: string | null
+          principal: number
+          remaining_balance: number
+          staff_id: string
+          start_month: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          emi_amount?: number
+          id?: string
+          notes?: string | null
+          principal?: number
+          remaining_balance?: number
+          staff_id?: string
+          start_month?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
