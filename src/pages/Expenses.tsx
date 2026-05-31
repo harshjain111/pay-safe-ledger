@@ -49,7 +49,6 @@ export default function Expenses() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   useEffect(() => {
