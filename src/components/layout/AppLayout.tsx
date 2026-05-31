@@ -339,12 +339,12 @@ function AppSidebar() {
           "flex items-center gap-3 transition-all duration-200",
           isCollapsed && "justify-center"
         )}>
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shrink-0">
-            <Wallet className="h-4 w-4 text-white" />
+          <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0 p-1">
+            <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-full w-full object-contain" />
           </div>
           {!isCollapsed && (
-            <div className="animate-fade-in">
-              <span className="text-lg font-bold text-sidebar-foreground">Smokzy</span>
+            <div className="animate-fade-in leading-tight">
+              <span className="text-sm font-bold text-sidebar-foreground block">Konnect 2 Hospitality</span>
               <p className="text-[10px] text-sidebar-muted">Payroll System</p>
             </div>
           )}

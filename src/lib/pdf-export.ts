@@ -20,7 +20,7 @@ export function exportToPDF(options: PDFExportOptions) {
   // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Smokzy', 14, 20);
+  doc.text('Konnect 2 Hospitality', 14, 20);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -101,7 +101,7 @@ export function exportToPDF(options: PDFExportOptions) {
       );
       
       doc.text(
-        'Smokzy Payroll - Confidential',
+        'Konnect 2 Hospitality Payroll - Confidential',
         14,
         doc.internal.pageSize.getHeight() - 10
       );

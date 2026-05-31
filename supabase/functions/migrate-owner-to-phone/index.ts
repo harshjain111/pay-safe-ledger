@@ -10,7 +10,7 @@ const corsHeaders = {
 // Convert phone to pseudo-email for Supabase auth
 const phoneToEmail = (phone: string): string => {
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  return `${cleanPhone}@phone.smokzy.internal`;
+  return `${cleanPhone}@phone.konnect2hospitality.internal`;
 };
 
 serve(async (req) => {

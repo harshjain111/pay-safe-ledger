@@ -15,7 +15,7 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 
 const phoneToEmail = (phone: string) => {
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  return `${cleanPhone}@phone.smokzy.internal`;
+  return `${cleanPhone}@phone.konnect2hospitality.internal`;
 };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -217,11 +217,9 @@ export default function Auth() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
-              <Wallet className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-foreground">Smokzy</span>
+          <div className="inline-flex flex-col items-center justify-center gap-3 mb-4">
+            <img src="/logo.webp" alt="Konnect 2 Hospitality" className="h-20 w-auto" />
+            <span className="text-2xl font-bold text-foreground tracking-tight">Konnect 2 Hospitality</span>
           </div>
           <p className="text-muted-foreground">Internal Payroll & Accounting System</p>
         </div>
@@ -337,7 +335,7 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Smokzy. All rights reserved.</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Konnect 2 Hospitality. All rights reserved.</p>
       </div>
     </div>
   );
