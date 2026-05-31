@@ -30,9 +30,12 @@ import {
   Wallet,
   TrendingUp,
   CreditCard,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
+import { downloadBulkPayslipsPDF } from '@/lib/payslip-pdf';
 import type { Staff, SalarySettlement } from '@/types/database';
 
 interface StaffWithFinancials extends Staff {
