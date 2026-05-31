@@ -19,7 +19,7 @@ import {
 import { Amount } from '@/components/ui/amount';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX } from 'lucide-react';
+import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX, Download } from 'lucide-react';
 import { format, subMonths, getDaysInMonth, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { EnhancedSettlementConfirmDialog } from '@/components/settlements/EnhancedSettlementConfirmDialog';
@@ -28,6 +28,7 @@ import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustme
 import { LeaveDeductionSection } from '@/components/settlements/LeaveDeductionSection';
 import { createSalarySettlementEntry } from '@/lib/journal-entries';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
+import { downloadPayslipPDF } from '@/lib/payslip-pdf';
 import {
   getStaffStructure,
   prorateStructure,
@@ -751,8 +752,31 @@ export default function Settlements() {
             {isAlreadySettled && (
               <Alert className="border-warning bg-warning/10">
                 <Lock className="h-4 w-4 text-warning" />
-                <AlertDescription className="text-warning">
-                  Salary for this month is already settled and cannot be modified.
+                <AlertDescription className="text-warning flex items-center justify-between gap-3">
+                  <span>Salary for this month is already settled and cannot be modified.</span>
+                  {selectedStaff && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={async () => {
+                        const { data, error } = await supabase
+                          .from('salary_settlements')
+                          .select('*')
+                          .eq('staff_id', selectedStaffId)
+                          .eq('settlement_month', selectedMonth)
+                          .maybeSingle();
+                        if (error || !data) {
+                          toast.error('Could not load settlement for payslip');
+                          return;
+                        }
+                        downloadPayslipPDF(selectedStaff as any, data as any);
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download Payslip
+                    </Button>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
