@@ -10,18 +10,6 @@ interface NotificationRecipients {
   staffUserId?: string;
 }
 
-/**
- * Send Telegram message to owner via edge function (fire-and-forget)
- */
-async function sendTelegramToOwner(title: string, message: string): Promise<void> {
-  try {
-    await supabase.functions.invoke('send-telegram', {
-      body: { title, message },
-    });
-  } catch (error) {
-    console.error('Failed to send Telegram notification:', error);
-  }
-}
 
 /**
  * Send notification to specific user
