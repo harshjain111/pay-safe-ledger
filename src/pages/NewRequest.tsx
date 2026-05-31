@@ -166,7 +166,7 @@ export default function NewRequest() {
             {canRequestForOthers && (
               <div className="space-y-2">
                 <Label htmlFor="staff" className="text-sm">Staff Member *</Label>
-                <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                <Select value={selectedStaff || undefined} onValueChange={setSelectedStaff}>
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select staff member" />
                   </SelectTrigger>
