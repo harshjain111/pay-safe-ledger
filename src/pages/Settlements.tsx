@@ -153,20 +153,21 @@ export default function Settlements() {
     if (canAccessSettlements && selectedStaffId && selectedMonth) {
       calculateSettlement();
     }
-  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings]);
+  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings, incentivesInput, bonusInput, overtimeOverride]);
 
   // Recalculate netPayable when advance adjustment changes (without resetting overrides)
   useEffect(() => {
     if (calculation) {
-      const maxAdjustable = Math.min(calculation.advancesOutstanding, calculation.grossSalary);
+      const loanTotal = calculation.loanEmiTotal || 0;
+      const maxAdjustable = Math.min(calculation.advancesOutstanding, Math.max(0, calculation.grossSalary - loanTotal));
       const clampedAdjustment = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = calculation.grossSalary - clampedAdjustment;
+      const netPayable = Math.max(0, calculation.grossSalary - clampedAdjustment - loanTotal);
       const carryForward = calculation.advancesOutstanding - clampedAdjustment;
-      
+
       setCalculation(prev => prev ? {
         ...prev,
         advanceToAdjust: clampedAdjustment,
-        netPayable: Math.max(0, netPayable),
+        netPayable,
         carryForwardAdvance: carryForward,
       } : null);
     }
