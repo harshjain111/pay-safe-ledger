@@ -25,12 +25,6 @@ import { toast } from '@/hooks/use-toast';
 import type { ExpenseCategory, StaffPublic } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
 
-interface Event {
-  id: string;
-  event_date: string;
-  location: string;
-  client_name: string | null;
-}
 
 interface CustomCategory {
   id: string;
@@ -60,9 +54,6 @@ export default function NewExpense() {
   const [description, setDescription] = useState('');
   const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [proofFiles, setProofFiles] = useState<File[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isFetchingEvents, setIsFetchingEvents] = useState(true);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
@@ -83,7 +74,6 @@ export default function NewExpense() {
     } else {
       setIsFetchingStaff(false);
     }
-    fetchEvents();
     fetchCustomCategories();
     fetchClubs();
   }, [isPersonalRequest, staffData?.id, canRequestForOthers]);
@@ -104,36 +94,6 @@ export default function NewExpense() {
       .eq('is_active', true)
       .order('name');
     if (data) setClubs(data);
-  };
-
-  const fetchEvents = async () => {
-    try {
-      setIsFetchingEvents(true);
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, event_date, location, client_name')
-        .order('event_date', { ascending: false });
-
-      if (error) throw error;
-      
-      // Sort events by proximity to today - closest dates first
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const sortedEvents = (data || []).sort((a, b) => {
-        const dateA = new Date(a.event_date);
-        const dateB = new Date(b.event_date);
-        const diffA = Math.abs(dateA.getTime() - today.getTime());
-        const diffB = Math.abs(dateB.getTime() - today.getTime());
-        return diffA - diffB;
-      });
-      
-      setEvents(sortedEvents);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    } finally {
-      setIsFetchingEvents(false);
-    }
   };
 
   const fetchStaffList = async () => {
@@ -264,7 +224,6 @@ export default function NewExpense() {
           status: asDraft ? 'draft' as const : 'pending' as const,
           submitted_at: asDraft ? null : new Date().toISOString(),
           created_by: user?.id,
-          event_id: selectedEventId || null,
           club_id: selectedClubId || null,
         })
         .select()
@@ -466,27 +425,6 @@ export default function NewExpense() {
             </Popover>
           </div>
 
-          {/* Related Event (Optional) */}
-          <div className="space-y-2">
-            <Label htmlFor="event" className="text-sm">Related Event (Optional)</Label>
-            <Select value={selectedEventId || 'none'} onValueChange={(v) => setSelectedEventId(v === 'none' ? '' : v)}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select an event (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No event</SelectItem>
-                {events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {format(new Date(event.event_date), 'dd MMM yyyy')} - {event.location}
-                    {event.client_name && ` (${event.client_name})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Optionally link this expense to an event or party
-            </p>
-          </div>
 
           {/* Description */}
           <div className="space-y-2">
