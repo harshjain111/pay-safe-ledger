@@ -58,6 +58,25 @@ export default function StaffForm() {
   const [originalSalary, setOriginalSalary] = useState(0);
   const [existingUserId, setExistingUserId] = useState<string | null>(null);
 
+  // Optional HR profile fields (edit mode)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [reportingManagerId, setReportingManagerId] = useState<string>('');
+  const [location, setLocation] = useState('');
+  const [address, setAddress] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [emergencyRelation, setEmergencyRelation] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIfsc, setBankIfsc] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [managers, setManagers] = useState<{ id: string; full_name: string }[]>([]);
+
+
   // Auto-generate employee ID on mount for new staff
   useEffect(() => {
     if (!isEditing) {
