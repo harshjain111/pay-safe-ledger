@@ -245,6 +245,7 @@ export default function StaffDetails() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <Avatar className="h-20 w-20 text-2xl">
+                {staff.photo_url && <AvatarImage src={staff.photo_url} alt={staff.full_name} />}
                 <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
                   {getInitials(staff.full_name)}
                 </AvatarFallback>
