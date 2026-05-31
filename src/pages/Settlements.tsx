@@ -38,11 +38,32 @@ interface SettlementCalculation {
    deductionAdjustmentReason?: string;
   leaveDeduction: number;
   disciplineFine: number;
+  pfEmployee: number;
+  pfEmployer: number;
+  pfBase: number;
+  pfRateEmployee: number;
+  pfRateEmployer: number;
+  esiEmployee: number;
+  esiEmployer: number;
+  esiBase: number;
+  esiRateEmployee: number;
+  esiRateEmployer: number;
+  esiEligible: boolean;
   grossSalary: number;
   advancesOutstanding: number;
   advanceToAdjust: number;
   netPayable: number;
   carryForwardAdvance: number;
+}
+
+interface StatutorySettings {
+  pf_enabled: boolean;
+  pf_employee_rate: number;
+  pf_employer_rate: number;
+  pf_base_cap: number;
+  esi_enabled: boolean;
+  esi_employer_rate: number;
+  esi_eligibility_ceiling: number;
 }
 
 interface ValidationResult {
@@ -81,10 +102,12 @@ export default function Settlements() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [statutorySettings, setStatutorySettings] = useState<StatutorySettings | null>(null);
 
   useEffect(() => {
     if (canAccessSettlements) {
       fetchStaff();
+      fetchStatutorySettings();
     }
   }, [canAccessSettlements]);
 
@@ -150,6 +173,20 @@ export default function Settlements() {
       setStaff(data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchStatutorySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_statutory_settings')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) setStatutorySettings(data as StatutorySettings);
+    } catch (error) {
+      console.error('Error fetching statutory settings:', error);
     }
   };
 
