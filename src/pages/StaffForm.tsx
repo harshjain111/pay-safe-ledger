@@ -858,6 +858,84 @@ export default function StaffForm() {
                   </p>
                 </div>
               )}
+
+              {isEditing && (
+                <>
+                  <div className="pt-2">
+                    <Label className="text-sm font-semibold">Salary Structure (Optional)</Label>
+                    <p className="text-xs text-muted-foreground">Used for PF/ESI base and payslip breakdown. Leave at 0 to treat the full monthly salary as Basic.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Basic (₹)</Label>
+                      <AmountInput value={basicSalary} onChange={setBasicSalary} placeholder="0.00" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">HRA (₹)</Label>
+                      <AmountInput value={hra} onChange={setHra} placeholder="0.00" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Other Allowances (₹)</Label>
+                      <AmountInput value={otherAllowances} onChange={setOtherAllowances} placeholder="0.00" />
+                    </div>
+                  </div>
+                  {basicSalary + hra + otherAllowances > 0 && Math.abs((basicSalary + hra + otherAllowances) - monthlySalary) > 0.5 && (
+                    <Alert className="border-warning bg-warning/10">
+                      <AlertCircle className="h-4 w-4 text-warning" />
+                      <AlertDescription className="text-warning text-xs">
+                        Structure total (₹{(basicSalary + hra + otherAllowances).toLocaleString('en-IN')}) does not match Monthly Salary (₹{monthlySalary.toLocaleString('en-IN')}).
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="pt-3 border-t">
+                    <Label className="text-sm font-semibold">Statutory Enrollment</Label>
+                    <p className="text-xs text-muted-foreground">PF / ESI / PT apply only if both the company-wide setting and this staff are enrolled.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <Label className="text-sm">Enrolled in PF</Label>
+                        <p className="text-[10px] text-muted-foreground">Deducts EPF employee share & adds employer contribution</p>
+                      </div>
+                      <Switch checked={pfEnrolled} onCheckedChange={setPfEnrolled} />
+                    </div>
+                    {pfEnrolled && (
+                      <div className="space-y-1.5 pl-4">
+                        <Label className="text-xs">PF Employee Rate Override (%) — optional</Label>
+                        <Input type="number" step="0.01" placeholder="Leave blank to use company default"
+                          value={pfEmployeeRateOverride}
+                          onChange={(e) => setPfEmployeeRateOverride(e.target.value)} />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <Label className="text-sm">Enrolled in ESI</Label>
+                        <p className="text-[10px] text-muted-foreground">Only applies if gross ≤ company-wide eligibility ceiling</p>
+                      </div>
+                      <Switch checked={esiEnrolled} onCheckedChange={setEsiEnrolled} />
+                    </div>
+                    {esiEnrolled && (
+                      <div className="space-y-1.5 pl-4">
+                        <Label className="text-xs">ESI Employee Rate (%)</Label>
+                        <Input type="number" step="0.01" placeholder="0.75"
+                          value={esiEmployeeRate}
+                          onChange={(e) => setEsiEmployeeRate(e.target.value)} />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <Label className="text-sm">Exempt from Professional Tax</Label>
+                        <p className="text-[10px] text-muted-foreground">PT is skipped for this staff even if company-wide PT is on</p>
+                      </div>
+                      <Switch checked={ptExempt} onCheckedChange={setPtExempt} />
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
