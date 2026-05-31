@@ -25,12 +25,6 @@ import { toast } from '@/hooks/use-toast';
 import type { ExpenseCategory, StaffPublic } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
 
-interface Event {
-  id: string;
-  event_date: string;
-  location: string;
-  client_name: string | null;
-}
 
 interface CustomCategory {
   id: string;
