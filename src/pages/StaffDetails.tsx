@@ -68,6 +68,16 @@ export default function StaffDetails() {
           setStaffRole(roleData.role as AppRole);
         }
       }
+
+      // Fetch reporting manager name
+      if (data?.reporting_manager_id) {
+        const { data: mgr } = await supabase
+          .from('staff')
+          .select('full_name')
+          .eq('id', data.reporting_manager_id)
+          .single();
+        if (mgr) setManagerName(mgr.full_name);
+      }
     } catch (error) {
       console.error('Error fetching staff:', error);
       toast({
