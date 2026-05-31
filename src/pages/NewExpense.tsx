@@ -54,9 +54,6 @@ export default function NewExpense() {
   const [description, setDescription] = useState('');
   const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [proofFiles, setProofFiles] = useState<File[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isFetchingEvents, setIsFetchingEvents] = useState(true);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
