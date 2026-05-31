@@ -74,7 +74,6 @@ export default function NewExpense() {
     } else {
       setIsFetchingStaff(false);
     }
-    fetchEvents();
     fetchCustomCategories();
     fetchClubs();
   }, [isPersonalRequest, staffData?.id, canRequestForOthers]);
