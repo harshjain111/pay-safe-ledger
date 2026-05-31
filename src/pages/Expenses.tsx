@@ -18,7 +18,6 @@ import {
   X, 
   Eye,
   ArrowRight,
-  Calendar,
   Ban
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -29,7 +28,6 @@ import { ExpenseDetailsDialog } from '@/components/expenses/ExpenseDetailsDialog
 import { ApproveExpenseDialog } from '@/components/expenses/ApproveExpenseDialog';
 import { RejectExpenseDialog } from '@/components/expenses/RejectExpenseDialog';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
-import { CreateEventDialog } from '@/components/events/CreateEventDialog';
 
 export default function Expenses() {
   const { 
