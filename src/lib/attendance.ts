@@ -1,6 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeAndLogDiscipline } from '@/lib/discipline';
-import { notifyCheckinWhatsapp, notifyCheckoutWhatsapp } from '@/lib/attendance-whatsapp';
 
 export type AttendanceStatus = 'active' | 'on_break' | 'completed';
 
