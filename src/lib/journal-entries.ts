@@ -57,6 +57,10 @@ interface SalarySettlementParams {
   grossSalary: number;
   leaveDeduction: number;
   advanceAdjustment: number;
+  pfEmployee?: number;
+  pfEmployer?: number;
+  esiEmployee?: number;
+  esiEmployer?: number;
   settlementId: string;
   createdBy: string;
 }
@@ -113,7 +117,11 @@ const ACCOUNT_CODES = {
   STAFF_ADVANCES: '1200',
   PETTY_CASH: '1300',
   STAFF_PAYABLE: '2000',
+  EPF_PAYABLE: '2100',
+  ESI_PAYABLE: '2200',
   SALARY_EXPENSE: '5000',
+  EMPLOYER_PF_EXPENSE: '5050',
+  EMPLOYER_ESI_EXPENSE: '5060',
   TRAVEL_EXPENSE: '5100',
   FOOD_EXPENSE: '5200',
   LOGISTICS_EXPENSE: '5300',
