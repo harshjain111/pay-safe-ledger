@@ -120,12 +120,12 @@ export default function Settlements() {
     }
   }, [selectedStaffId, selectedMonth, canAccessSettlements]);
 
-  // Recalculate when deduction days change
+  // Recalculate when deduction days change OR statutory settings load
   useEffect(() => {
     if (canAccessSettlements && selectedStaffId && selectedMonth) {
       calculateSettlement();
     }
-  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements]);
+  }, [selectedStaffId, selectedMonth, finalDeductionDays, canAccessSettlements, statutorySettings]);
 
   // Recalculate netPayable when advance adjustment changes (without resetting overrides)
   useEffect(() => {
