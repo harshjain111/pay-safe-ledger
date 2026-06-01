@@ -57,6 +57,12 @@ export default defineConfig(({ mode }) => {
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Self-heal: when a corrected build deploys, the new service worker
+        // activates immediately and purges precaches from a previous (possibly
+        // broken) build, so returning visitors aren't trapped on a stale shell.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           {
