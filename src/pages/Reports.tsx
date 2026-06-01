@@ -59,21 +59,28 @@ export default function Reports() {
   }, []);
 
   const fetchSummaryReport = useCallback(async () => {
+    // Salary is owner-only: non-owners never fetch monthly_salary, so payroll
+    // figures never reach an accountant/admin/CA browser. They still get the
+    // active-staff count (no compensation data) for the Active Staff tile.
     const [staffData, settlements, advances, expenses] = await Promise.all([
-      supabase.from('staff').select('id, monthly_salary').eq('is_active', true),
+      isOwner
+        ? supabase.from('staff').select('id, monthly_salary').eq('is_active', true)
+        : supabase.from('staff').select('id').eq('is_active', true),
       supabase.from('salary_settlements').select('balance_payable').eq('settlement_month', selectedMonth).eq('status', 'settled'),
       supabase.from('ledger_entries').select('debit, credit').eq('tag', 'advance').gte('entry_date', `${selectedMonth}-01`).lte('entry_date', `${selectedMonth}-31`),
       supabase.from('expenses').select('amount').eq('status', 'reimbursed').gte('expense_date', `${selectedMonth}-01`).lte('expense_date', `${selectedMonth}-31`),
     ]);
 
     setSummaryStats({
-      totalPayroll: staffData.data?.reduce((sum, s) => sum + toAmount(s.monthly_salary), 0) || 0,
+      totalPayroll: isOwner
+        ? (staffData.data as Array<{ monthly_salary?: number }> | null)?.reduce((sum, s) => sum + toAmount(s.monthly_salary), 0) || 0
+        : 0,
       totalAdvances: advances.data?.reduce((sum, a) => sum + toAmount(a.debit) - toAmount(a.credit), 0) || 0,
       totalExpenses: expenses.data?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
       totalPayments: settlements.data?.reduce((sum, s) => sum + toAmount(s.balance_payable), 0) || 0,
       staffCount: staffData.data?.length || 0,
     });
-  }, [selectedMonth]);
+  }, [selectedMonth, isOwner]);
 
   const fetchLedgerReport = useCallback(async () => {
     let query = supabase

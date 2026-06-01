@@ -26,6 +26,8 @@ import { uploadStaffPhoto } from '@/lib/staff-uploads';
 import { format } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { staffSelect } from '@/lib/staff-fields';
+import type { Staff } from '@/types/database';
 
 export default function StaffForm() {
   const navigate = useNavigate();
@@ -98,13 +100,17 @@ export default function StaffForm() {
 
   const fetchStaffData = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // Non-owners receive only non-salary columns (staffSelect); salary, bank
+      // and statutory fields never reach a non-owner editor's browser. The form
+      // already refuses to write those fields unless the user is the owner.
+      const { data: row, error } = await supabase
         .from('staff')
-        .select('*')
+        .select(staffSelect(isOwner))
         .eq('id', id)
         .single();
 
       if (error) throw error;
+      const data = row as unknown as Staff | null;
 
       if (data) {
         setFullName(data.full_name);
@@ -177,7 +183,7 @@ export default function StaffForm() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, isOwner]);
 
   useEffect(() => {
     // Access control

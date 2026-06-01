@@ -41,6 +41,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { Staff } from '@/types/database';
+import { staffSelect } from '@/lib/staff-fields';
 
 export default function StaffList() {
   const { canViewSalaries, isOwner, isAdmin, isAccountant, canEditStaff } = useAuth();
@@ -54,18 +55,23 @@ export default function StaffList() {
   const canAddStaff = isOwner || isAdmin || isAccountant;
 
   useEffect(() => {
+    // Re-fetch when the owner flag resolves/changes: the selected columns depend
+    // on isOwner (owners get salary, others don't), so a stale value must refetch.
     fetchStaff();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner]);
 
   const fetchStaff = async () => {
     try {
+      // Non-owners receive only non-salary columns (staffSelect), so confidential
+      // compensation data is never transmitted to accountant/admin/staff sessions.
       const { data, error } = await supabase
         .from('staff')
-        .select('*')
+        .select(staffSelect(isOwner))
         .order('full_name');
 
       if (error) throw error;
-      setStaff(data as Staff[] || []);
+      setStaff((data as unknown as Staff[]) || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
     } finally {

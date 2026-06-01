@@ -27,6 +27,7 @@ import { EmploymentHistoryCard } from '@/components/staff/EmploymentHistoryCard'
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import type { Staff, AppRole } from '@/types/database';
+import { staffSelect } from '@/lib/staff-fields';
 
 export default function StaffDetails() {
   const navigate = useNavigate();
@@ -41,14 +42,17 @@ export default function StaffDetails() {
 
   const fetchStaffDetails = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // Non-owners receive only non-salary columns (staffSelect), so salary and
+      // bank details are never transmitted to a non-owner session.
+      const { data: row, error } = await supabase
         .from('staff')
-        .select('*')
+        .select(staffSelect(isOwner))
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      setStaff(data as Staff);
+      const data = row as unknown as Staff | null;
+      setStaff(data);
 
       // Fetch role if user_id exists
       if (data?.user_id) {
@@ -83,7 +87,7 @@ export default function StaffDetails() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, isOwner]);
 
   useEffect(() => {
     if (id) fetchStaffDetails();

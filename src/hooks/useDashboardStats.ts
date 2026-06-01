@@ -49,6 +49,7 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
   // Parallel fetches for all stats
   const [
     staffResult,
+    missingSalaryResult,
     pendingExpensesResult,
     pendingRequestsResult,
     approvedExpensesResult,
@@ -59,8 +60,20 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
     journalLinesResult,
     completedTodayResult,
   ] = await Promise.all([
-    // Active staff and missing salary
-    supabase.from('staff').select('id, monthly_salary, is_active'),
+    // Active staff. Salary is owner-only and must never be sent to a non-owner
+    // browser, so only owners pull monthly_salary here.
+    isOwner
+      ? supabase.from('staff').select('id, monthly_salary, is_active')
+      : supabase.from('staff').select('id, is_active'),
+
+    // Count of active staff missing a salary. A head/count query returns only a
+    // number (no amounts), so admins keep their "missing salary" tile without
+    // any compensation value leaving the database.
+    supabase
+      .from('staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .or('monthly_salary.is.null,monthly_salary.eq.0'),
 
     // Pending expenses
     supabase.from('expenses').select('id, amount').eq('status', 'pending'),
@@ -105,10 +118,18 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
       .gte('created_at', `${today}T00:00:00`),
   ]);
 
-  const staffData = staffResult.data || [];
+  const staffData = (staffResult.data || []) as Array<{
+    id: string;
+    is_active: boolean;
+    monthly_salary?: number;
+  }>;
   const activeStaff = staffData.filter((s) => s.is_active);
-  const staffMissingSalary = activeStaff.filter((s) => !s.monthly_salary || s.monthly_salary === 0).length;
-  const monthlyPayroll = activeStaff.reduce((sum, s) => sum + Number(s.monthly_salary || 0), 0);
+  // staffMissingSalary comes from the count-only query (no amounts), so it is
+  // available to admins without shipping salary. monthlyPayroll is owner-only.
+  const staffMissingSalary = missingSalaryResult.count ?? 0;
+  const monthlyPayroll = isOwner
+    ? activeStaff.reduce((sum, s) => sum + Number(s.monthly_salary || 0), 0)
+    : 0;
 
   const pendingExpenses = pendingExpensesResult.data || [];
   const pendingRequests = pendingRequestsResult.data || [];

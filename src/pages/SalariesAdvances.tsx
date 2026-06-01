@@ -39,6 +39,7 @@ import { format, subMonths } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { downloadBulkPayslipsPDF } from '@/lib/payslip-pdf';
 import type { Staff, SalarySettlement } from '@/types/database';
+import { staffSelect } from '@/lib/staff-fields';
 
 interface StaffWithFinancials extends Staff {
   totalAdvanceOutstanding: number;
@@ -62,18 +63,20 @@ export default function SalariesAdvances() {
     try {
       setIsLoading(true);
 
-      // Fetch all active staff
-      const { data: staffData, error: staffError } = await supabase
+      // Fetch all active staff. Non-owners receive only non-salary columns
+      // (staffSelect) so compensation data never reaches their browser.
+      const { data: staffRows, error: staffError } = await supabase
         .from('staff')
-        .select('*')
+        .select(staffSelect(isOwner))
         .eq('is_active', true)
         .order('full_name');
 
       if (staffError) throw staffError;
+      const staffData = (staffRows as unknown as Staff[]) || [];
 
       // Fetch advance balances and settlement status for each staff
       const enrichedStaff = await Promise.all(
-        (staffData || []).map(async (s) => {
+        staffData.map(async (s) => {
           // Get outstanding advances
           const { data: advanceData } = await supabase
             .rpc('get_advances_outstanding', { _staff_id: s.id });
@@ -138,7 +141,7 @@ export default function SalariesAdvances() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, isOwner]);
 
   useEffect(() => {
     fetchStaffWithFinancials();
