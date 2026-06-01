@@ -178,6 +178,7 @@ export default function StaffList() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label="Search staff"
               placeholder="Search by name, ID, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -228,7 +229,7 @@ export default function StaffList() {
                         <StatusBadge status={member.is_active ? 'active' : 'inactive'} />
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                            <Button variant="ghost" size="icon" aria-label="Staff actions" className="h-7 w-7 sm:h-8 sm:w-8">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -365,7 +366,7 @@ export default function StaffList() {
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button variant="ghost" size="icon" aria-label="Staff actions" className="h-8 w-8">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>

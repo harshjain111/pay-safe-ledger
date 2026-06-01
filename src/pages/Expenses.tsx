@@ -177,6 +177,7 @@ export default function Expenses() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label="Search expenses"
             placeholder="Search expenses..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -259,6 +260,7 @@ export default function Expenses() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 sm:h-9 sm:w-9"
+                            aria-label="View expense details"
                             onClick={() => handleViewDetails(expense)}
                           >
                             <Eye className="h-4 w-4" />
@@ -271,6 +273,7 @@ export default function Expenses() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-success hover:text-success h-8 w-8 sm:h-9 sm:w-9"
+                                aria-label="Approve expense"
                                 onClick={() => handleApprove(expense)}
                               >
                                 <Check className="h-4 w-4" />
@@ -279,6 +282,7 @@ export default function Expenses() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
+                                aria-label="Reject expense"
                                 onClick={() => handleReject(expense)}
                               >
                                 <X className="h-4 w-4" />
@@ -302,6 +306,7 @@ export default function Expenses() {
                               variant="ghost"
                               size="icon"
                               className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
+                              aria-label="Cancel approval"
                               onClick={() => handleCancelApproval(expense)}
                               title="Cancel Approval"
                             >

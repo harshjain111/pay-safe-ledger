@@ -206,6 +206,7 @@ export default function UsersList() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label="Search users"
               placeholder="Search by name, phone, email, or role..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -290,7 +291,7 @@ export default function UsersList() {
                         <AlertDialog>
                           <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button variant="ghost" size="icon" aria-label="User actions" className="h-8 w-8">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>

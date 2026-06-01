@@ -1,10 +1,15 @@
-# Payroll & Accounting System
+# VIBRND HR BUDDY
 
-An internal web app for running staff payroll end to end: paying salaries and advances,
-tracking expenses and reimbursements, recording attendance and leave, and keeping the
-books with a built-in **double-entry ledger**. Users sign in with their phone number,
-and what they can see and do is governed by their role (owner, admin, accountant, staff,
-or CA). It ships as an installable PWA.
+**VIBRND HR BUDDY** (by **Vibrnd**) is an internal web app for running staff payroll and
+HR end to end: paying salaries and advances, tracking expenses and reimbursements,
+recording attendance and leave, and keeping the books with a built-in **double-entry
+ledger**. Users sign in with their phone number, and what they can see and do is governed
+by their role (owner, admin, accountant, staff, or CA). It ships as an installable PWA.
+
+Product branding and the deploying organization's name are kept separate in
+`src/lib/brand.ts`: `BRAND` describes the product (name, logo, tagline) and `ORGANIZATION`
+names the org a given deployment serves, so the app can be re-skinned for a different
+customer without touching feature code.
 
 ## Features
 

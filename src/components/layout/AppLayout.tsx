@@ -450,7 +450,7 @@ function AppSidebar() {
                               isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                             )}
                           >
-                            <Link to={item.href}>
+                            <Link to={item.href} aria-label={item.title}>
                               {isActive && (
                                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-amber-400 to-orange-500 rounded-r-full" />
                               )}
@@ -496,7 +496,9 @@ function AppSidebar() {
       <SidebarFooter className="p-2 mt-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={cn(
+            <button
+              aria-label={`Account menu for ${displayName}`}
+              className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all hover:bg-sidebar-accent/50 group",
               isCollapsed && "justify-center px-2"
             )}>
@@ -614,7 +616,9 @@ function AppHeader() {
           <div className="h-6 w-px bg-border" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer">
+              <button
+                aria-label={`Account menu for ${displayName}`}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-medium">
                     {getInitials(displayName)}

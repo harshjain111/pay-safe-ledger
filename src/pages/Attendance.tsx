@@ -458,6 +458,7 @@ export default function Attendance() {
               <div className="flex-1 min-w-[200px]">
                 <label className="text-xs text-muted-foreground">Search</label>
                 <Input
+                  aria-label="Search attendance by name or employee ID"
                   placeholder="Name or Employee ID…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
