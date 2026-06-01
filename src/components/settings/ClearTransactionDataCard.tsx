@@ -283,7 +283,21 @@ export function ClearTransactionDataCard() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // supabase-js wraps a non-2xx edge-function response in a FunctionsHttpError
+        // whose `context` is the raw Response. Read the JSON body so the user sees the
+        // real reason (permission / RPC / validation) instead of a generic
+        // "Edge Function returned a non-2xx status code".
+        let message = error.message;
+        const ctx = (error as { context?: unknown }).context;
+        if (ctx instanceof Response) {
+          const body = await ctx.clone().json().catch(() => null);
+          if (body && typeof body.error === 'string' && body.error.trim()) {
+            message = body.error;
+          }
+        }
+        throw new Error(message);
+      }
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to clear data');
