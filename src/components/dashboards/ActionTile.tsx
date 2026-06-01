@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Amount } from '@/components/ui/amount';
 import { cn } from '@/lib/utils';
-import { LucideIcon, ChevronRight, PartyPopper } from 'lucide-react';
+import { LucideIcon, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export interface ActionTileProps {
   title: string;
@@ -48,7 +48,7 @@ export function ActionTile({
   icon: Icon,
   href,
   variant = 'default',
-  emptyMessage = 'All caught up 🎉',
+  emptyMessage = 'All caught up',
   showAmountWhenZero = false,
 }: ActionTileProps) {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ export function ActionTile({
               <div className="flex items-center gap-2 mt-0.5 sm:mt-1 flex-wrap">
                 {isEmpty ? (
                   <div className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground">
-                    <PartyPopper className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span className="text-xs sm:text-sm lg:text-base">{emptyMessage}</span>
                   </div>
                 ) : (
