@@ -54,25 +54,18 @@ export async function sendNotificationsByRole(
     if (recipients.admins) rolesToNotify.push('admin');
     if (recipients.accountants) rolesToNotify.push('accountant');
     
-    // Fetch all users with specified roles
+    // Fan out to every user holding one of these roles. This runs server-side
+    // via the SECURITY DEFINER notify_users_by_role() RPC, so the client never
+    // needs to read user_roles directly (that table is now privileged-only).
     if (rolesToNotify.length > 0) {
-      const { data: roleUsers } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role', rolesToNotify);
-      
-      if (roleUsers) {
-        for (const user of roleUsers) {
-          await sendNotification(
-            user.user_id,
-            title,
-            message,
-            type,
-            referenceType,
-            referenceId
-          );
-        }
-      }
+      await supabase.rpc('notify_users_by_role', {
+        _roles: rolesToNotify,
+        _title: title,
+        _message: message,
+        _type: type,
+        _reference_type: referenceType || null,
+        _reference_id: referenceId || null,
+      });
     }
     
     // Also notify specific staff user if provided

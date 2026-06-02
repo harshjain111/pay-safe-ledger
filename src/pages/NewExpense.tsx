@@ -262,27 +262,18 @@ export default function NewExpense() {
         ? staffData?.full_name
         : staffList.find(s => s.id === selectedStaff)?.full_name || 'Staff';
 
-      // Notify Owner and Admin about new expense submission
+      // Notify Owner and Admin about the new expense. Fan-out happens
+      // server-side via notify_users_by_role(), which excludes the submitter by
+      // default, so the client no longer needs to read user_roles.
       if (!asDraft && newExpense) {
-        const { data: approvers } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .in('role', ['owner', 'admin']);
-
-        if (approvers) {
-          for (const approver of approvers) {
-            if (approver.user_id !== user?.id) {
-              await supabase.rpc('create_notification', {
-                _user_id: approver.user_id,
-                _title: 'New Expense Submitted',
-                _message: `${staffName} has submitted an expense of ₹${values.amount.toLocaleString('en-IN')} for "${values.description.slice(0, 50)}${values.description.length > 50 ? '...' : ''}"`,
-                _type: 'info',
-                _reference_type: 'expense',
-                _reference_id: newExpense.id,
-              });
-            }
-          }
-        }
+        await supabase.rpc('notify_users_by_role', {
+          _roles: ['owner', 'admin'],
+          _title: 'New Expense Submitted',
+          _message: `${staffName} has submitted an expense of ₹${values.amount.toLocaleString('en-IN')} for "${values.description.slice(0, 50)}${values.description.length > 50 ? '...' : ''}"`,
+          _type: 'info',
+          _reference_type: 'expense',
+          _reference_id: newExpense.id,
+        });
       }
 
       toast({

@@ -1828,6 +1828,18 @@ export type Database = {
         Args: { _month: string; _staff_id: string }
         Returns: boolean
       }
+      notify_users_by_role: {
+        Args: {
+          _exclude_self?: boolean
+          _message: string
+          _reference_id?: string
+          _reference_type?: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _title: string
+          _type?: string
+        }
+        Returns: number
+      }
       validate_settlement: {
         Args: { _month: string; _staff_id: string }
         Returns: Json

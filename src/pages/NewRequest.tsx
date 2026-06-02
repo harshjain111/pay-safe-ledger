@@ -103,29 +103,22 @@ export default function NewRequest() {
 
       if (error) throw error;
 
-      // Notify Owner and Admin about new request
-      const { data: approvers } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['owner', 'admin']);
-
-      if (approvers && newRequest) {
-        const staffName = isPersonalRequest 
-          ? staffData?.full_name 
+      // Notify Owner and Admin about the new request. Fan-out happens
+      // server-side via notify_users_by_role(), which excludes the requester by
+      // default, so the client no longer needs to read user_roles.
+      if (newRequest) {
+        const staffName = isPersonalRequest
+          ? staffData?.full_name
           : staffList.find(s => s.id === selectedStaff)?.full_name || 'Staff';
-        
-        for (const approver of approvers) {
-          if (approver.user_id !== user?.id) {
-            await supabase.rpc('create_notification', {
-              _user_id: approver.user_id,
-              _title: 'New Payment Request',
-              _message: `${staffName} has submitted a payment request of ₹${amount.toLocaleString('en-IN')} for "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
-              _type: 'info',
-              _reference_type: 'payment_request',
-              _reference_id: newRequest.id,
-            });
-          }
-        }
+
+        await supabase.rpc('notify_users_by_role', {
+          _roles: ['owner', 'admin'],
+          _title: 'New Payment Request',
+          _message: `${staffName} has submitted a payment request of ₹${amount.toLocaleString('en-IN')} for "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+          _type: 'info',
+          _reference_type: 'payment_request',
+          _reference_id: newRequest.id,
+        });
       }
 
       toast.success('Request submitted successfully');
