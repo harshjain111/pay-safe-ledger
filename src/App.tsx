@@ -35,7 +35,15 @@ const MyAttendance = lazy(() => import("./pages/MyAttendance"));
 const Shifts = lazy(() => import("./pages/Shifts"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
