@@ -151,8 +151,8 @@ export function useDashboardStats() {
     queryKey: queryKeys.dashboardStats.byRole(isOwner),
     queryFn: () => fetchDashboardStats(isOwner),
     enabled: !!user,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return { stats: data ?? EMPTY_STATS, isLoading, refetch };
