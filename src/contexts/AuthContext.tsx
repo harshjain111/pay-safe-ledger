@@ -45,10 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let initSettled = false;
+    let lastFetchedUserId: string | null = null;
 
     // Soft failsafe: if init takes too long, flip the loading flag off so
     // the UI isn't stuck on a spinner — but DO NOT wipe auth tokens.
-    // (Wiping tokens here was logging users out on slow networks.)
     const initTimeout = window.setTimeout(() => {
       if (initSettled) return;
       console.warn('Auth initialization slow — releasing loading state without clearing session');
@@ -60,43 +60,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.clearTimeout(initTimeout);
     };
 
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        settle();
-        setSession(session);
-        setUser(session?.user ?? null);
+    const handleSession = (session: Session | null) => {
+      settle();
+      setSession(session);
+      setUser(session?.user ?? null);
 
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setUserRole(null);
-          setStaffData(null);
-          setIsLoading(false);
-        }
+      if (session?.user) {
+        // Dedupe: both getSession() and the INITIAL_SESSION auth event
+        // fire for the same user on load — only fetch once.
+        if (lastFetchedUserId === session.user.id) return;
+        lastFetchedUserId = session.user.id;
+        fetchUserData(session.user.id);
+      } else {
+        lastFetchedUserId = null;
+        setUserRole(null);
+        setStaffData(null);
+        setIsLoading(false);
       }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => handleSession(session)
     );
 
-    // THEN check for existing session
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        settle();
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          fetchUserData(session.user.id);
-        } else {
-          setIsLoading(false);
-        }
-      })
+      .then(({ data: { session } }) => handleSession(session))
       .catch((error) => {
         settle();
         console.error('Error restoring auth session:', error);
-        // Do NOT wipe tokens here — a transient network error must not
-        // forcibly log the user out. Just stop the spinner.
         setIsLoading(false);
       });
 
