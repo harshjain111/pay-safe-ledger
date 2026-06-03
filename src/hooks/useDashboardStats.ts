@@ -46,7 +46,8 @@ const EMPTY_STATS: DashboardStats = {
 async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  // Parallel fetches for all stats
+  // Use head:true count queries wherever we only need a count + sum of amount.
+  // Amount sums still need the rows, but these tables stay small (pending only).
   const [
     staffResult,
     missingSalaryResult,
@@ -55,119 +56,81 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
     approvedExpensesResult,
     approvedRequestsResult,
     pendingSalariesResult,
-    // CRITICAL: Separate queries for reliable account lookup
-    accountsResult,
-    journalLinesResult,
+    trialBalanceResult,
     completedTodayResult,
   ] = await Promise.all([
-    // Active staff. Salary is owner-only and must never be sent to a non-owner
-    // browser, so only owners pull monthly_salary here.
+    // Active staff. Salary is owner-only.
     isOwner
-      ? supabase.from('staff').select('id, monthly_salary, is_active')
-      : supabase.from('staff').select('id, is_active'),
+      ? supabase.from('staff').select('id, monthly_salary, is_active').eq('is_active', true)
+      : supabase.from('staff').select('id', { count: 'exact', head: true }).eq('is_active', true),
 
-    // Count of active staff missing a salary. A head/count query returns only a
-    // number (no amounts), so admins keep their "missing salary" tile without
-    // any compensation value leaving the database.
+    // Active staff missing salary (count only).
     supabase
       .from('staff')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
       .or('monthly_salary.is.null,monthly_salary.eq.0'),
 
-    // Pending expenses
     supabase.from('expenses').select('id, amount').eq('status', 'pending'),
-
-    // Pending requests
     supabase.from('payment_requests').select('id, amount').eq('status', 'pending'),
-
-    // Approved expenses (awaiting payout)
     supabase.from('expenses').select('id, amount').eq('status', 'approved'),
-
-    // Approved requests (awaiting payout)
     supabase
       .from('payment_requests')
       .select('id, amount')
       .eq('status', 'approved')
       .is('paid_at', null),
 
-    // Pending salary settlements (Owner only)
     isOwner
       ? supabase
           .from('salary_settlements')
           .select('id, balance_payable')
           .eq('status', 'pending')
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as Array<{ id: string; balance_payable: number }> }),
 
-    // CRITICAL FIX: Get accounts for lookup
-    supabase
-      .from('accounts')
-      .select('id, code')
-      .eq('code', '1200'), // Staff Advances account
+    // Single aggregated RPC instead of pulling all journal_lines rows.
+    supabase.rpc('get_trial_balance'),
 
-    // Get all journal lines with staff_id
-    supabase
-      .from('journal_lines')
-      .select('debit, credit, account_id')
-      .not('staff_id', 'is', null),
-
-    // Completed payments today (from journal_entries, not legacy ledger)
+    // Count-only: completed payments today.
     supabase
       .from('journal_entries')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', `${today}T00:00:00`),
   ]);
 
-  const staffData = (staffResult.data || []) as Array<{
-    id: string;
-    is_active: boolean;
-    monthly_salary?: number;
-  }>;
-  const activeStaff = staffData.filter((s) => s.is_active);
-  // staffMissingSalary comes from the count-only query (no amounts), so it is
-  // available to admins without shipping salary. monthlyPayroll is owner-only.
+  // Active staff stats. Owner branch fetched rows (for payroll sum); admin branch is head-count.
+  let activeStaffCount = 0;
+  let monthlyPayroll = 0;
+  if (isOwner) {
+    const rows = (staffResult.data || []) as Array<{ monthly_salary?: number }>;
+    activeStaffCount = rows.length;
+    monthlyPayroll = rows.reduce((sum, s) => sum + Number(s.monthly_salary || 0), 0);
+  } else {
+    activeStaffCount = staffResult.count ?? 0;
+  }
+
   const staffMissingSalary = missingSalaryResult.count ?? 0;
-  const monthlyPayroll = isOwner
-    ? activeStaff.reduce((sum, s) => sum + Number(s.monthly_salary || 0), 0)
-    : 0;
 
   const pendingExpenses = pendingExpensesResult.data || [];
   const pendingRequests = pendingRequestsResult.data || [];
   const approvedExpenses = approvedExpensesResult.data || [];
   const approvedRequests = approvedRequestsResult.data || [];
   const pendingSalaries = pendingSalariesResult.data || [];
-  const completedToday = completedTodayResult.data || [];
 
-  // Build account code lookup map
-  const accountCodeMap = new Map<string, string>();
-  (accountsResult.data || []).forEach((acc: any) => {
-    accountCodeMap.set(acc.id, acc.code);
-  });
-
-  // Calculate advances outstanding from journal_lines (SINGLE SOURCE OF TRUTH)
-  // Staff Advances account (1200): Debit = given, Credit = adjusted/cleared
-  let totalAdvanceDebit = 0;
-  let totalAdvanceCredit = 0;
-
-  (journalLinesResult.data || []).forEach((line: any) => {
-    const accountCode = accountCodeMap.get(line.account_id);
-    if (accountCode === '1200') { // Staff Advances account
-      totalAdvanceDebit += Number(line.debit) || 0;
-      totalAdvanceCredit += Number(line.credit) || 0;
-    }
-  });
-
-  const advancesOutstanding = totalAdvanceDebit - totalAdvanceCredit;
+  // Pull advances outstanding from the trial balance (account 1200: Staff Advances).
+  let advancesOutstanding = 0;
+  const tb = (trialBalanceResult.data || []) as Array<{ account_code: string; balance: number }>;
+  const advanceRow = tb.find((r) => r.account_code === '1200');
+  if (advanceRow) advancesOutstanding = Number(advanceRow.balance) || 0;
 
   return {
-    activeStaff: activeStaff.length,
+    activeStaff: activeStaffCount,
     staffMissingSalary,
     pendingExpenses: pendingExpenses.length,
     pendingRequests: pendingRequests.length,
     approvedExpenses: approvedExpenses.length,
     approvedRequests: approvedRequests.length,
     pendingSalarySettlements: pendingSalaries.length,
-    completedPaymentsToday: completedToday.length,
+    completedPaymentsToday: completedTodayResult.count ?? 0,
     totalPendingExpensesAmount: pendingExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
     totalPendingRequestsAmount: pendingRequests.reduce((sum, r) => sum + Number(r.amount), 0),
     totalApprovedExpensesAmount: approvedExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
