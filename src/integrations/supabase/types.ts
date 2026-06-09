@@ -327,6 +327,33 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       discipline_rules: {
         Row: {
           absent_no_checkin_deduction: string
@@ -866,6 +893,39 @@ export type Database = {
         }
         Relationships: []
       }
+      outlets: {
+        Row: {
+          address: string | null
+          code: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_requests: {
         Row: {
           amount: number
@@ -972,6 +1032,7 @@ export type Database = {
           pt_enabled: boolean
           pt_min_gross: number
           pt_monthly_amount: number
+          pt_slabs: Json
           singleton: boolean
           updated_at: string
           updated_by: string | null
@@ -989,6 +1050,7 @@ export type Database = {
           pt_enabled?: boolean
           pt_min_gross?: number
           pt_monthly_amount?: number
+          pt_slabs?: Json
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1006,6 +1068,7 @@ export type Database = {
           pt_enabled?: boolean
           pt_min_gross?: number
           pt_monthly_amount?: number
+          pt_slabs?: Json
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1368,7 +1431,9 @@ export type Database = {
           created_by: string | null
           date_of_birth: string | null
           date_of_joining: string
+          date_of_leaving: string | null
           department: string | null
+          department_id: string | null
           designation: string | null
           email: string
           emergency_contact_name: string | null
@@ -1385,6 +1450,7 @@ export type Database = {
           location: string | null
           monthly_salary: number
           other_allowances: number
+          outlet_id: string | null
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
@@ -1393,6 +1459,7 @@ export type Database = {
           reporting_manager_id: string | null
           updated_at: string
           user_id: string | null
+          weekly_off_day: number | null
         }
         Insert: {
           address?: string | null
@@ -1407,7 +1474,9 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           date_of_joining?: string
+          date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email: string
           emergency_contact_name?: string | null
@@ -1432,6 +1501,7 @@ export type Database = {
           reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Update: {
           address?: string | null
@@ -1446,7 +1516,9 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           date_of_joining?: string
+          date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email?: string
           emergency_contact_name?: string | null
@@ -1471,6 +1543,7 @@ export type Database = {
           reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Relationships: [
           {
@@ -1566,6 +1639,42 @@ export type Database = {
           staff_id?: string
           start_month?: string
           status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_roster: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_off: boolean
+          note: string | null
+          roster_date: string
+          shift_id: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_off?: boolean
+          note?: string | null
+          roster_date: string
+          shift_id?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_off?: boolean
+          note?: string | null
+          roster_date?: string
+          shift_id?: string | null
+          staff_id?: string
           updated_at?: string
         }
         Relationships: []

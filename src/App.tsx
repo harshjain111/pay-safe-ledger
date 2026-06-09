@@ -24,6 +24,7 @@ const Expenses = lazy(() => import("./pages/Expenses"));
 const NewExpense = lazy(() => import("./pages/NewExpense"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
+const Roster = lazy(() => import("./pages/Roster"));
 const Payouts = lazy(() => import("./pages/Payouts"));
 const Reports = lazy(() => import("./pages/Reports"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
@@ -123,6 +124,7 @@ function AppRoutes() {
       <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
       <Route path="/my-attendance" element={<ProtectedRoute><MyAttendance /></ProtectedRoute>} />
       <Route path="/shifts" element={<ProtectedRoute><Shifts /></ProtectedRoute>} />
+      <Route path="/roster" element={<ProtectedRoute><Roster /></ProtectedRoute>} />
       
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       

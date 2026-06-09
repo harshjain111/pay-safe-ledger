@@ -39,8 +39,10 @@ import {
   computeAutoOvertime,
   getLoanEMIsForMonth,
   type LoanEMI,
+  type PTSlab,
 } from '@/lib/payroll';
 import type { Staff, PaymentMode } from '@/types/database';
+import { computeDayBreakdown, type DayBreakdown } from '@/lib/attendance-pay';
 
 interface SettlementCalculation {
   monthlySalary: number; // pro-rata contractual (Basic+HRA+Allow)
@@ -57,6 +59,14 @@ interface SettlementCalculation {
   finalDeductionDays: number;
   deductionAdjustmentReason?: string;
   leaveDeduction: number;
+  absentDeductionDays: number;
+  absentDeduction: number;
+  presentDays: number;
+  halfDays: number;
+  offDays: number;
+  paidLeaveDays: number;
+  absentDays: number;
+  compOffEarned: number;
   disciplineFine: number;
   pfEmployee: number;
   pfEmployer: number;
@@ -90,6 +100,10 @@ interface StatutorySettings {
   pt_enabled: boolean;
   pt_monthly_amount: number;
   pt_min_gross: number;
+  pt_slabs?: PTSlab[] | null;
+  ot_enabled?: boolean;
+  ot_standard_minutes?: number;
+  ot_multiplier?: number;
 }
 
 interface ValidationResult {
@@ -104,6 +118,10 @@ const PAYMENT_MODES: { value: PaymentMode; label: string }[] = [
   { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'cheque', label: 'Cheque' },
 ];
+
+// Worked-minute thresholds for classifying a day's attendance.
+const FULL_DAY_MINUTES = 480; // >= 8h worked = full present day
+const HALF_DAY_MINUTES = 240; // >= 4h worked = half present day
 
 export default function Settlements() {
   const navigate = useNavigate();
@@ -135,6 +153,7 @@ export default function Settlements() {
   const [incentivesInput, setIncentivesInput] = useState<number>(0);
   const [bonusInput, setBonusInput] = useState<number>(0);
   const [overtimeOverride, setOvertimeOverride] = useState<number | null>(null);
+  const [absentDaysOverride, setAbsentDaysOverride] = useState<number | null>(null);
   const [overtimeOverrideReason, setOvertimeOverrideReason] = useState<string>('');
 
   const validateSettlement = useCallback(async () => {
@@ -206,12 +225,24 @@ export default function Settlements() {
         if (joiningDate > monthStart && joiningDate <= monthEnd) {
           effectiveDays = daysInMonth - joiningDate.getDate() + 1;
         }
-        if (!currentStaff.is_active) {
+        // Exit proration: prefer an explicit date_of_leaving; otherwise fall back
+        // to the legacy "inactive + updated_at" heuristic for older records that
+        // predate the date_of_leaving column.
+        if (currentStaff.date_of_leaving) {
+          const leavingDate = parseISO(currentStaff.date_of_leaving);
+          if (leavingDate < monthStart) {
+            effectiveDays = 0;
+          } else if (leavingDate <= monthEnd) {
+            const exitDay = leavingDate.getDate();
+            const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) ? joiningDate.getDate() : 1;
+            effectiveDays = Math.max(0, exitDay - joiningDay + 1);
+          }
+        } else if (!currentStaff.is_active) {
           const updatedAt = parseISO(currentStaff.updated_at);
           if (updatedAt >= monthStart && updatedAt <= monthEnd) {
             const exitDay = updatedAt.getDate();
             const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) ? joiningDate.getDate() : 1;
-            effectiveDays = exitDay - joiningDay + 1;
+            effectiveDays = Math.max(0, exitDay - joiningDay + 1);
           }
         }
       }
@@ -230,6 +261,52 @@ export default function Settlements() {
       }
 
       const round2 = (n: number) => Math.round(n * 100) / 100;
+
+      // Attendance-driven pay (item 14): dock unrecorded absences so present / off /
+      // paid-leave days drive net pay. This is ADDITIVE to the existing full-month
+      // proration and leave deduction — absent days have no session, so there is no
+      // overlap with discipline fines (which only apply to days worked).
+      const attendanceTracked = !!(currentStaff && (currentStaff as Staff).attendance_tracked !== false);
+      let dayBreakdown: DayBreakdown | null = null;
+      let absentDeductionDays = 0;
+      let compOffEnabled = true;
+      if (attendanceTracked && currentStaff) {
+        const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+        const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
+        const [attRes, rosRes, lvRes, rulesRes] = await Promise.all([
+          supabase.from('attendance_sessions').select('work_date, worked_minutes, status')
+            .eq('staff_id', selectedStaffId).gte('work_date', monthStartStr).lte('work_date', monthEndStr),
+          supabase.from('staff_roster').select('roster_date, shift_id, is_off')
+            .eq('staff_id', selectedStaffId).gte('roster_date', monthStartStr).lte('roster_date', monthEndStr),
+          supabase.from('leave_records').select('leave_date, deduction_days')
+            .eq('staff_id', selectedStaffId).eq('status', 'approved')
+            .gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
+          supabase.from('hr_pay_rules' as never)
+            .select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
+        ]);
+        const payRules = (rulesRes.data ?? null) as {
+          full_day_minutes?: number; half_day_minutes?: number;
+          unscheduled_is_off?: boolean; comp_off_enabled?: boolean;
+        } | null;
+        compOffEnabled = payRules?.comp_off_enabled ?? true;
+        dayBreakdown = computeDayBreakdown({
+          monthStart,
+          monthEnd,
+          dateOfJoining: currentStaff.date_of_joining,
+          dateOfLeaving: currentStaff.date_of_leaving ?? null,
+          weeklyOffDay: currentStaff.weekly_off_day ?? null,
+          fullDayMinutes: payRules?.full_day_minutes ?? FULL_DAY_MINUTES,
+          halfDayMinutes: payRules?.half_day_minutes ?? HALF_DAY_MINUTES,
+          unscheduledIsOff: payRules?.unscheduled_is_off ?? true,
+          attendance: attRes.data ?? [],
+          roster: rosRes.data ?? [],
+          leaves: lvRes.data ?? [],
+        });
+        absentDeductionDays = absentDaysOverride !== null ? absentDaysOverride : dayBreakdown.absentDeductionDays;
+      }
+      const absentDeduction = round2(dailySalary * absentDeductionDays);
+      const compOffEarned = compOffEnabled ? (dayBreakdown?.offWorkedDays ?? 0) : 0;
+
       const s = statutorySettings;
       const cs = currentStaff;
 
@@ -248,13 +325,18 @@ export default function Settlements() {
       const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
       const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
 
-      // Auto Overtime
-      const overtimeAuto = currentStaff && (currentStaff as Staff).attendance_tracked !== false
+      // Auto Overtime — global config (shift length + multiplier) with per-staff override.
+      const otEnabled = s?.ot_enabled !== false;
+      const otStandardMinutes = (cs as Staff)?.ot_standard_minutes_override ?? s?.ot_standard_minutes ?? 480;
+      const otMultiplier = (cs as Staff)?.ot_multiplier_override ?? s?.ot_multiplier ?? 1.5;
+      const overtimeAuto = attendanceTracked && otEnabled
         ? await computeAutoOvertime({
             staffId: selectedStaffId,
             month: selectedMonth,
             basic: fullStructure.basic,
             daysInMonth,
+            scheduledMinutesPerDay: otStandardMinutes,
+            multiplier: otMultiplier,
           })
         : 0;
       const overtimeAmount = overtimeOverride !== null ? overtimeOverride : overtimeAuto;
@@ -269,7 +351,7 @@ export default function Settlements() {
       // Professional Tax (computed against gross earnings)
       const ptAmount = computeProfessionalTax(currentStaff ?? {}, grossEarnings, s);
 
-      const grossSalary = Math.max(0, grossEarnings - leaveDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
+      const grossSalary = Math.max(0, grossEarnings - leaveDeduction - absentDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
       const advancesOutstanding = toAmount(advanceData);
       const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
@@ -298,6 +380,14 @@ export default function Settlements() {
         finalDeductionDays,
         deductionAdjustmentReason,
         leaveDeduction,
+        absentDeductionDays,
+        absentDeduction,
+        presentDays: dayBreakdown?.presentFull ?? 0,
+        halfDays: dayBreakdown?.presentHalf ?? 0,
+        offDays: dayBreakdown?.offDays ?? 0,
+        paidLeaveDays: dayBreakdown?.paidLeaveDays ?? 0,
+        absentDays: dayBreakdown?.absentDays ?? 0,
+        compOffEarned,
         disciplineFine,
         pfEmployee, pfEmployer, pfBase, pfRateEmployee, pfRateEmployer,
         esiEmployee, esiEmployer, esiBase, esiRateEmployee, esiRateEmployer, esiEligible,
@@ -321,7 +411,7 @@ export default function Settlements() {
       setIsCalculating(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 'advanceToAdjust' intentionally excluded: advance-adjustment changes are handled by the dedicated lightweight effect below to avoid a full DB recalculation.
-  }, [selectedStaffId, selectedMonth, staff, finalDeductionDays, statutorySettings, overtimeOverride, incentivesInput, bonusInput, systemDeductionDays, deductionAdjustmentReason, overtimeOverrideReason]);
+  }, [selectedStaffId, selectedMonth, staff, finalDeductionDays, statutorySettings, overtimeOverride, absentDaysOverride, incentivesInput, bonusInput, systemDeductionDays, deductionAdjustmentReason, overtimeOverrideReason]);
 
   useEffect(() => {
     if (canAccessSettlements) {
@@ -401,7 +491,7 @@ export default function Settlements() {
     try {
       const { data, error } = await supabase
         .from('payroll_statutory_settings')
-        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross')
+        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross, pt_slabs, ot_enabled, ot_standard_minutes, ot_multiplier')
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -579,6 +669,15 @@ export default function Settlements() {
           base_salary: calculation.monthlySalary,
           leave_days: calculation.finalDeductionDays,
           leave_deduction: calculation.leaveDeduction,
+          absent_deduction_days: calculation.absentDeductionDays,
+          absent_deduction: calculation.absentDeduction,
+          present_days: calculation.presentDays,
+          half_days: calculation.halfDays,
+          off_days: calculation.offDays,
+          paid_leave_days: calculation.paidLeaveDays,
+          absent_days: calculation.absentDays,
+          absent_days_override: absentDaysOverride,
+          comp_off_earned: calculation.compOffEarned,
           net_salary: calculation.grossSalary,
           advances_adjusted: calculation.advanceToAdjust,
           opening_advance_balance: calculation.advancesOutstanding,
@@ -937,6 +1036,38 @@ export default function Settlements() {
                   <span className="text-destructive font-medium">
                     -<Amount value={calculation.leaveDeduction} />
                   </span>
+                </div>
+
+                {calculation.absentDeduction > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">
+                      Absent Days ({calculation.absentDeductionDays} × ₹{calculation.dailySalary.toFixed(2)})
+                    </span>
+                    <span className="text-destructive font-medium">
+                      -<Amount value={calculation.absentDeduction} />
+                    </span>
+                  </div>
+                )}
+
+                <div className="rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Attendance:</span>{' '}
+                  Present {calculation.presentDays}{calculation.halfDays > 0 ? ` + ${calculation.halfDays} half` : ''} · Paid leave {calculation.paidLeaveDays} · Off {calculation.offDays} · Absent {calculation.absentDays}{calculation.compOffEarned > 0 ? ` · Comp-off +${calculation.compOffEarned}` : ''}
+                  <div className="mt-2 flex items-center gap-2">
+                    <Label className="text-[11px]">Override absent days</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      className="h-7 w-24 text-xs"
+                      placeholder="auto"
+                      value={absentDaysOverride ?? ''}
+                      onChange={(e) => setAbsentDaysOverride(e.target.value === '' ? null : toAmount(e.target.value))}
+                    />
+                    {absentDaysOverride !== null && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAbsentDaysOverride(null)}>
+                        Reset
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {calculation.disciplineFine > 0 && (

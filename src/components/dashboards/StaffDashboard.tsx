@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffBalance } from '@/hooks/useStaffBalance';
+import { MyLeaveBalanceCard } from './MyLeaveBalanceCard';
 import { LanguageToggle } from '@/components/staff/LanguageToggle';
 import { QuickAdvanceForm } from '@/components/staff/QuickAdvanceForm';
 import { AttendanceWidget } from '@/components/attendance/AttendanceWidget';
@@ -203,6 +204,9 @@ export function StaffDashboard() {
       <div className="p-4 space-y-4 pb-8">
         {/* Attendance widget */}
         <AttendanceWidget />
+
+        {/* My pending leave balance */}
+        <MyLeaveBalanceCard staffId={staffData?.id} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3">

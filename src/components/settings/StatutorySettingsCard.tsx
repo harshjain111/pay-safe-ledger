@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toAmount } from '@/lib/utils';
+import type { PTSlab } from '@/lib/payroll';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -25,6 +26,10 @@ interface StatutoryRow {
   pt_enabled: boolean;
   pt_monthly_amount: number;
   pt_min_gross: number;
+  pt_slabs: PTSlab[];
+  ot_enabled: boolean;
+  ot_standard_minutes: number;
+  ot_multiplier: number;
 }
 
 const DEFAULTS: StatutoryRow = {
@@ -39,6 +44,16 @@ const DEFAULTS: StatutoryRow = {
   pt_enabled: false,
   pt_monthly_amount: 200,
   pt_min_gross: 15000,
+  pt_slabs: [
+    { upTo: 10000, amount: 0 },
+    { upTo: 15000, amount: 110 },
+    { upTo: 25000, amount: 130 },
+    { upTo: 40000, amount: 150 },
+    { upTo: null, amount: 200 },
+  ],
+  ot_enabled: true,
+  ot_standard_minutes: 480,
+  ot_multiplier: 1.5,
 };
 
 export function StatutorySettingsCard() {
@@ -66,6 +81,12 @@ export function StatutorySettingsCard() {
 
   const set = <K extends keyof StatutoryRow>(k: K, v: StatutoryRow[K]) =>
     setRow((r) => ({ ...r, [k]: v }));
+
+  const setSlab = (index: number, key: 'upTo' | 'amount', value: number) =>
+    setRow((r) => ({
+      ...r,
+      pt_slabs: r.pt_slabs.map((slab, i) => (i === index ? { ...slab, [key]: value } : slab)),
+    }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -185,22 +206,63 @@ export function StatutorySettingsCard() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm font-semibold">Professional Tax (PT)</Label>
-                  <p className="text-xs text-muted-foreground">Flat monthly slab</p>
+                  <p className="text-xs text-muted-foreground">Monthly slabs by gross salary (West Bengal)</p>
                 </div>
                 <Switch checked={row.pt_enabled} onCheckedChange={(v) => set('pt_enabled', v)} />
               </div>
               {row.pt_enabled && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Monthly PT by gross salary. Pre-filled with the standard West Bengal slabs — verify amounts with your CA.
+                  </p>
+                  {row.pt_slabs.map((slab, i) => (
+                    <div key={i} className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          {slab.upTo == null ? 'Above last limit' : 'Gross up to (₹)'}
+                        </Label>
+                        {slab.upTo == null ? (
+                          <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-xs text-muted-foreground">
+                            No upper limit
+                          </div>
+                        ) : (
+                          <Input type="number" value={slab.upTo}
+                            onChange={(e) => setSlab(i, 'upTo', toAmount(e.target.value))} />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">PT Amount (₹)</Label>
+                        <Input type="number" value={slab.amount}
+                          onChange={(e) => setSlab(i, 'amount', toAmount(e.target.value))} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Overtime */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-semibold">Overtime (OT)</Label>
+                  <p className="text-xs text-muted-foreground">Paid for minutes worked beyond the standard shift</p>
+                </div>
+                <Switch checked={row.ot_enabled} onCheckedChange={(v) => set('ot_enabled', v)} />
+              </div>
+              {row.ot_enabled && (
                 <div className="grid gap-3 sm:grid-cols-2 pt-1">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Monthly Amount (₹)</Label>
-                    <Input type="number" value={row.pt_monthly_amount}
-                      onChange={(e) => set('pt_monthly_amount', toAmount(e.target.value))} />
+                    <Label className="text-xs">Standard Shift (minutes/day)</Label>
+                    <Input type="number" value={row.ot_standard_minutes}
+                      onChange={(e) => set('ot_standard_minutes', toAmount(e.target.value))} />
+                    <p className="text-[10px] text-muted-foreground">Default 480 (8 hours). Can be overridden per staff.</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Apply When Gross ≥ (₹)</Label>
-                    <Input type="number" value={row.pt_min_gross}
-                      onChange={(e) => set('pt_min_gross', toAmount(e.target.value))} />
-                    <p className="text-[10px] text-muted-foreground">Skip PT for gross below this</p>
+                    <Label className="text-xs">OT Multiplier (×)</Label>
+                    <Input type="number" step="0.1" value={row.ot_multiplier}
+                      onChange={(e) => set('ot_multiplier', toAmount(e.target.value))} />
+                    <p className="text-[10px] text-muted-foreground">Default 1.5× the basic hourly rate</p>
                   </div>
                 </div>
               )}

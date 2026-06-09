@@ -16,10 +16,15 @@ interface CreateStaffUserRequest {
     employee_id: string;
     email?: string;
     department?: string;
+    department_id?: string | null;
+    outlet_id?: string | null;
     designation?: string;
     monthly_salary: number;
     date_of_joining: string;
+    date_of_leaving?: string | null;
     is_active: boolean;
+    photo_url?: string | null;
+    weekly_off_day?: number | null;
   };
 }
 
@@ -172,10 +177,15 @@ serve(async (req) => {
         email: staff_data.email || pseudoEmail,
         phone: cleanPhone,
         department: staff_data.department || null,
+        department_id: staff_data.department_id ?? null,
+        outlet_id: staff_data.outlet_id ?? null,
         designation: staff_data.designation || null,
         monthly_salary: staff_data.monthly_salary,
         date_of_joining: staff_data.date_of_joining,
+        date_of_leaving: staff_data.date_of_leaving ?? null,
         is_active: staff_data.is_active,
+        photo_url: staff_data.photo_url ?? null,
+        weekly_off_day: staff_data.weekly_off_day ?? null,
         created_by: caller.id,
       })
       .select()

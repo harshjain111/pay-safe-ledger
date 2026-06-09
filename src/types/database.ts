@@ -29,8 +29,11 @@ export interface Staff {
   email: string;
   phone?: string;
   department?: string;
+  department_id?: string | null;
+  outlet_id?: string | null;
   designation?: string;
   date_of_joining: string;
+  date_of_leaving?: string | null;
   monthly_salary: number;
   basic_salary?: number;
   hra?: number;
@@ -42,6 +45,9 @@ export interface Staff {
   esi_employee_rate?: number | null;
   is_active: boolean;
   attendance_tracked?: boolean;
+  weekly_off_day?: number | null;
+  ot_standard_minutes_override?: number | null;
+  ot_multiplier_override?: number | null;
   // HR profile (all optional)
   photo_url?: string | null;
   reporting_manager_id?: string | null;

@@ -47,7 +47,6 @@ import {
   createAdvancePaidEntry,
   createExpensePayoutEntry 
 } from '@/lib/journal-entries';
-import { PaidBySelector } from '@/components/payouts/PaidBySelector';
 import type { PaymentMode, VoucherType, Expense, PaymentRequest, StaffPublic } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
@@ -103,7 +102,6 @@ export default function Payouts() {
   const [selectedItem, setSelectedItem] = useState<PayoutItem | null>(null);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paidBy, setPaidBy] = useState<{ userId: string; userName: string } | null>(null);
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0);
   const [cancelItem, setCancelItem] = useState<PayoutItem | null>(null);
 
@@ -196,9 +194,10 @@ export default function Payouts() {
     try {
       let journalEntryId: string;
       
-      // Use selected paid_by or default to current user
-      const paidByUserId = paidBy?.userId || user.id;
-      const paidByUserName = paidBy?.userName || getUserDisplayName(user, staffData);
+      // Maker-checker: the payer is always the logged-in user (no manual
+      // selection), so the person who records the payment is the one on record.
+      const paidByUserId = user.id;
+      const paidByUserName = getUserDisplayName(user, staffData);
 
       // ========================================
       // DOUBLE-ENTRY ACCOUNTING: PAYOUT ENTRIES
@@ -367,7 +366,6 @@ export default function Payouts() {
 
       setSelectedItem(null);
       setPaymentMode('cash');
-      setPaidBy(null);
       fetchApprovedItems();
     } catch (error: any) {
       console.error('Error executing payout:', error);
@@ -384,7 +382,6 @@ export default function Payouts() {
   const openPayoutDialog = (item: PayoutItem) => {
     setSelectedItem(item);
     setPaymentMode('cash');
-    setPaidBy(null); // Will be set to current user by PaidBySelector
   };
 
   // Convert data to unified PayoutItem format
@@ -721,11 +718,15 @@ export default function Payouts() {
                 )}
               </div>
 
-              <PaidBySelector
-                value={paidBy}
-                onChange={setPaidBy}
-                disabled={isProcessing}
-              />
+              <div className="space-y-2">
+                <Label className="text-xs sm:text-sm">Payment Made By</Label>
+                <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm">
+                  {getUserDisplayName(user, staffData)}
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  Recorded automatically as the logged-in user for the audit trail.
+                </p>
+              </div>
 
               <div className="p-2 sm:p-3 rounded-lg bg-muted/50 text-[10px] sm:text-sm text-muted-foreground">
                 <p>

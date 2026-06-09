@@ -22,12 +22,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { AmountInput } from '@/components/ui/amount';
 import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, RefreshCw, AlertCircle, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { uploadStaffPhoto } from '@/lib/staff-uploads';
+import { uploadStaffPhoto, uploadStaffDocument } from '@/lib/staff-uploads';
 import { format } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { staffSelect } from '@/lib/staff-fields';
-import type { Staff } from '@/types/database';
+import type { Staff, StaffDocumentType } from '@/types/database';
 
 export default function StaffForm() {
   const navigate = useNavigate();
@@ -65,6 +65,12 @@ export default function StaffForm() {
   // Optional HR profile fields (edit mode)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // KYC (mandatory at enrollment)
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [panNumber, setPanNumber] = useState('');
+  const [bankProofFile, setBankProofFile] = useState<File | null>(null);
   const [reportingManagerId, setReportingManagerId] = useState<string>('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
@@ -79,6 +85,12 @@ export default function StaffForm() {
   const [bankIfsc, setBankIfsc] = useState('');
   const [bankName, setBankName] = useState('');
   const [managers, setManagers] = useState<{ id: string; full_name: string }[]>([]);
+  const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [outletId, setOutletId] = useState<string>('');
+  const [departmentId, setDepartmentId] = useState<string>('');
+  const [dateOfLeaving, setDateOfLeaving] = useState<string>('');
+  const [weeklyOffDay, setWeeklyOffDay] = useState<string>('');
 
   // Salary structure & statutory (Owner only)
   const [basicSalary, setBasicSalary] = useState(0);
@@ -89,6 +101,8 @@ export default function StaffForm() {
   const [esiEnrolled, setEsiEnrolled] = useState(false);
   const [esiEmployeeRate, setEsiEmployeeRate] = useState<string>('0.75');
   const [ptExempt, setPtExempt] = useState(false);
+  const [otStandardMinutesOverride, setOtStandardMinutesOverride] = useState<string>('');
+  const [otMultiplierOverride, setOtMultiplierOverride] = useState<string>('');
 
 
   // Auto-generate employee ID on mount for new staff
@@ -97,6 +111,18 @@ export default function StaffForm() {
       setEmployeeId(generateEmployeeId());
     }
   }, [isEditing]);
+
+  // Outlet & department master lists for the enrollment dropdowns.
+  useEffect(() => {
+    (async () => {
+      const [{ data: outletRows }, { data: deptRows }] = await Promise.all([
+        supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('departments').select('id, name').eq('is_active', true).order('name'),
+      ]);
+      setOutlets(outletRows || []);
+      setDepartments(deptRows || []);
+    })();
+  }, []);
 
   const fetchStaffData = useCallback(async () => {
     try {
@@ -123,6 +149,10 @@ export default function StaffForm() {
         setOriginalSalary(toAmount(data.monthly_salary));
         setDateOfJoining(new Date(data.date_of_joining));
         setIsActive(data.is_active ?? true);
+        setOutletId(data.outlet_id || '');
+        setDepartmentId(data.department_id || '');
+        setDateOfLeaving(data.date_of_leaving || '');
+        setWeeklyOffDay(data.weekly_off_day != null ? String(data.weekly_off_day) : '');
         setExistingUserId(data.user_id);
 
         // HR profile
@@ -150,6 +180,8 @@ export default function StaffForm() {
         setEsiEnrolled(!!data.esi_enrolled);
         setEsiEmployeeRate(data.esi_employee_rate != null ? String(data.esi_employee_rate) : '0.75');
         setPtExempt(!!data.pt_exempt);
+        setOtStandardMinutesOverride(data.ot_standard_minutes_override != null ? String(data.ot_standard_minutes_override) : '');
+        setOtMultiplierOverride(data.ot_multiplier_override != null ? String(data.ot_multiplier_override) : '');
 
         // Fetch role if user_id exists
         if (data.user_id) {
@@ -245,6 +277,10 @@ export default function StaffForm() {
         toast({ title: 'Validation Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
         return;
       }
+      if (!photoFile || !aadhaarFile || !panFile || !bankProofFile) {
+        toast({ title: 'KYC Required', description: 'Photo, Aadhaar, PAN and Bank proof must all be uploaded to enroll a staff member.', variant: 'destructive' });
+        return;
+      }
     }
     
     // Salary validation only for owner, or when editing
@@ -271,9 +307,13 @@ export default function StaffForm() {
           employee_id: employeeId.trim(),
           phone: formatPhoneInput(phone) || null,
           email: email.trim() || null,
-          department: department.trim() || null,
+          department: departments.find((d) => d.id === departmentId)?.name ?? (department.trim() || null),
+          department_id: departmentId || null,
+          outlet_id: outletId || null,
           designation: designation.trim() || null,
           date_of_joining: format(dateOfJoining, 'yyyy-MM-dd'),
+          date_of_leaving: dateOfLeaving || null,
+          weekly_off_day: weeklyOffDay === '' ? null : Number(weeklyOffDay),
           is_active: isActive,
         };
         
@@ -317,6 +357,8 @@ export default function StaffForm() {
           updateData.esi_enrolled = esiEnrolled;
           updateData.esi_employee_rate = esiEmployeeRate.trim() === '' ? null : toAmount(esiEmployeeRate);
           updateData.pt_exempt = ptExempt;
+          updateData.ot_standard_minutes_override = otStandardMinutesOverride.trim() === '' ? null : toAmount(otStandardMinutesOverride);
+          updateData.ot_multiplier_override = otMultiplierOverride.trim() === '' ? null : toAmount(otMultiplierOverride);
         }
 
         
@@ -367,7 +409,15 @@ export default function StaffForm() {
         
         // For non-owner, salary is 0 (owner will set it later)
         const salaryToSet = canSetSalary ? monthlySalary : 0;
-        
+
+        // Upload the KYC photo first (before the staff row exists). Non-owner
+        // enrollers cannot UPDATE staff.photo_url afterwards, so the edge function
+        // stores it at insert time using this pre-uploaded public URL.
+        let enrollmentPhotoUrl: string | null = null;
+        if (photoFile) {
+          enrollmentPhotoUrl = await uploadStaffPhoto(`enroll-${Date.now()}`, photoFile);
+        }
+
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-staff-user`,
           {
@@ -384,11 +434,16 @@ export default function StaffForm() {
               staff_data: {
                 employee_id: employeeId.trim(),
                 email: email.trim() || null,
-                department: department.trim() || null,
+                department: departments.find((d) => d.id === departmentId)?.name ?? (department.trim() || null),
+                department_id: departmentId || null,
+                outlet_id: outletId || null,
                 designation: designation.trim() || null,
                 monthly_salary: salaryToSet,
                 date_of_joining: format(dateOfJoining, 'yyyy-MM-dd'),
+                date_of_leaving: dateOfLeaving || null,
+                weekly_off_day: weeklyOffDay === '' ? null : Number(weeklyOffDay),
                 is_active: isActive,
+                photo_url: enrollmentPhotoUrl,
               },
             }),
           }
@@ -400,14 +455,46 @@ export default function StaffForm() {
           throw new Error(result.error || 'Failed to create staff');
         }
 
+        const newStaffId: string | undefined = result?.staff?.id;
+
+        // Upload the mandatory KYC documents now that we have the staff id.
+        if (newStaffId) {
+          try {
+            const kycDocs: { file: File | null; type: StaffDocumentType; number: string; label: string }[] = [
+              { file: aadhaarFile, type: 'aadhaar', number: aadhaarNumber, label: 'Aadhaar' },
+              { file: panFile, type: 'pan', number: panNumber, label: 'PAN' },
+              { file: bankProofFile, type: 'bank_details', number: '', label: 'Bank proof' },
+            ];
+            for (const doc of kycDocs) {
+              if (!doc.file) continue;
+              const { path } = await uploadStaffDocument(newStaffId, doc.file);
+              await supabase.from('staff_documents').insert({
+                staff_id: newStaffId,
+                doc_type: doc.type,
+                doc_label: doc.label,
+                doc_number: doc.number.trim() || null,
+                file_url: path,
+                file_name: doc.file.name,
+                uploaded_by: user?.id ?? null,
+              });
+            }
+          } catch (docErr: any) {
+            toast({
+              title: 'Staff created, but a document failed to upload',
+              description: `${docErr.message}. Please re-upload it from the staff profile.`,
+              variant: 'destructive',
+            });
+          }
+        }
+
         // If created by Admin/Accountant (without salary), notify Owner
-        if (!canSetSalary) {
+        if (!canSetSalary && newStaffId) {
           const { data: owners } = await supabase
             .from('user_roles')
             .select('user_id')
             .eq('role', 'owner');
-          
-          if (owners && result.staff_id) {
+
+          if (owners) {
             for (const owner of owners) {
               await supabase.rpc('create_notification', {
                 _user_id: owner.user_id,
@@ -415,7 +502,7 @@ export default function StaffForm() {
                 _message: `${fullName} has been added by ${isAdmin ? 'Admin' : 'Accountant'}. Please set their monthly salary.`,
                 _type: 'warning',
                 _reference_type: 'staff',
-                _reference_id: result.staff_id,
+                _reference_id: newStaffId,
               });
             }
           }
@@ -637,6 +724,18 @@ export default function StaffForm() {
                     </PopoverContent>
                   </Popover>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfLeaving">Date of Leaving (Optional)</Label>
+                  <Input
+                    id="dateOfLeaving"
+                    type="date"
+                    value={dateOfLeaving}
+                    onChange={(e) => setDateOfLeaving(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set when the employee exits; salary is prorated up to this date.
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -651,13 +750,24 @@ export default function StaffForm() {
             <div className="grid gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="Operations"
-                  />
+                  <Label>Outlet</Label>
+                  <Select value={outletId || 'none'} onValueChange={(v) => setOutletId(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Select outlet" /></SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="none">— None —</SelectItem>
+                      {outlets.map((o) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Select value={departmentId || 'none'} onValueChange={(v) => setDepartmentId(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Select department" /></SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="none">— None —</SelectItem>
+                      {departments.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="designation">Designation</Label>
@@ -667,6 +777,22 @@ export default function StaffForm() {
                     onChange={(e) => setDesignation(e.target.value)}
                     placeholder="Manager"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Weekly Off</Label>
+                  <Select value={weeklyOffDay === '' ? 'none' : weeklyOffDay} onValueChange={(v) => setWeeklyOffDay(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Select weekly off" /></SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="none">— None —</SelectItem>
+                      <SelectItem value="0">Sunday</SelectItem>
+                      <SelectItem value="1">Monday</SelectItem>
+                      <SelectItem value="2">Tuesday</SelectItem>
+                      <SelectItem value="3">Wednesday</SelectItem>
+                      <SelectItem value="4">Thursday</SelectItem>
+                      <SelectItem value="5">Friday</SelectItem>
+                      <SelectItem value="6">Saturday</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -705,6 +831,52 @@ export default function StaffForm() {
             </div>
           </CardContent>
         </Card>
+
+        {/* KYC Documents — mandatory at enrollment */}
+        {!isEditing && (
+          <Card className="shadow-sm border-primary/40">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">KYC Documents *</CardTitle>
+              <CardDescription>
+                Photo, Aadhaar, PAN and a bank proof are required to enroll. Images or PDF, up to 5MB each.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="kycPhoto">Photo *</Label>
+                  <Input id="kycPhoto" type="file" accept="image/*"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                  {photoFile && <p className="text-xs text-muted-foreground">Selected: {photoFile.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="kycBank">Bank Proof * (cancelled cheque / passbook)</Label>
+                  <Input id="kycBank" type="file" accept="image/*,application/pdf"
+                    onChange={(e) => setBankProofFile(e.target.files?.[0] || null)} />
+                  {bankProofFile && <p className="text-xs text-muted-foreground">Selected: {bankProofFile.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                  <Input id="aadhaarNumber" value={aadhaarNumber}
+                    onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="XXXX XXXX XXXX" />
+                  <Label htmlFor="kycAadhaar" className="text-xs text-muted-foreground">Aadhaar document *</Label>
+                  <Input id="kycAadhaar" type="file" accept="image/*,application/pdf"
+                    onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)} />
+                  {aadhaarFile && <p className="text-xs text-muted-foreground">Selected: {aadhaarFile.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="panNumber">PAN Number</Label>
+                  <Input id="panNumber" value={panNumber}
+                    onChange={(e) => setPanNumber(e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
+                  <Label htmlFor="kycPan" className="text-xs text-muted-foreground">PAN document *</Label>
+                  <Input id="kycPan" type="file" accept="image/*,application/pdf"
+                    onChange={(e) => setPanFile(e.target.files?.[0] || null)} />
+                  {panFile && <p className="text-xs text-muted-foreground">Selected: {panFile.name}</p>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Optional HR Profile — only available when editing */}
         {isEditing && (
@@ -940,6 +1112,23 @@ export default function StaffForm() {
                         <p className="text-[10px] text-muted-foreground">PT is skipped for this staff even if company-wide PT is on</p>
                       </div>
                       <Switch checked={ptExempt} onCheckedChange={setPtExempt} />
+                    </div>
+
+                    <div className="space-y-2 rounded-lg border p-3">
+                      <Label className="text-sm">Overtime Overrides (Optional)</Label>
+                      <p className="text-[10px] text-muted-foreground">Leave blank to use the company-wide overtime settings.</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Standard Shift (minutes/day)</Label>
+                          <Input type="number" value={otStandardMinutesOverride}
+                            onChange={(e) => setOtStandardMinutesOverride(e.target.value)} placeholder="Company default" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">OT Multiplier (×)</Label>
+                          <Input type="number" step="0.1" value={otMultiplierOverride}
+                            onChange={(e) => setOtMultiplierOverride(e.target.value)} placeholder="Company default" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>

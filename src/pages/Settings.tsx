@@ -49,6 +49,9 @@ import { ManageClubsCard } from '@/components/settings/ManageClubsCard';
 import { DisciplineRulesCard } from '@/components/settings/DisciplineRulesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
+import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
+import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
+import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
 
 export default function Settings() {
   const { user, userRole, signOut, staffData } = useAuth();
@@ -416,6 +419,12 @@ export default function Settings() {
         {/* Statutory Compliance (Owner) */}
         <StatutorySettingsCard />
 
+        {/* Leave Entitlement (Owner/Admin) */}
+        <LeaveSettingsCard />
+
+        {/* Attendance & Pay Rules (Owner/Admin) */}
+        <HrPayRulesCard />
+
         {/* Attendance Coverage (Owner) */}
         <AttendanceCoverageCard />
 
@@ -430,6 +439,9 @@ export default function Settings() {
 
         {/* Clubs Management */}
         <ManageClubsCard />
+
+        {/* Outlets & Departments Management */}
+        <ManageOutletsDepartmentsCard />
       </div>
     </div>
   );

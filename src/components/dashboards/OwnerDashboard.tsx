@@ -4,6 +4,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
 import { ActionTile } from './ActionTile';
 import { QuickActionsCard, QuickAction } from './QuickActionsCard';
+import { LeaveBalancesCard } from './LeaveBalancesCard';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import {
   Users,
@@ -180,6 +181,9 @@ export function OwnerDashboard() {
           emptyMessage="All staff configured"
         />
       </div>
+
+      {/* Pending leave balances */}
+      <LeaveBalancesCard />
 
       {/* Quick Actions & Reports */}
       <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">

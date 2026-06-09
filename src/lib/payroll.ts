@@ -57,10 +57,18 @@ export function prorateStructure(
 
 // ---------- Professional Tax ----------
 
+/** One row of a slab-based Professional Tax table. `upTo` is the inclusive upper
+ *  bound on monthly gross; `null` means the top slab (no upper limit). */
+export interface PTSlab {
+  upTo: number | null;
+  amount: number;
+}
+
 export interface PTConfig {
   pt_enabled?: boolean;
   pt_monthly_amount?: number;
   pt_min_gross?: number;
+  pt_slabs?: PTSlab[] | null;
 }
 
 export function computeProfessionalTax(
@@ -70,6 +78,23 @@ export function computeProfessionalTax(
 ): number {
   if (!config?.pt_enabled) return 0;
   if (staff.pt_exempt) return 0;
+
+  // Preferred: slab-based PT (e.g. West Bengal monthly slabs by gross).
+  const slabs = config.pt_slabs;
+  if (Array.isArray(slabs) && slabs.length > 0) {
+    const sorted = [...slabs].sort((a, b) => {
+      const au = a.upTo == null ? Infinity : Number(a.upTo);
+      const bu = b.upTo == null ? Infinity : Number(b.upTo);
+      return au - bu;
+    });
+    for (const slab of sorted) {
+      const cap = slab.upTo == null ? Infinity : Number(slab.upTo);
+      if (grossEarnings <= cap) return Number(slab.amount ?? 0);
+    }
+    return Number(sorted[sorted.length - 1]?.amount ?? 0);
+  }
+
+  // Legacy fallback: flat amount above a threshold.
   const minGross = Number(config.pt_min_gross ?? 0);
   if (grossEarnings < minGross) return 0;
   return Number(config.pt_monthly_amount ?? 0);
