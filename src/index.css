@@ -156,6 +156,13 @@
     @apply border-border;
   }
 
+  html {
+    /* Always reserve room for the vertical scrollbar so the layout (including the
+       fixed left sidebar) does not shift sideways when navigating between pages of
+       different heights. */
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
