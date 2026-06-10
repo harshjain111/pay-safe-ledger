@@ -31,11 +31,13 @@ export function LeaveSettingsCard() {
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('leave_settings' as never)
         .select('annual_quota, accrual')
         .maybeSingle();
-      if (data) {
+      if (error) {
+        toast.error('Could not load leave settings — please reload before saving.');
+      } else if (data) {
         const d = data as { annual_quota?: number; accrual?: string };
         setQuota(Number(d.annual_quota ?? 12));
         setAccrual(d.accrual === 'monthly' ? 'monthly' : 'annual');

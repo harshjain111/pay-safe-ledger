@@ -23,6 +23,8 @@ export interface PayslipSettlement {
   overtime_amount: number;
   leave_days: number | null;
   leave_deduction: number;
+  absent_deduction_days?: number | null;
+  absent_deduction?: number | null;
   discipline_fine: number;
   pf_employee: number;
   pf_employer: number;
@@ -101,6 +103,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
 
   const deductions: Array<[string, number]> = [];
   if (s.leave_deduction > 0) deductions.push([`Leave Deduction (${s.leave_days ?? 0} d)`, s.leave_deduction]);
+  if ((s.absent_deduction ?? 0) > 0) deductions.push([`Absent Days (${s.absent_deduction_days ?? 0} d)`, s.absent_deduction as number]);
   if (s.discipline_fine > 0) deductions.push(['Late/Discipline Fine', s.discipline_fine]);
   if (s.pf_employee > 0) deductions.push(['PF (Employee)', s.pf_employee]);
   if (s.esi_employee > 0) deductions.push(['ESI (Employee)', s.esi_employee]);

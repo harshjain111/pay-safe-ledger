@@ -19,19 +19,23 @@ export function MyLeaveBalanceCard({ staffId }: { staffId?: string }) {
     if (!staffId) return;
     let cancelled = false;
     (async () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const [settings, takenCount, compOff] = await Promise.all([
-        fetchLeaveSettings(),
-        fetchTakenLeaveForStaff(staffId, year),
-        fetchCompOffForStaff(staffId, year),
-      ]);
-      const ent = entitledForYear(settings, year, now);
-      const bal = computeBalance(ent, takenCount, compOff);
-      if (!cancelled) {
-        setRemaining(bal.remaining);
-        setEntitled(ent + compOff);
-        setTaken(takenCount);
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const [settings, takenCount, compOff] = await Promise.all([
+          fetchLeaveSettings(),
+          fetchTakenLeaveForStaff(staffId, year),
+          fetchCompOffForStaff(staffId, year),
+        ]);
+        const ent = entitledForYear(settings, year, now);
+        const bal = computeBalance(ent, takenCount, compOff);
+        if (!cancelled) {
+          setRemaining(bal.remaining);
+          setEntitled(ent + compOff);
+          setTaken(takenCount);
+        }
+      } catch (e) {
+        console.error('Failed to load leave balance', e);
       }
     })();
     return () => {

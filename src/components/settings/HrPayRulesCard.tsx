@@ -37,8 +37,9 @@ export function HrPayRulesCard() {
       return;
     }
     (async () => {
-      const { data } = await supabase.from('hr_pay_rules' as never).select('*').maybeSingle();
-      if (data) setRules({ ...DEFAULTS, ...(data as Partial<Rules>) });
+      const { data, error } = await supabase.from('hr_pay_rules' as never).select('*').maybeSingle();
+      if (error) toast.error('Could not load attendance & pay rules — please reload before saving.');
+      else if (data) setRules({ ...DEFAULTS, ...(data as Partial<Rules>) });
       setLoading(false);
     })();
   }, [canManage]);

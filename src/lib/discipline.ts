@@ -359,9 +359,12 @@ export async function getMonthlyDisciplineFine(
     return { totalFine: 0, logs: [] };
   }
   const logs = (data as DisciplineLogRow[]) ?? [];
-  // Cancelled rows contribute 0 to the total
+  // Cancelled rows contribute 0. Absent rows (is_absent=true) also contribute 0
+  // here: a full-day absence is docked once by the attendance day-breakdown
+  // (absentDeduction), so summing the cron-written absent fine too would
+  // double-deduct the same day. Discipline fines = late-in / early-out only.
   const total = logs.reduce(
-    (s, r) => s + (r.is_cancelled ? 0 : Number(r.fine_amount || 0)),
+    (s, r) => s + (r.is_cancelled || r.is_absent ? 0 : Number(r.fine_amount || 0)),
     0,
   );
   return { totalFine: Math.round(total * 100) / 100, logs };

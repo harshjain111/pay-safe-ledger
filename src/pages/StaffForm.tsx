@@ -40,7 +40,7 @@ export default function StaffForm() {
   // Admin/Accountant: can add staff without salary, can edit non-salary fields
   const canAddStaff = isOwner || isAdmin || isAccountant;
   const canSetSalary = isOwner;
-  const canEditStaff = isOwner || isAdmin || isAccountant; // Non-salary fields for non-owners
+  const canEditStaff = isOwner || isAdmin; // Only owner/admin can UPDATE staff (RLS-enforced); accountants enroll only
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
@@ -257,6 +257,14 @@ export default function StaffForm() {
     return value.replace(/\D/g, '');
   };
 
+  const pickFile = (file: File | null, setter: (f: File | null) => void) => {
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Please choose a file under 5 MB.', variant: 'destructive' });
+      return;
+    }
+    setter(file);
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!fullName.trim()) {
@@ -279,6 +287,14 @@ export default function StaffForm() {
       }
       if (!photoFile || !aadhaarFile || !panFile || !bankProofFile) {
         toast({ title: 'KYC Required', description: 'Photo, Aadhaar, PAN and Bank proof must all be uploaded to enroll a staff member.', variant: 'destructive' });
+        return;
+      }
+      if (aadhaarNumber.trim() && !/^\d{12}$/.test(aadhaarNumber.replace(/\s/g, ''))) {
+        toast({ title: 'Invalid Aadhaar', description: 'Aadhaar number must be 12 digits.', variant: 'destructive' });
+        return;
+      }
+      if (panNumber.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber.trim().toUpperCase())) {
+        toast({ title: 'Invalid PAN', description: 'PAN must look like ABCDE1234F.', variant: 'destructive' });
         return;
       }
     }
@@ -362,12 +378,19 @@ export default function StaffForm() {
         }
 
         
-        const { error: staffError } = await supabase
+        const { data: updatedRows, error: staffError } = await supabase
           .from('staff')
           .update(updateData)
-          .eq('id', id);
+          .eq('id', id)
+          .select('id');
 
         if (staffError) throw staffError;
+        // A 0-row update means RLS silently blocked the write (e.g. an admin
+        // changing a field beyond attendance_tracked). Surface it instead of a
+        // false "Staff Updated" success.
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error('Update was not applied — you may not have permission to change these fields.');
+        }
 
         // Update role if user_id exists
         if (existingUserId) {
@@ -452,23 +475,31 @@ export default function StaffForm() {
         const result = await response.json();
 
         if (!response.ok) {
+          // Avoid orphaning the pre-uploaded photo when creation fails.
+          if (enrollmentPhotoUrl) {
+            const photoPath = enrollmentPhotoUrl.split('/staff-photos/')[1];
+            if (photoPath) await supabase.storage.from('staff-photos').remove([photoPath]);
+          }
           throw new Error(result.error || 'Failed to create staff');
         }
 
         const newStaffId: string | undefined = result?.staff?.id;
 
         // Upload the mandatory KYC documents now that we have the staff id.
+        // Collect failures per document (don't abort on the first one) so we can
+        // report exactly what's missing instead of a false "all good".
+        const failedDocs: string[] = [];
         if (newStaffId) {
-          try {
-            const kycDocs: { file: File | null; type: StaffDocumentType; number: string; label: string }[] = [
-              { file: aadhaarFile, type: 'aadhaar', number: aadhaarNumber, label: 'Aadhaar' },
-              { file: panFile, type: 'pan', number: panNumber, label: 'PAN' },
-              { file: bankProofFile, type: 'bank_details', number: '', label: 'Bank proof' },
-            ];
-            for (const doc of kycDocs) {
-              if (!doc.file) continue;
+          const kycDocs: { file: File | null; type: StaffDocumentType; number: string; label: string }[] = [
+            { file: aadhaarFile, type: 'aadhaar', number: aadhaarNumber, label: 'Aadhaar' },
+            { file: panFile, type: 'pan', number: panNumber, label: 'PAN' },
+            { file: bankProofFile, type: 'bank_details', number: '', label: 'Bank proof' },
+          ];
+          for (const doc of kycDocs) {
+            if (!doc.file) continue;
+            try {
               const { path } = await uploadStaffDocument(newStaffId, doc.file);
-              await supabase.from('staff_documents').insert({
+              const { error: docInsertError } = await supabase.from('staff_documents').insert({
                 staff_id: newStaffId,
                 doc_type: doc.type,
                 doc_label: doc.label,
@@ -477,43 +508,41 @@ export default function StaffForm() {
                 file_name: doc.file.name,
                 uploaded_by: user?.id ?? null,
               });
+              if (docInsertError) throw docInsertError;
+            } catch (docErr) {
+              console.error('KYC upload failed for', doc.label, docErr);
+              failedDocs.push(doc.label);
             }
-          } catch (docErr: any) {
-            toast({
-              title: 'Staff created, but a document failed to upload',
-              description: `${docErr.message}. Please re-upload it from the staff profile.`,
-              variant: 'destructive',
-            });
           }
         }
 
-        // If created by Admin/Accountant (without salary), notify Owner
+        // If created by Admin/Accountant (without salary), notify Owners via the
+        // server-side fan-out RPC (no direct user_roles read from the client).
         if (!canSetSalary && newStaffId) {
-          const { data: owners } = await supabase
-            .from('user_roles')
-            .select('user_id')
-            .eq('role', 'owner');
-
-          if (owners) {
-            for (const owner of owners) {
-              await supabase.rpc('create_notification', {
-                _user_id: owner.user_id,
-                _title: 'Salary Required for New Staff',
-                _message: `${fullName} has been added by ${isAdmin ? 'Admin' : 'Accountant'}. Please set their monthly salary.`,
-                _type: 'warning',
-                _reference_type: 'staff',
-                _reference_id: newStaffId,
-              });
-            }
-          }
+          await supabase.rpc('notify_users_by_role', {
+            _roles: ['owner'],
+            _title: 'Salary Required for New Staff',
+            _message: `${fullName} has been added by ${isAdmin ? 'Admin' : 'Accountant'}. Please set their monthly salary.`,
+            _type: 'warning',
+            _reference_type: 'staff',
+            _reference_id: newStaffId,
+          });
         }
 
-        toast({ 
-          title: 'Staff Created', 
-          description: canSetSalary 
-            ? `${fullName} has been added. They can login using phone: ${formatPhoneInput(phone)}` 
-            : `${fullName} has been added. Owner has been notified to set their salary.`
-        });
+        if (failedDocs.length > 0) {
+          toast({
+            title: 'Staff created — some KYC documents did not upload',
+            description: `${failedDocs.join(', ')} failed to upload. Open ${fullName}'s profile to re-upload.`,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Staff Created',
+            description: canSetSalary
+              ? `${fullName} has been added. They can login using phone: ${formatPhoneInput(phone)}`
+              : `${fullName} has been added. Owner has been notified to set their salary.`,
+          });
+        }
       }
 
       navigate('/staff');
@@ -846,13 +875,13 @@ export default function StaffForm() {
                 <div className="space-y-2">
                   <Label htmlFor="kycPhoto">Photo *</Label>
                   <Input id="kycPhoto" type="file" accept="image/*"
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                    onChange={(e) => pickFile(e.target.files?.[0] || null, setPhotoFile)} />
                   {photoFile && <p className="text-xs text-muted-foreground">Selected: {photoFile.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="kycBank">Bank Proof * (cancelled cheque / passbook)</Label>
                   <Input id="kycBank" type="file" accept="image/*,application/pdf"
-                    onChange={(e) => setBankProofFile(e.target.files?.[0] || null)} />
+                    onChange={(e) => pickFile(e.target.files?.[0] || null, setBankProofFile)} />
                   {bankProofFile && <p className="text-xs text-muted-foreground">Selected: {bankProofFile.name}</p>}
                 </div>
                 <div className="space-y-2">
@@ -861,7 +890,7 @@ export default function StaffForm() {
                     onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="XXXX XXXX XXXX" />
                   <Label htmlFor="kycAadhaar" className="text-xs text-muted-foreground">Aadhaar document *</Label>
                   <Input id="kycAadhaar" type="file" accept="image/*,application/pdf"
-                    onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)} />
+                    onChange={(e) => pickFile(e.target.files?.[0] || null, setAadhaarFile)} />
                   {aadhaarFile && <p className="text-xs text-muted-foreground">Selected: {aadhaarFile.name}</p>}
                 </div>
                 <div className="space-y-2">
@@ -870,7 +899,7 @@ export default function StaffForm() {
                     onChange={(e) => setPanNumber(e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
                   <Label htmlFor="kycPan" className="text-xs text-muted-foreground">PAN document *</Label>
                   <Input id="kycPan" type="file" accept="image/*,application/pdf"
-                    onChange={(e) => setPanFile(e.target.files?.[0] || null)} />
+                    onChange={(e) => pickFile(e.target.files?.[0] || null, setPanFile)} />
                   {panFile && <p className="text-xs text-muted-foreground">Selected: {panFile.name}</p>}
                 </div>
               </div>
@@ -899,7 +928,7 @@ export default function StaffForm() {
                       <Camera className="h-4 w-4" /> Change Photo
                     </Label>
                     <Input id="photo" type="file" accept="image/*"
-                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                      onChange={(e) => pickFile(e.target.files?.[0] || null, setPhotoFile)} />
                     {photoFile && <p className="text-xs text-muted-foreground">Selected: {photoFile.name}</p>}
                   </div>
                 </div>

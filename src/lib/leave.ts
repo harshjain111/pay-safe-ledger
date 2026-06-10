@@ -50,6 +50,7 @@ export async function fetchTakenLeaveByStaff(year: number): Promise<Record<strin
     .from('leave_records')
     .select('staff_id')
     .eq('status', 'approved')
+    .eq('leave_type', 'paid')
     .gte('leave_date', `${year}-01-01`)
     .lte('leave_date', `${year}-12-31`);
   const taken: Record<string, number> = {};
@@ -61,13 +62,12 @@ export async function fetchTakenLeaveByStaff(year: number): Promise<Record<strin
 
 /** Comp-off days earned (off-days worked) per staff from settled months this year. */
 export async function fetchCompOffByStaff(year: number): Promise<Record<string, number>> {
-  const { data } = await supabase
-    .from('salary_settlements' as never)
-    .select('staff_id, comp_off_earned')
-    .like('settlement_month', `${year}-%`);
+  // Via a SECURITY DEFINER RPC so owner AND admin/accountant can read comp-off
+  // totals without exposing the owner-only salary_settlements rows directly.
+  const { data } = await supabase.rpc('get_comp_off_earned_by_staff', { _year: year });
   const map: Record<string, number> = {};
-  ((data ?? []) as { staff_id: string; comp_off_earned: number | null }[]).forEach((r) => {
-    map[r.staff_id] = (map[r.staff_id] ?? 0) + Number(r.comp_off_earned ?? 0);
+  ((data ?? []) as { staff_id: string; comp_off: number | null }[]).forEach((r) => {
+    map[r.staff_id] = Number(r.comp_off ?? 0);
   });
   return map;
 }
@@ -92,6 +92,7 @@ export async function fetchTakenLeaveForStaff(staffId: string, year: number): Pr
     .select('id', { count: 'exact', head: true })
     .eq('staff_id', staffId)
     .eq('status', 'approved')
+    .eq('leave_type', 'paid')
     .gte('leave_date', `${year}-01-01`)
     .lte('leave_date', `${year}-12-31`);
   return count ?? 0;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toAmount } from '@/lib/utils';
 import type { PTSlab } from '@/lib/payroll';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -68,11 +69,12 @@ export function StatutorySettingsCard() {
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('payroll_statutory_settings')
         .select('*')
         .maybeSingle();
-      if (data) setRow({ ...DEFAULTS, ...(data as Partial<StatutoryRow>) });
+      if (error) toast.error('Could not load statutory settings — please reload before saving.');
+      else if (data) setRow({ ...DEFAULTS, ...(data as unknown as Partial<StatutoryRow>) });
       setLoading(false);
     })();
   }, [isOwner]);
@@ -91,7 +93,7 @@ export function StatutorySettingsCard() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { ...row, singleton: true, updated_by: user?.id ?? null };
+      const payload = { ...row, singleton: true, updated_by: user?.id ?? null, pt_slabs: row.pt_slabs as unknown as Json };
       let error;
       if (row.id) {
         ({ error } = await supabase

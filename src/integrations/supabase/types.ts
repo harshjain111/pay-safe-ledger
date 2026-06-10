@@ -1032,6 +1032,9 @@ export type Database = {
           pt_enabled: boolean
           pt_min_gross: number
           pt_monthly_amount: number
+          ot_enabled: boolean
+          ot_multiplier: number
+          ot_standard_minutes: number
           pt_slabs: Json
           singleton: boolean
           updated_at: string
@@ -1050,6 +1053,9 @@ export type Database = {
           pt_enabled?: boolean
           pt_min_gross?: number
           pt_monthly_amount?: number
+          ot_enabled?: boolean
+          ot_multiplier?: number
+          ot_standard_minutes?: number
           pt_slabs?: Json
           singleton?: boolean
           updated_at?: string
@@ -1068,6 +1074,9 @@ export type Database = {
           pt_enabled?: boolean
           pt_min_gross?: number
           pt_monthly_amount?: number
+          ot_enabled?: boolean
+          ot_multiplier?: number
+          ot_standard_minutes?: number
           pt_slabs?: Json
           singleton?: boolean
           updated_at?: string
@@ -1459,6 +1468,8 @@ export type Database = {
           reporting_manager_id: string | null
           updated_at: string
           user_id: string | null
+          ot_multiplier_override: number | null
+          ot_standard_minutes_override: number | null
           weekly_off_day: number | null
         }
         Insert: {
@@ -1501,6 +1512,8 @@ export type Database = {
           reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
+          ot_multiplier_override?: number | null
+          ot_standard_minutes_override?: number | null
           weekly_off_day?: number | null
         }
         Update: {
@@ -1543,6 +1556,8 @@ export type Database = {
           reporting_manager_id?: string | null
           updated_at?: string
           user_id?: string | null
+          ot_multiplier_override?: number | null
+          ot_standard_minutes_override?: number | null
           weekly_off_day?: number | null
         }
         Relationships: [
@@ -1868,6 +1883,10 @@ export type Database = {
       }
       get_account_id: { Args: { _code: string }; Returns: string }
       get_advances_outstanding: { Args: { _staff_id: string }; Returns: number }
+      get_comp_off_earned_by_staff: {
+        Args: { _year: number }
+        Returns: { comp_off: number; staff_id: string }[]
+      }
       get_expense_account_code: {
         Args: { _category: Database["public"]["Enums"]["expense_category"] }
         Returns: string

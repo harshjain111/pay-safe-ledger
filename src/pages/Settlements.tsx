@@ -67,6 +67,7 @@ interface SettlementCalculation {
   paidLeaveDays: number;
   absentDays: number;
   compOffEarned: number;
+  attendanceTracked: boolean;
   disciplineFine: number;
   pfEmployee: number;
   pfEmployer: number;
@@ -255,9 +256,15 @@ export default function Settlements() {
       const prorated = prorateStructure(fullStructure, effectiveDays, daysInMonth);
 
       let disciplineFine = 0;
+      const disciplineFinedDates = new Set<string>();
       if (currentStaff && (currentStaff as Staff).attendance_tracked !== false) {
-        const { totalFine } = await getMonthlyDisciplineFine(selectedStaffId, selectedMonth, monthlySalary);
+        const { totalFine, logs } = await getMonthlyDisciplineFine(selectedStaffId, selectedMonth, monthlySalary);
         disciplineFine = totalFine;
+        // Dates already carrying a late/early fine (not absences); used to avoid
+        // docking the attendance shortfall twice on the same day.
+        for (const l of logs) {
+          if (!l.is_cancelled && !l.is_absent && Number(l.fine_amount) > 0) disciplineFinedDates.add(l.work_date);
+        }
       }
 
       const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -298,6 +305,7 @@ export default function Settlements() {
           fullDayMinutes: payRules?.full_day_minutes ?? FULL_DAY_MINUTES,
           halfDayMinutes: payRules?.half_day_minutes ?? HALF_DAY_MINUTES,
           unscheduledIsOff: payRules?.unscheduled_is_off ?? true,
+          disciplineFinedDates,
           attendance: attRes.data ?? [],
           roster: rosRes.data ?? [],
           leaves: lvRes.data ?? [],
@@ -388,6 +396,7 @@ export default function Settlements() {
         paidLeaveDays: dayBreakdown?.paidLeaveDays ?? 0,
         absentDays: dayBreakdown?.absentDays ?? 0,
         compOffEarned,
+        attendanceTracked,
         disciplineFine,
         pfEmployee, pfEmployer, pfBase, pfRateEmployee, pfRateEmployer,
         esiEmployee, esiEmployer, esiBase, esiRateEmployee, esiRateEmployer, esiEligible,
@@ -495,7 +504,7 @@ export default function Settlements() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      if (data) setStatutorySettings(data as StatutorySettings);
+      if (data) setStatutorySettings(data as unknown as StatutorySettings);
     } catch (error) {
       console.error('Error fetching statutory settings:', error);
     }
@@ -656,6 +665,10 @@ export default function Settlements() {
         pfEmployer: calculation.pfEmployer,
         esiEmployee: calculation.esiEmployee,
         esiEmployer: calculation.esiEmployer,
+        ptAmount: calculation.ptAmount,
+        loanEmiTotal: calculation.loanEmiTotal,
+        bonus: calculation.bonus,
+        overtimeAmount: calculation.overtimeAmount,
         settlementId: '',
         createdBy: user.id,
       });
@@ -676,7 +689,7 @@ export default function Settlements() {
           off_days: calculation.offDays,
           paid_leave_days: calculation.paidLeaveDays,
           absent_days: calculation.absentDays,
-          absent_days_override: absentDaysOverride,
+          absent_days_override: calculation.attendanceTracked ? absentDaysOverride : null,
           comp_off_earned: calculation.compOffEarned,
           net_salary: calculation.grossSalary,
           advances_adjusted: calculation.advanceToAdjust,

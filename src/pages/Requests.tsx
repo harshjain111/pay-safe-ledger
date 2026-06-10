@@ -146,26 +146,15 @@ export default function Requests() {
         });
       }
 
-      // Notify accountants that a request is ready for payout
-      const { data: payoutExecutors } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['accountant', 'owner', 'admin']);
-      
-      if (payoutExecutors) {
-        for (const executor of payoutExecutors) {
-          if (executor.user_id !== user?.id) {
-            await supabase.rpc('create_notification', {
-              _user_id: executor.user_id,
-              _title: 'Request Ready for Payout',
-              _message: `Advance request for ${request.staff?.full_name} (₹${request.amount.toLocaleString('en-IN')}) is approved and ready in Payouts.`,
-              _type: 'info',
-              _reference_type: 'payment_request',
-              _reference_id: request.id,
-            });
-          }
-        }
-      }
+      // Notify payout executors (server-side fan-out; excludes the approver).
+      await supabase.rpc('notify_users_by_role', {
+        _roles: ['accountant', 'owner', 'admin'],
+        _title: 'Request Ready for Payout',
+        _message: `Advance request for ${request.staff?.full_name} (₹${request.amount.toLocaleString('en-IN')}) is approved and ready in Payouts.`,
+        _type: 'info',
+        _reference_type: 'payment_request',
+        _reference_id: request.id,
+      });
 
       toast.success('Request approved - now available in Payouts');
       
@@ -175,7 +164,7 @@ export default function Requests() {
       fetchRequests();
     } catch (error) {
       console.error('Error approving request:', error);
-      toast.error('Failed to approve request');
+      toast.error((error as { message?: string })?.message || 'Failed to approve request');
     } finally {
       setIsProcessing(false);
       setSelectedRequest(null);

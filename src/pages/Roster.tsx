@@ -51,7 +51,7 @@ export default function Roster() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [roster, setRoster] = useState<Record<string, RosterRow>>({});
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
 
   const days = useMemo(
@@ -99,7 +99,12 @@ export default function Roster() {
     value: { type: 'shift'; shiftId: string } | { type: 'off' } | { type: 'clear' },
   ) => {
     const key = cellKey(staffId, date);
-    setSavingKey(key);
+    // Clearing a cell that has no row is a no-op — just close the dialog.
+    if (value.type === 'clear' && !roster[key]) {
+      setEditing(null);
+      return;
+    }
+    setSavingKeys((prev) => new Set(prev).add(key));
     try {
       if (value.type === 'clear') {
         const { error } = await supabase
@@ -130,7 +135,11 @@ export default function Roster() {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to update roster');
     } finally {
-      setSavingKey(null);
+      setSavingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -224,7 +233,7 @@ export default function Roster() {
                               className={`h-8 w-full min-w-[2.5rem] rounded px-1 text-[10px] font-medium leading-tight transition hover:ring-1 hover:ring-primary ${cls}`}
                               title={`${s.full_name} — ${format(d, 'PPP')}`}
                             >
-                              {savingKey === key ? '…' : label}
+                              {savingKeys.has(key) ? '…' : label}
                             </button>
                           </td>
                         );

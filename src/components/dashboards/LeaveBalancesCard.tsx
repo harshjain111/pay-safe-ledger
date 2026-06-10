@@ -25,28 +25,31 @@ export function LeaveBalancesCard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const [settings, taken, compOff, staffRes] = await Promise.all([
-        fetchLeaveSettings(),
-        fetchTakenLeaveByStaff(year),
-        fetchCompOffByStaff(year),
-        supabase.from('staff_public').select('id, full_name, is_active').eq('is_active', true).order('full_name'),
-      ]);
-      const entitled = entitledForYear(settings, year, now);
-      const list: Row[] = ((staffRes.data ?? []) as { id: string; full_name: string }[]).map((s) => {
-        const t = taken[s.id] ?? 0;
-        const c = compOff[s.id] ?? 0;
-        return {
-          id: s.id,
-          full_name: s.full_name,
-          remaining: computeBalance(entitled, t, c).remaining,
-          available: entitled + c,
-        };
-      });
-      if (!cancelled) {
-        setRows(list);
-        setLoading(false);
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const [settings, taken, compOff, staffRes] = await Promise.all([
+          fetchLeaveSettings(),
+          fetchTakenLeaveByStaff(year),
+          fetchCompOffByStaff(year),
+          supabase.from('staff_public').select('id, full_name, is_active').eq('is_active', true).order('full_name'),
+        ]);
+        const entitled = entitledForYear(settings, year, now);
+        const list: Row[] = ((staffRes.data ?? []) as { id: string; full_name: string }[]).map((s) => {
+          const t = taken[s.id] ?? 0;
+          const c = compOff[s.id] ?? 0;
+          return {
+            id: s.id,
+            full_name: s.full_name,
+            remaining: computeBalance(entitled, t, c).remaining,
+            available: entitled + c,
+          };
+        });
+        if (!cancelled) setRows(list);
+      } catch (e) {
+        console.error('Failed to load leave balances', e);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {

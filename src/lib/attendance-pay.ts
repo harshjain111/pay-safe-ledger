@@ -54,11 +54,15 @@ export function computeDayBreakdown(params: {
   halfDayMinutes: number;
   /** When true, a day with no shift allotted in the roster is treated as OFF. */
   unscheduledIsOff: boolean;
+  /** Dates (yyyy-MM-dd) that already incurred a late/early discipline fine; the
+   *  short-attendance dock is suppressed on these so a day isn't penalised twice. */
+  disciplineFinedDates?: Set<string>;
   attendance: AttendanceSessionLite[];
   roster: RosterLite[];
   leaves: LeaveLite[];
 }): DayBreakdown {
   const { monthStart, monthEnd, weeklyOffDay, fullDayMinutes, halfDayMinutes, unscheduledIsOff } = params;
+  const disciplineFinedDates = params.disciplineFinedDates ?? new Set<string>();
 
   const joining = parseISO(params.dateOfJoining);
   const leaving = params.dateOfLeaving ? parseISO(params.dateOfLeaving) : null;
@@ -79,10 +83,13 @@ export function computeDayBreakdown(params: {
   };
   if (windowEnd < windowStart) return result;
 
-  const att = new Map<string, AttendanceSessionLite>();
+  // Sum worked minutes across all COMPLETED sessions for a date (split shifts /
+  // second check-ins). Open (active/on_break) sessions are excluded — they have
+  // no final worked_minutes and must not be mistaken for a full absence.
+  const workedByDate = new Map<string, number>();
   for (const a of params.attendance) {
-    if (a.status === 'completed' || a.status === 'active' || a.status === 'on_break') {
-      att.set(a.work_date, a);
+    if (a.status === 'completed') {
+      workedByDate.set(a.work_date, (workedByDate.get(a.work_date) ?? 0) + Number(a.worked_minutes ?? 0));
     }
   }
   const ros = new Map<string, RosterLite>();
@@ -108,21 +115,24 @@ export function computeDayBreakdown(params: {
     }
     if (!isOff) result.workingDays += 1;
 
-    const session = att.get(ds);
-    const worked = session ? Number(session.worked_minutes ?? 0) : null;
+    const hasSession = workedByDate.has(ds);
+    const worked = hasSession ? (workedByDate.get(ds) ?? 0) : 0;
     const leave = lv.get(ds);
+    const disciplineFined = disciplineFinedDates.has(ds);
 
-    // 1) A session exists -> present (and a comp-off candidate if it was an off day).
-    if (session && worked != null) {
+    // 1) A completed session exists -> present (and a comp-off candidate if off).
+    if (hasSession) {
       if (worked >= fullDayMinutes) {
         result.presentFull += 1;
       } else if (worked >= halfDayMinutes) {
         result.presentHalf += 1;
-        if (!isOff && !leave) result.absentDeductionDays += 0.5;
+        // Only dock the half-day shortfall if a discipline fine isn't already
+        // penalising this date (otherwise the day would be docked twice).
+        if (!isOff && !leave && !disciplineFined) result.absentDeductionDays += 0.5;
       } else {
         if (!isOff && !leave) {
           result.absentDays += 1;
-          result.absentDeductionDays += 1;
+          if (!disciplineFined) result.absentDeductionDays += 1;
         }
       }
       if (isOff && worked >= halfDayMinutes) result.offWorkedDays += 1;
