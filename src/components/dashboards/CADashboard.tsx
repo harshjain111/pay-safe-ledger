@@ -90,6 +90,7 @@ export function CADashboard() {
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
+          loading={isLoading}
           title="Settled This Month"
           value={stats.settledThisMonth}
           subtitle={currentMonth}
@@ -97,12 +98,14 @@ export function CADashboard() {
           variant="success"
         />
         <StatCard
+          loading={isLoading}
           title="Total Disbursed"
           value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
           subtitle="This month"
           icon={BarChart3}
         />
         <StatCard
+          loading={isLoading}
           title="Pending Settlements"
           value={stats.pendingSettlements}
           subtitle="Not yet settled"

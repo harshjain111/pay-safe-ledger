@@ -176,30 +176,39 @@ export function StaffDashboard() {
   // This ensures Staff sees EXACTLY what Admin sees
   const advanceOutstanding = balanceData.advanceOutstanding;
 
+  // Header + attendance render immediately; only balance-dependent content waits.
+  const Header = (
+    <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{t('welcome')}</p>
+          <h1 className="text-xl font-bold truncate">{staffData.full_name.split(' ')[0]}</h1>
+        </div>
+        <LanguageToggle />
+      </div>
+    </div>
+  );
+
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-16 w-full" />
+      <div className="min-h-screen bg-background">
+        {Header}
+        <div className="p-4 space-y-4 pb-8">
+          <AttendanceWidget />
+          <Skeleton className="h-24 w-full" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+          <Skeleton className="h-16 w-full" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{t('welcome')}</p>
-            <h1 className="text-xl font-bold">{staffData.full_name.split(' ')[0]}</h1>
-          </div>
-          <LanguageToggle />
-        </div>
-      </div>
+      {Header}
 
       <div className="p-4 space-y-4 pb-8">
         {/* Attendance widget */}
@@ -272,7 +281,7 @@ export function StaffDashboard() {
             size="lg"
           >
             <Wallet className="mr-3 h-6 w-6" />
-            💰 {t('request_advance')}
+            {t('request_advance')}
           </Button>
 
           <Button
@@ -282,7 +291,7 @@ export function StaffDashboard() {
             size="lg"
           >
             <Receipt className="mr-3 h-6 w-6" />
-            🧾 {t('request_expense')}
+            {t('request_expense')}
           </Button>
         </div>
 

@@ -23,6 +23,7 @@ import { Amount } from '@/components/ui/amount';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX, Download } from 'lucide-react';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { format, subMonths, getDaysInMonth, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { EnhancedSettlementConfirmDialog } from '@/components/settlements/EnhancedSettlementConfirmDialog';
@@ -467,17 +468,17 @@ export default function Settlements() {
   // STRICT ACCESS CONTROL: Only Owner can access settlements
   if (!canAccessSettlements) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <ShieldX className="h-16 w-16 text-destructive" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Salary settlements contain confidential compensation data and are restricted to the Owner only.
-        </p>
-        <Button onClick={() => navigate('/dashboard')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Button>
-      </div>
+      <EmptyState
+        icon={ShieldX}
+        title="Access Denied"
+        description="Salary settlements contain confidential compensation data and are restricted to the Owner only."
+        action={
+          <Button onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        }
+      />
     );
   }
 

@@ -273,30 +273,6 @@ export type Database = {
         }
         Relationships: []
       }
-      clubs: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-        }
-        Relationships: []
-      }
       custom_expense_categories: {
         Row: {
           created_at: string
@@ -478,7 +454,6 @@ export type Database = {
           approved_by: string | null
           approved_by_user_name: string | null
           category: Database["public"]["Enums"]["expense_category"]
-          club_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -502,7 +477,6 @@ export type Database = {
           approved_by?: string | null
           approved_by_user_name?: string | null
           category: Database["public"]["Enums"]["expense_category"]
-          club_id?: string | null
           created_at?: string
           created_by?: string | null
           description: string
@@ -526,7 +500,6 @@ export type Database = {
           approved_by?: string | null
           approved_by_user_name?: string | null
           category?: Database["public"]["Enums"]["expense_category"]
-          club_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -545,13 +518,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "expenses_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "expenses_event_id_fkey"
             columns: ["event_id"]

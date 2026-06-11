@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,13 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { 
   Loader2, 
   CheckCircle2, 
   Receipt,
@@ -44,11 +37,6 @@ interface QuickExpenseFormProps {
   onSuccess: () => void;
 }
 
-interface Club {
-  id: string;
-  name: string;
-}
-
 const categories: { id: ExpenseCategory; icon: React.ReactNode; labelKey: string }[] = [
   { id: 'travel', icon: <Plane className="h-6 w-6" />, labelKey: 'travel' },
   { id: 'food', icon: <UtensilsCrossed className="h-6 w-6" />, labelKey: 'food' },
@@ -70,17 +58,8 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [customCategory, setCustomCategory] = useState('');
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      supabase.from('clubs').select('id, name').eq('is_active', true).order('name')
-        .then(({ data }) => { if (data) setClubs(data); });
-    }
-  }, [open]);
 
   // Custom category name is required for "other" category
   const isOtherCategory = category === 'other';
@@ -162,7 +141,6 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
         status: 'pending',
         submitted_at: new Date().toISOString(),
         proof_url: proofUrl,
-        club_id: selectedClubId || null,
       });
 
       if (error) throw error;
@@ -174,7 +152,6 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
         setCategory(null);
         setDescription('');
         setCustomCategory('');
-        setSelectedClubId('');
         setPhoto(null);
         setPhotoPreview(null);
         onOpenChange(false);
@@ -192,6 +169,7 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
+          <DialogTitle className="sr-only">{t('expense_success')}</DialogTitle>
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <div className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center">
               <CheckCircle2 className="h-10 w-10 text-success" />
@@ -289,25 +267,6 @@ export function QuickExpenseForm({ open, onOpenChange, onSuccess }: QuickExpense
               placeholder={t('enter_description')}
               className="min-h-[80px] text-base"
             />
-          </div>
-          {/* Club Selection (Optional) */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              Club
-            </label>
-            <Select value={selectedClubId || 'none'} onValueChange={(v) => setSelectedClubId(v === 'none' ? '' : v)}>
-              <SelectTrigger className="h-12 text-base">
-                <SelectValue placeholder="Select club (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No club</SelectItem>
-                {clubs.map((club) => (
-                  <SelectItem key={club.id} value={club.id}>
-                    {club.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Photo Upload */}

@@ -186,6 +186,7 @@ export default function NewRequest() {
             <div className="space-y-2">
               <Label htmlFor="amount" className="text-sm">Amount *</Label>
               <AmountInput
+                id="amount"
                 value={amount}
                 onChange={setAmount}
                 placeholder="Enter amount"

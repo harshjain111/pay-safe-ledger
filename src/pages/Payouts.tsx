@@ -457,13 +457,11 @@ export default function Payouts() {
   // Access denied for staff
   if (isStaff || !canExecutePayout) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Wallet className="h-12 w-12 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-muted-foreground">
-          Only authorized personnel can execute payouts.
-        </p>
-      </div>
+      <EmptyState
+        icon={Wallet}
+        title="Access Denied"
+        description="Only authorized personnel can execute payouts."
+      />
     );
   }
 

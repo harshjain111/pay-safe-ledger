@@ -214,7 +214,9 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center justify-center gap-3 mb-4">
-            <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-20 w-auto" />
+            <div className="rounded-2xl bg-white p-3 shadow-lg">
+              <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-20 w-auto" />
+            </div>
             <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND HR BUDDY</span>
           </div>
           <p className="text-muted-foreground">HR & Payroll Suite</p>

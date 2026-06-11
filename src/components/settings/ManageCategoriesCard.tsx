@@ -134,7 +134,7 @@ export function ManageCategoriesCard() {
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(cat)} disabled={busy?.id === cat.id} title={cat.is_active ? 'Disable' : 'Enable'}>
                     {busy?.id === cat.id && busy.action === 'toggle' ? <Loader2 className="h-4 w-4 animate-spin" /> : cat.is_active ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteCategory(cat)} disabled={busy?.id === cat.id}>
+                  <Button variant="ghost" size="icon" aria-label="Delete category" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteCategory(cat)} disabled={busy?.id === cat.id}>
                     {busy?.id === cat.id && busy.action === 'delete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   </Button>
                 </div>

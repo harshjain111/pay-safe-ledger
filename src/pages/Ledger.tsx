@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FileText, Download, ArrowDownRight, ArrowUpRight, Scale, Lock, RotateCcw } from 'lucide-react';
+import { FileText, ArrowDownRight, ArrowUpRight, Scale, Lock, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import type { StaffPublic } from '@/types/database';
 import { RectificationDialog } from '@/components/ledger/RectificationDialog';
@@ -77,8 +78,9 @@ export default function Ledger() {
   const [selectedStaff, setSelectedStaff] = useState<string>(
     searchParams.get('staff') || 'all'
   );
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => format(new Date(), 'yyyy-MM'));
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [rectificationTarget, setRectificationTarget] = useState<{
     journalEntryId: string;
@@ -147,6 +149,7 @@ export default function Ledger() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setValidationError(null);
+    setHasError(false);
     try {
       // Fetch staff list (for filter dropdown)
       if (isOwner || isAdmin || (isAccountant && accountingMode) || isCA) {
@@ -307,6 +310,7 @@ export default function Ledger() {
       setJournalLines(linesWithBalance);
     } catch (error) {
       console.error('Error fetching ledger data:', error);
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -394,12 +398,7 @@ export default function Ledger() {
             ? `Ledger for ${selectedStaffName}`
             : "Staff-wise ledger entries"
         }
-      >
-        <Button variant="outline" className="rounded-xl text-xs sm:text-sm px-2 sm:px-4">
-          <Download className="mr-1 sm:mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Export</span>
-        </Button>
-      </PageHeader>
+      />
 
       {/* Filters */}
       <Card className="rounded-2xl shadow-card border-0">
@@ -453,9 +452,9 @@ export default function Ledger() {
 
       {/* Summary Cards - Mobile Optimized */}
       <div className="grid gap-2 sm:gap-5 grid-cols-3">
-        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden">
+        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden min-w-0">
           <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 sm:gap-2 mb-1">
                 <div className="p-1 sm:p-2 rounded-lg bg-warning/10">
                   <ArrowDownRight className="h-3 w-3 sm:h-5 sm:w-5 text-warning" />
@@ -471,9 +470,9 @@ export default function Ledger() {
           </CardContent>
         </Card>
         
-        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden">
+        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden min-w-0">
           <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 sm:gap-2 mb-1">
                 <div className="p-1 sm:p-2 rounded-lg bg-success/10">
                   <ArrowUpRight className="h-3 w-3 sm:h-5 sm:w-5 text-success" />
@@ -489,9 +488,9 @@ export default function Ledger() {
           </CardContent>
         </Card>
         
-        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden">
+        <Card className="rounded-xl sm:rounded-2xl shadow-card border-0 overflow-hidden min-w-0">
           <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 sm:gap-2 mb-1">
                 <div className={`p-1 sm:p-2 rounded-lg ${closingBalance >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
                   <Scale className={`h-3 w-3 sm:h-5 sm:w-5 ${closingBalance >= 0 ? 'text-primary' : 'text-destructive'}`} />
@@ -531,6 +530,8 @@ export default function Ledger() {
         <CardContent className="p-0">
           {isLoading ? (
             <ListSkeleton variant="rows" />
+          ) : hasError ? (
+            <ErrorState onRetry={fetchData} />
           ) : journalLines.length === 0 ? (
             <EmptyState
               icon={FileText}

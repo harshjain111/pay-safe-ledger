@@ -128,6 +128,12 @@
     --success: 142 71% 50%;
     --success-foreground: 0 0% 100%;
 
+    --warning: 38 92% 55%;
+    --warning-foreground: 224 71% 8%;
+
+    --info: 217 91% 65%;
+    --info-foreground: 0 0% 100%;
+
     --border: 224 71% 15%;
     --input: 224 71% 15%;
     --ring: 243 75% 65%;
@@ -148,6 +154,17 @@
     --table-header: 224 71% 10%;
     --table-row-hover: 224 71% 9%;
     --table-border: 224 71% 15%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -417,22 +434,9 @@
     background-size: 100px 100px;
   }
 
-  /* Fade animations */
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-  }
-
+  /* Fade animations — `animate-fade-in` is defined in tailwind.config.ts (single source of truth) */
   .animate-slide-up {
     animation: slideUp 0.4s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 
   @keyframes slideUp {

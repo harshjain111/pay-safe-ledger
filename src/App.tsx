@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "next-themes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
@@ -46,8 +47,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected route wrapper
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+// Protected layout — runs the auth gate ONCE and renders the persistent
+// AppLayout (sidebar + header). Child routes render into the layout's <Outlet>,
+// so navigating between them never remounts the sidebar.
+function ProtectedLayout() {
   const { user, isLoading } = useAuth();
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
@@ -80,7 +83,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  return <AppLayout>{children}</AppLayout>;
+  return <AppLayout />;
 }
 
 // Fallback shown while a lazily-loaded route chunk is being fetched
@@ -99,35 +102,36 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
-      
-      {/* Protected Routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
-      <Route path="/staff/new" element={<ProtectedRoute><StaffForm /></ProtectedRoute>} />
-      <Route path="/staff/:id" element={<ProtectedRoute><StaffDetails /></ProtectedRoute>} />
-      <Route path="/staff/:id/edit" element={<ProtectedRoute><StaffForm /></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute><UsersList /></ProtectedRoute>} />
-      <Route path="/users/new" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
-      <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
-      <Route path="/ledger" element={<ProtectedRoute><Ledger /></ProtectedRoute>} />
-      <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
-      <Route path="/requests/new" element={<ProtectedRoute><NewRequest /></ProtectedRoute>} />
-      <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-      <Route path="/expenses/new" element={<ProtectedRoute><NewExpense /></ProtectedRoute>} />
-      <Route path="/payouts" element={<ProtectedRoute><Payouts /></ProtectedRoute>} />
-      <Route path="/settlements" element={<ProtectedRoute><Settlements /></ProtectedRoute>} />
-      <Route path="/leave-records" element={<ProtectedRoute><LeaveRecords /></ProtectedRoute>} />
-      <Route path="/salaries-advances" element={<ProtectedRoute><SalariesAdvances /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-      <Route path="/audit-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
-      <Route path="/petty-cash" element={<ProtectedRoute><PettyCash /></ProtectedRoute>} />
-      <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-      <Route path="/my-attendance" element={<ProtectedRoute><MyAttendance /></ProtectedRoute>} />
-      <Route path="/shifts" element={<ProtectedRoute><Shifts /></ProtectedRoute>} />
-      <Route path="/roster" element={<ProtectedRoute><Roster /></ProtectedRoute>} />
-      
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      
+
+      {/* Protected Routes — one persistent layout; pages swap inside its <Outlet> */}
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/staff" element={<StaffList />} />
+        <Route path="/staff/new" element={<StaffForm />} />
+        <Route path="/staff/:id" element={<StaffDetails />} />
+        <Route path="/staff/:id/edit" element={<StaffForm />} />
+        <Route path="/users" element={<UsersList />} />
+        <Route path="/users/new" element={<UserForm />} />
+        <Route path="/users/:id/edit" element={<UserForm />} />
+        <Route path="/ledger" element={<Ledger />} />
+        <Route path="/requests" element={<Requests />} />
+        <Route path="/requests/new" element={<NewRequest />} />
+        <Route path="/expenses" element={<Expenses />} />
+        <Route path="/expenses/new" element={<NewExpense />} />
+        <Route path="/payouts" element={<Payouts />} />
+        <Route path="/settlements" element={<Settlements />} />
+        <Route path="/leave-records" element={<LeaveRecords />} />
+        <Route path="/salaries-advances" element={<SalariesAdvances />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/audit-log" element={<AuditLog />} />
+        <Route path="/petty-cash" element={<PettyCash />} />
+        <Route path="/attendance" element={<Attendance />} />
+        <Route path="/my-attendance" element={<MyAttendance />} />
+        <Route path="/shifts" element={<Shifts />} />
+        <Route path="/roster" element={<Roster />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -137,17 +141,19 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <LanguageProvider>
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
-        </BrowserRouter>
-        <InstallPrompt />
-      </TooltipProvider>
-    </LanguageProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <BrowserRouter>
+            <AuthProvider>
+              <AppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+          <InstallPrompt />
+        </TooltipProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

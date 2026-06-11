@@ -126,6 +126,7 @@ export function AccountantDashboard() {
       {/* Summary Stats - Non-salary metrics only */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard
+          loading={isLoading}
           title="Today's Entries"
           value={stats.completedPaymentsToday}
           subtitle="Recorded today"
@@ -133,6 +134,7 @@ export function AccountantDashboard() {
           color="blue"
         />
         <StatCard
+          loading={isLoading}
           title="Pending Requests"
           value={stats.pendingRequests}
           subtitle="Awaiting approval"
@@ -140,6 +142,7 @@ export function AccountantDashboard() {
           color="orange"
         />
         <StatCard
+          loading={isLoading}
           title="Pending Payouts"
           value={totalPendingPayouts}
           subtitle="Ready to pay"
@@ -148,6 +151,7 @@ export function AccountantDashboard() {
           variant={totalPendingPayouts > 0 ? 'warning' : 'default'}
         />
         <StatCard
+          loading={isLoading}
           title="Active Staff"
           value={stats.activeStaff}
           subtitle="Employees"

@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, Suspense } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -580,7 +582,7 @@ function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-xl px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-xl px-4 lg:px-6 pt-[env(safe-area-inset-top)]">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -614,6 +616,7 @@ function AppHeader() {
       
       <div className="flex items-center gap-3">
         <NotificationBell />
+        <ThemeToggle />
         <div className="hidden sm:flex items-center gap-3">
           <div className="h-6 w-px bg-border" />
           <DropdownMenu>
@@ -656,16 +659,55 @@ function AppHeader() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+// Content-area placeholder shown only while a lazily-loaded page chunk is
+// fetched. It lives INSIDE the layout, so the sidebar + header stay mounted
+// and never flash away on navigation.
+function ContentSkeleton() {
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className="space-y-2">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+      </div>
+      <Skeleton className="h-64 w-full rounded-2xl" />
+    </div>
+  );
+}
+
+export function AppLayout() {
+  // Re-mount the content fade only when the route changes — keyed on pathname
+  // below — while the sidebar/header stay mounted across navigations.
+  const { pathname } = useLocation();
+
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="min-h-screen flex w-full overflow-x-hidden">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
+      <div className="min-h-svh flex w-full overflow-x-hidden">
         <AppSidebar />
         <SidebarInset className="flex min-w-0 flex-col flex-1 overflow-x-hidden">
           <AppHeader />
-          <main className="flex-1 min-w-0 overflow-x-hidden p-4 sm:p-6 animate-fade-in">
-            {children}
-          </main>
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 min-w-0 overflow-x-hidden p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] focus:outline-none"
+          >
+            <Suspense fallback={<ContentSkeleton />}>
+              <div key={pathname} className="animate-fade-in">
+                <Outlet />
+              </div>
+            </Suspense>
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>

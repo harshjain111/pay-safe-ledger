@@ -16,10 +16,11 @@ interface StatCardProps {
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'destructive';
   color?: ColorVariant;
   className?: string;
+  loading?: boolean;
 }
 
 export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
-  ({ title, value, subtitle, icon: Icon, trend, variant = 'default', color = 'blue', className }, ref) => {
+  ({ title, value, subtitle, icon: Icon, trend, variant = 'default', color = 'blue', className, loading = false }, ref) => {
     const colorStyles: Record<ColorVariant, { icon: string; indicator: string }> = {
       blue: {
         icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
@@ -88,18 +89,30 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
             )}>
               {title}
             </p>
-            <p className={cn(
-              'mt-1 sm:mt-2 text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums tracking-tight',
-              isGradient ? 'text-white' : 'text-foreground'
-            )}>
-              {value}
+            <p
+              className={cn(
+                'mt-1 sm:mt-2 text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums tracking-tight truncate',
+                isGradient ? 'text-white' : 'text-foreground'
+              )}
+              title={!loading ? String(value) : undefined}
+            >
+              {loading ? (
+                <span
+                  className={cn(
+                    'inline-block h-[1em] w-20 sm:w-28 align-middle rounded animate-pulse',
+                    isGradient ? 'bg-white/30' : 'bg-muted-foreground/20'
+                  )}
+                />
+              ) : (
+                value
+              )}
             </p>
             {subtitle && (
               <p className={cn(
-                'mt-1 text-[10px] sm:text-xs lg:text-sm',
+                'mt-1 text-[10px] sm:text-xs lg:text-sm truncate',
                 isGradient ? 'text-white/70' : 'text-muted-foreground'
               )}>
-                {subtitle}
+                {loading ? ' ' : subtitle}
               </p>
             )}
             {trend && (

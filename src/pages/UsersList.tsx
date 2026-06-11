@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ListSkeleton } from '@/components/layout/ListSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,6 +61,7 @@ export default function UsersList() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserWithRole | null>(null);
 
@@ -69,7 +72,8 @@ export default function UsersList() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      
+      setHasError(false);
+
       // Get current session for auth header
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -98,6 +102,7 @@ export default function UsersList() {
       setUsers(data.users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
+      setHasError(true);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load users.',
@@ -219,7 +224,11 @@ export default function UsersList() {
       {/* Users Table */}
       <Card>
         <CardContent className="p-0">
-          {filteredUsers.length === 0 && !isLoading ? (
+          {isLoading ? (
+            <ListSkeleton rows={6} />
+          ) : hasError ? (
+            <ErrorState onRetry={fetchUsers} />
+          ) : filteredUsers.length === 0 ? (
             <EmptyState
               icon={Users}
               title="No users found"

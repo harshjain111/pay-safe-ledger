@@ -142,7 +142,7 @@ export function StatutorySettingsCard() {
                   <Label className="text-sm font-semibold">Provident Fund (PF)</Label>
                   <p className="text-xs text-muted-foreground">EPF employee + employer contribution</p>
                 </div>
-                <Switch checked={row.pf_enabled} onCheckedChange={(v) => set('pf_enabled', v)} />
+                <Switch aria-label="Enable Provident Fund (PF)" checked={row.pf_enabled} onCheckedChange={(v) => set('pf_enabled', v)} />
               </div>
               {row.pf_enabled && (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-1">
@@ -165,7 +165,7 @@ export function StatutorySettingsCard() {
                   <div className="space-y-1.5 flex flex-col">
                     <Label className="text-xs">Auto-enroll new staff</Label>
                     <div className="flex items-center h-10 gap-2">
-                      <Switch checked={row.pf_default_enroll}
+                      <Switch aria-label="Auto-enroll new staff in PF" checked={row.pf_default_enroll}
                         onCheckedChange={(v) => set('pf_default_enroll', v)} />
                       <span className="text-xs text-muted-foreground">
                         {row.pf_default_enroll ? 'Yes' : 'No'}
@@ -183,7 +183,7 @@ export function StatutorySettingsCard() {
                   <Label className="text-sm font-semibold">ESI (Employees' State Insurance)</Label>
                   <p className="text-xs text-muted-foreground">Only for gross ≤ ceiling</p>
                 </div>
-                <Switch checked={row.esi_enabled} onCheckedChange={(v) => set('esi_enabled', v)} />
+                <Switch aria-label="Enable ESI" checked={row.esi_enabled} onCheckedChange={(v) => set('esi_enabled', v)} />
               </div>
               {row.esi_enabled && (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-1">
@@ -210,7 +210,7 @@ export function StatutorySettingsCard() {
                   <Label className="text-sm font-semibold">Professional Tax (PT)</Label>
                   <p className="text-xs text-muted-foreground">Monthly slabs by gross salary (West Bengal)</p>
                 </div>
-                <Switch checked={row.pt_enabled} onCheckedChange={(v) => set('pt_enabled', v)} />
+                <Switch aria-label="Enable Professional Tax (PT)" checked={row.pt_enabled} onCheckedChange={(v) => set('pt_enabled', v)} />
               </div>
               {row.pt_enabled && (
                 <div className="space-y-2 pt-1">
@@ -250,7 +250,7 @@ export function StatutorySettingsCard() {
                   <Label className="text-sm font-semibold">Overtime (OT)</Label>
                   <p className="text-xs text-muted-foreground">Paid for minutes worked beyond the standard shift</p>
                 </div>
-                <Switch checked={row.ot_enabled} onCheckedChange={(v) => set('ot_enabled', v)} />
+                <Switch aria-label="Enable Overtime (OT)" checked={row.ot_enabled} onCheckedChange={(v) => set('ot_enabled', v)} />
               </div>
               {row.ot_enabled && (
                 <div className="grid gap-3 sm:grid-cols-2 pt-1">

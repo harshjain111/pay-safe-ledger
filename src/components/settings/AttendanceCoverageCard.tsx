@@ -72,7 +72,7 @@ export function AttendanceCoverageCard() {
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
           Choose which staff use this app for attendance. Turn OFF for staff who use a
-          different app (e.g. club staff) — they won't see the check-in widget and
+          different app (e.g. outsourced staff) — they won't see the check-in widget and
           won't be fined here.
         </CardDescription>
       </CardHeader>
@@ -101,6 +101,7 @@ export function AttendanceCoverageCard() {
                   </p>
                 </div>
                 <Switch
+                  aria-label={`Track attendance for ${r.full_name}`}
                   checked={r.attendance_tracked}
                   onCheckedChange={(v) => toggle(r.id, v)}
                 />

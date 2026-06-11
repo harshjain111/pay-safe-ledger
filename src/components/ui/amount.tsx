@@ -56,15 +56,23 @@ interface AmountInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
+  name?: string;
+  'aria-label'?: string;
+  'aria-invalid'?: boolean;
 }
 
-export function AmountInput({ 
-  value, 
-  onChange, 
-  currency = '₹', 
-  placeholder = '0.00', 
-  className, 
-  disabled = false 
+export function AmountInput({
+  value,
+  onChange,
+  currency = '₹',
+  placeholder = '0.00',
+  className,
+  disabled = false,
+  id,
+  name,
+  'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
 }: AmountInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/[^0-9.]/g, '');
@@ -78,8 +86,12 @@ export function AmountInput({
         {currency}
       </span>
       <input
+        id={id}
+        name={name}
         type="text"
         inputMode="decimal"
+        aria-label={ariaLabel}
+        aria-invalid={ariaInvalid}
         value={value > 0 ? value.toString() : ''}
         onChange={handleChange}
         placeholder={placeholder}
@@ -87,7 +99,7 @@ export function AmountInput({
         className={cn(
           'flex h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2',
           'font-mono tabular-nums text-right',
-          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           'disabled:cursor-not-allowed disabled:opacity-50',
           'placeholder:text-muted-foreground'
         )}

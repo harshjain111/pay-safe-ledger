@@ -43,12 +43,6 @@ interface CustomCategory {
   is_active: boolean;
 }
 
-interface Club {
-  id: string;
-  name: string;
-  is_active: boolean;
-}
-
 const ALLOWED_CATEGORIES = Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[];
 
 const expenseFormSchema = z.object({
@@ -87,8 +81,6 @@ export default function NewExpense() {
   // Non-schema fields (file uploads + optional associations)
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -119,7 +111,6 @@ export default function NewExpense() {
       setIsFetchingStaff(false);
     }
     fetchCustomCategories();
-    fetchClubs();
   }, [isPersonalRequest, staffData?.id, canRequestForOthers]);
 
   const fetchCustomCategories = async () => {
@@ -129,15 +120,6 @@ export default function NewExpense() {
       .eq('is_active', true)
       .order('sort_order');
     if (data) setCustomCategories(data);
-  };
-
-  const fetchClubs = async () => {
-    const { data } = await supabase
-      .from('clubs')
-      .select('id, name, is_active')
-      .eq('is_active', true)
-      .order('name');
-    if (data) setClubs(data);
   };
 
   const fetchStaffList = async () => {
@@ -250,7 +232,6 @@ export default function NewExpense() {
           status: asDraft ? 'draft' as const : 'pending' as const,
           submitted_at: asDraft ? null : new Date().toISOString(),
           created_by: user?.id,
-          club_id: selectedClubId || null,
         })
         .select()
         .single();
@@ -356,6 +337,7 @@ export default function NewExpense() {
                 <FormItem>
                   <FormLabel className="text-sm">Amount *</FormLabel>
                   <AmountInput
+                    aria-label="Amount"
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="0.00"
@@ -402,31 +384,6 @@ export default function NewExpense() {
                 </FormItem>
               )}
             />
-
-            {/* Club (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="club" className="text-sm">Club (Optional)</Label>
-              <Select value={selectedClubId || 'none'} onValueChange={(v) => setSelectedClubId(v === 'none' ? '' : v)}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Select a club (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No club</SelectItem>
-                  {clubs.length > 0 ? (
-                    clubs.map((club) => (
-                      <SelectItem key={club.id} value={club.id}>
-                        {club.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-clubs" disabled>No clubs added yet — add in Settings</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">
-                Manage clubs from Settings
-              </p>
-            </div>
 
             {/* Expense Date */}
             <FormField

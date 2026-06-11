@@ -82,6 +82,7 @@ export function QuickAdvanceForm({ open, onOpenChange, onSuccess }: QuickAdvance
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
+          <DialogTitle className="sr-only">{t('advance_success')}</DialogTitle>
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <div className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center">
               <CheckCircle2 className="h-10 w-10 text-success" />

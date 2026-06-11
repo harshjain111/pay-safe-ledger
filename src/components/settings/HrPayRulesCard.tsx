@@ -99,14 +99,14 @@ export function HrPayRulesCard() {
                 <Label className="text-sm">Unscheduled day is an off day</Label>
                 <p className="text-[10px] text-muted-foreground">A day with no shift allotted in the roster is a paid off day, not an absence</p>
               </div>
-              <Switch checked={rules.unscheduled_is_off} onCheckedChange={(v) => set('unscheduled_is_off', v)} />
+              <Switch aria-label="Unscheduled day is an off day" checked={rules.unscheduled_is_off} onCheckedChange={(v) => set('unscheduled_is_off', v)} />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="pr-3">
                 <Label className="text-sm">Comp-off for working an off day</Label>
                 <p className="text-[10px] text-muted-foreground">Working a rostered off day earns a carried-forward paid leave</p>
               </div>
-              <Switch checked={rules.comp_off_enabled} onCheckedChange={(v) => set('comp_off_enabled', v)} />
+              <Switch aria-label="Comp-off for working an off day" checked={rules.comp_off_enabled} onCheckedChange={(v) => set('comp_off_enabled', v)} />
             </div>
             <div className="flex justify-end">
               <Button onClick={handleSave} disabled={saving} size="sm">

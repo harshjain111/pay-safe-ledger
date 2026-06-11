@@ -20,7 +20,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AmountInput } from '@/components/ui/amount';
-import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, RefreshCw, AlertCircle, Camera } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, Save, UserPlus, Eye, EyeOff, Loader2, Phone, RefreshCw, AlertCircle, Camera, CheckCircle2, Circle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { uploadStaffPhoto, uploadStaffDocument } from '@/lib/staff-uploads';
 import { format } from 'date-fns';
@@ -871,6 +871,37 @@ export default function StaffForm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {(() => {
+                const docs = [
+                  { label: 'Photo', done: !!photoFile },
+                  { label: 'Aadhaar document', done: !!aadhaarFile },
+                  { label: 'PAN document', done: !!panFile },
+                  { label: 'Bank proof', done: !!bankProofFile },
+                ];
+                const done = docs.filter((d) => d.done).length;
+                return (
+                  <div className="rounded-lg border bg-muted/30 p-3" role="status" aria-live="polite">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium">Required documents</span>
+                      <span className={cn('text-xs font-semibold', done === docs.length ? 'text-success' : 'text-muted-foreground')}>
+                        {done} of {docs.length} uploaded
+                      </span>
+                    </div>
+                    <ul className="grid gap-1.5 sm:grid-cols-2">
+                      {docs.map((d) => (
+                        <li key={d.label} className="flex items-center gap-2 text-sm">
+                          {d.done ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                          ) : (
+                            <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className={d.done ? 'text-foreground' : 'text-muted-foreground'}>{d.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="kycPhoto">Photo *</Label>
@@ -1045,6 +1076,7 @@ export default function StaffForm() {
               <div className="space-y-2">
                 <Label>Monthly Salary (₹) *</Label>
                 <AmountInput
+                  aria-label="Monthly salary"
                   value={monthlySalary}
                   onChange={setMonthlySalary}
                   placeholder="0.00"
@@ -1077,15 +1109,15 @@ export default function StaffForm() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Basic (₹)</Label>
-                      <AmountInput value={basicSalary} onChange={setBasicSalary} placeholder="0.00" />
+                      <AmountInput aria-label="Basic salary" value={basicSalary} onChange={setBasicSalary} placeholder="0.00" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">HRA (₹)</Label>
-                      <AmountInput value={hra} onChange={setHra} placeholder="0.00" />
+                      <AmountInput aria-label="HRA" value={hra} onChange={setHra} placeholder="0.00" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Other Allowances (₹)</Label>
-                      <AmountInput value={otherAllowances} onChange={setOtherAllowances} placeholder="0.00" />
+                      <AmountInput aria-label="Other allowances" value={otherAllowances} onChange={setOtherAllowances} placeholder="0.00" />
                     </div>
                   </div>
                   {basicSalary + hra + otherAllowances > 0 && Math.abs((basicSalary + hra + otherAllowances) - monthlySalary) > 0.5 && (
@@ -1108,7 +1140,7 @@ export default function StaffForm() {
                         <Label className="text-sm">Enrolled in PF</Label>
                         <p className="text-[10px] text-muted-foreground">Deducts EPF employee share & adds employer contribution</p>
                       </div>
-                      <Switch checked={pfEnrolled} onCheckedChange={setPfEnrolled} />
+                      <Switch aria-label="Enrolled in PF" checked={pfEnrolled} onCheckedChange={setPfEnrolled} />
                     </div>
                     {pfEnrolled && (
                       <div className="space-y-1.5 pl-4">
@@ -1124,7 +1156,7 @@ export default function StaffForm() {
                         <Label className="text-sm">Enrolled in ESI</Label>
                         <p className="text-[10px] text-muted-foreground">Only applies if gross ≤ company-wide eligibility ceiling</p>
                       </div>
-                      <Switch checked={esiEnrolled} onCheckedChange={setEsiEnrolled} />
+                      <Switch aria-label="Enrolled in ESI" checked={esiEnrolled} onCheckedChange={setEsiEnrolled} />
                     </div>
                     {esiEnrolled && (
                       <div className="space-y-1.5 pl-4">
@@ -1140,7 +1172,7 @@ export default function StaffForm() {
                         <Label className="text-sm">Exempt from Professional Tax</Label>
                         <p className="text-[10px] text-muted-foreground">PT is skipped for this staff even if company-wide PT is on</p>
                       </div>
-                      <Switch checked={ptExempt} onCheckedChange={setPtExempt} />
+                      <Switch aria-label="Exempt from Professional Tax" checked={ptExempt} onCheckedChange={setPtExempt} />
                     </div>
 
                     <div className="space-y-2 rounded-lg border p-3">

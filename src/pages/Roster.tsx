@@ -11,7 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Loader2, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, CalendarDays, ShieldAlert } from 'lucide-react';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { toast } from '@/lib/toast';
 import {
   format,
@@ -145,10 +146,11 @@ export default function Roster() {
 
   if (!canManage) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-sm text-muted-foreground">Only owners and admins can manage the duty roster.</p>
-      </div>
+      <EmptyState
+        icon={ShieldAlert}
+        title="Access Denied"
+        description="Only owners and admins can manage the duty roster."
+      />
     );
   }
 

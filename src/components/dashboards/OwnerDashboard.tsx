@@ -88,6 +88,7 @@ export function OwnerDashboard() {
       {/* Summary Stats */}
       <div className="grid gap-3 sm:gap-4 lg:gap-5 grid-cols-2 xl:grid-cols-4">
         <StatCard
+          loading={isLoading}
           title="Active Staff"
           value={stats.activeStaff}
           subtitle={stats.staffMissingSalary > 0 ? `${stats.staffMissingSalary} missing salary` : 'All set up'}
@@ -95,6 +96,7 @@ export function OwnerDashboard() {
           color="blue"
         />
         <StatCard
+          loading={isLoading}
           title="Monthly Payroll"
           value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
           subtitle="Total liability"
@@ -102,6 +104,7 @@ export function OwnerDashboard() {
           color="purple"
         />
         <StatCard
+          loading={isLoading}
           title="Advances Outstanding"
           value={`₹${stats.advancesOutstanding.toLocaleString('en-IN')}`}
           subtitle="To be adjusted"
@@ -109,6 +112,7 @@ export function OwnerDashboard() {
           color="orange"
         />
         <StatCard
+          loading={isLoading}
           title="Current Period"
           value={format(new Date(), 'MMM yyyy')}
           subtitle="Settlement period"

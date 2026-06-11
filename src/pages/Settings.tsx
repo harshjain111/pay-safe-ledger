@@ -45,7 +45,6 @@ import {
 import { format } from 'date-fns';
 import { ClearTransactionDataCard } from '@/components/settings/ClearTransactionDataCard';
 import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard';
-import { ManageClubsCard } from '@/components/settings/ManageClubsCard';
 import { DisciplineRulesCard } from '@/components/settings/DisciplineRulesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
@@ -155,7 +154,7 @@ export default function Settings() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
-        title={t('settings')}
+        title="Settings"
         description="Manage your account preferences and security settings"
       />
 
@@ -436,9 +435,6 @@ export default function Settings() {
 
         {/* Expense Categories Management */}
         <ManageCategoriesCard />
-
-        {/* Clubs Management */}
-        <ManageClubsCard />
 
         {/* Outlets & Departments Management */}
         <ManageOutletsDepartmentsCard />

@@ -6,6 +6,7 @@ import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -26,6 +27,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -54,14 +65,18 @@ export default function Requests() {
   
   const [requests, setRequests] = useState<RequestWithStaff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RequestWithStaff | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [approveRequest, setApproveRequest] = useState<RequestWithStaff | null>(null);
   const [activeTab, setActiveTab] = useState('pending');
   const [cancelRequest, setCancelRequest] = useState<RequestWithStaff | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true);
+    setHasError(false);
     try {
       let query = supabase
         .from('payment_requests')
@@ -101,6 +116,7 @@ export default function Requests() {
       setRequests(data as RequestWithStaff[] || []);
     } catch (error) {
       console.error('Error fetching requests:', error);
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +134,7 @@ export default function Requests() {
       return;
     }
 
-    setIsProcessing(true);
+    setProcessingId(request.id);
     try {
       const approverName = getUserDisplayName(user, staffData);
 
@@ -166,8 +182,8 @@ export default function Requests() {
       console.error('Error approving request:', error);
       toast.error((error as { message?: string })?.message || 'Failed to approve request');
     } finally {
-      setIsProcessing(false);
-      setSelectedRequest(null);
+      setProcessingId(null);
+      setApproveRequest(null);
     }
   };
 
@@ -261,6 +277,8 @@ export default function Requests() {
         <CardContent className="p-0">
           {isLoading ? (
             <ListSkeleton variant="rows" />
+          ) : hasError ? (
+            <ErrorState onRetry={fetchRequests} />
           ) : requests.length === 0 ? (
             <EmptyState
               icon={ClipboardList}
@@ -305,18 +323,24 @@ export default function Requests() {
                             <Button
                               size="sm"
                               variant="outline"
+                              aria-label="Approve request"
                               className="text-success hover:text-success h-8 w-8 sm:h-9 sm:w-9 p-0"
-                              onClick={() => handleApprove(request)}
-                              disabled={isProcessing}
+                              onClick={() => setApproveRequest(request)}
+                              disabled={processingId !== null}
                             >
-                              <Check className="h-4 w-4" />
+                              {processingId === request.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
+                              aria-label="Reject request"
                               className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9 p-0"
                               onClick={() => setSelectedRequest(request)}
-                              disabled={isProcessing}
+                              disabled={isProcessing || processingId !== null}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -403,18 +427,24 @@ export default function Requests() {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  aria-label="Approve request"
                                   className="text-success hover:text-success"
-                                  onClick={() => handleApprove(request)}
-                                  disabled={isProcessing}
+                                  onClick={() => setApproveRequest(request)}
+                                  disabled={processingId !== null}
                                 >
-                                  <Check className="h-4 w-4" />
+                                  {processingId === request.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Check className="h-4 w-4" />
+                                  )}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  aria-label="Reject request"
                                   className="text-destructive hover:text-destructive"
                                   onClick={() => setSelectedRequest(request)}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || processingId !== null}
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
@@ -500,6 +530,47 @@ export default function Requests() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Approve Confirmation */}
+      <AlertDialog open={!!approveRequest} onOpenChange={(open) => !open && processingId === null && setApproveRequest(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {approveRequest && (
+                <>
+                  Approve the payment request of{' '}
+                  <span className="font-semibold text-foreground">
+                    ₹{approveRequest.amount.toLocaleString('en-IN')}
+                  </span>{' '}
+                  for <span className="font-semibold text-foreground">{approveRequest.staff?.full_name}</span>?
+                  Once approved, it becomes available in Payouts.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (approveRequest) handleApprove(approveRequest);
+              }}
+              disabled={processingId !== null}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {processingId !== null ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                'Approve'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Cancel Approval Dialog */}
       <CancelApprovalDialog

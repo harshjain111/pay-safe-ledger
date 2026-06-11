@@ -25,7 +25,7 @@
  import { ListSkeleton } from '@/components/layout/ListSkeleton';
  import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
  import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
- import { Plus, Calendar, Search, Clock, CheckCircle, XCircle, CalendarX, CalendarMinus, Eye } from 'lucide-react';
+ import { Plus, Calendar, Search, Clock, CheckCircle, XCircle, CalendarX, CalendarMinus } from 'lucide-react';
  import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
  import type { LeaveRecord, LeaveStatus } from '@/types/leave';
  import { LEAVE_TYPE_CONFIG, LEAVE_STATUS_LABELS } from '@/types/leave';
@@ -432,9 +432,7 @@
                              Review
                            </Button>
                          ) : (
-                           <Button size="sm" variant="ghost">
-                             <Eye className="h-4 w-4" />
-                           </Button>
+                           <span className="text-xs text-muted-foreground">—</span>
                          )}
                        </TableCell>
                      </TableRow>

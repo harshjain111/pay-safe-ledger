@@ -202,11 +202,11 @@ export default function PettyCash() {
 
   if (!canAccess) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Coins className="h-12 w-12 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Access Denied</h2>
-        <p className="text-muted-foreground">Only Owner and Admin can access Petty Cash.</p>
-      </div>
+      <EmptyState
+        icon={Coins}
+        title="Access Denied"
+        description="Only Owner and Admin can access Petty Cash."
+      />
     );
   }
 
