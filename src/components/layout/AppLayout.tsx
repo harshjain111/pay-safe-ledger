@@ -83,6 +83,10 @@ function getNavSections(
   isAccountant: boolean,
   counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number }
 ): NavSection[] {
+  // Pending items awaiting approval — surfaced as ONE badge on the merged
+  // "Approvals" item (advances + expenses).
+  const pendingApprovals = counts.pendingRequests + counts.pendingExpenses;
+
   // Owner - full access
   if (userRole === 'owner') {
     return [
@@ -92,51 +96,51 @@ function getNavSections(
         ],
       },
       {
-        title: 'Management',
+        title: 'People',
         items: [
-          { title: 'Users', href: '/users', icon: Users },
           { title: 'Staff', href: '/staff', icon: Briefcase },
+          { title: 'Users', href: '/users', icon: Users },
+        ],
+      },
+      {
+        title: 'Attendance & Shifts',
+        items: [
+          { title: 'Attendance', href: '/attendance', icon: Clock },
+          { title: 'Shifts', href: '/shifts', icon: Briefcase },
+          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
+        ],
+      },
+      {
+        title: 'Leave',
+        items: [
+          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+        ],
+      },
+      {
+        title: 'Approvals',
+        items: [
+          { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+        ],
+      },
+      {
+        title: 'Payroll',
+        items: [
+          { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
+          { title: 'Settlements', href: '/settlements', icon: Calculator },
+          { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
         ],
       },
       {
         title: 'Finance',
         items: [
           { title: 'Ledger', href: '/ledger', icon: FileText },
-          { 
-            title: 'Request Advance', 
-            href: '/requests', 
-            icon: ClipboardList,
-            badge: counts.pendingRequests,
-          },
-          { 
-            title: 'Expenses', 
-            href: '/expenses', 
-            icon: Receipt,
-            badge: counts.pendingExpenses,
-          },
-          { 
-            title: 'Payouts', 
-            href: '/payouts', 
-            icon: CreditCard,
-            badge: counts.approvedExpenses,
-          },
           { title: 'Petty Cash', href: '/petty-cash', icon: Coins },
-        ],
-      },
-      {
-        title: 'Salary',
-        items: [
-          { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
-          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Settlements', href: '/settlements', icon: Calculator },
+          { title: 'Expenses', href: '/expenses', icon: Receipt },
         ],
       },
       {
         title: 'Reports',
         items: [
-          { title: 'Attendance', href: '/attendance', icon: Clock },
-          { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
           { title: 'Reports', href: '/reports', icon: BarChart3 },
           { title: 'Audit Log', href: '/audit-log', icon: History },
         ],
@@ -159,44 +163,48 @@ function getNavSections(
         ],
       },
       {
-        title: 'Management',
+        title: 'People',
         items: [
           { title: 'Staff', href: '/staff', icon: Briefcase },
+        ],
+      },
+      {
+        title: 'Attendance & Shifts',
+        items: [
+          { title: 'Attendance', href: '/attendance', icon: Clock },
+          { title: 'Shifts', href: '/shifts', icon: Briefcase },
+          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
+        ],
+      },
+      {
+        title: 'Leave',
+        items: [
+          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+        ],
+      },
+      {
+        title: 'Approvals',
+        items: [
+          { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+        ],
+      },
+      {
+        title: 'Payroll',
+        items: [
+          { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
         ],
       },
       {
         title: 'Finance',
         items: [
           { title: 'Ledger', href: '/ledger', icon: FileText },
-          { 
-            title: 'Request Advance', 
-            href: '/requests', 
-            icon: ClipboardList,
-            badge: counts.pendingRequests,
-          },
-          { 
-            title: 'Expenses', 
-            href: '/expenses', 
-            icon: Receipt,
-            badge: counts.pendingExpenses,
-          },
-          { 
-            title: 'Payouts', 
-            href: '/payouts', 
-            icon: CreditCard,
-            badge: counts.approvedExpenses,
-          },
           { title: 'Petty Cash', href: '/petty-cash', icon: Coins },
-          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Expenses', href: '/expenses', icon: Receipt },
         ],
       },
       {
         title: 'Reports',
         items: [
-          { title: 'Attendance', href: '/attendance', icon: Clock },
-          { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
-          
           { title: 'Reports', href: '/reports', icon: BarChart3 },
         ],
       },
@@ -212,7 +220,7 @@ function getNavSections(
   // Accountant - dual context
   if (isAccountant) {
     if (!accountingMode) {
-      // My Account context (personal/employee view)
+      // My Account context (personal/employee self-service view) — unchanged
       return [
         {
           title: 'My Account',
@@ -227,28 +235,53 @@ function getNavSections(
         },
       ];
     } else {
-      // Accounting context (finance operator view) - No direct payments, only payouts
+      // Accounting context (finance operator view) — management taxonomy
       return [
         {
-          title: 'Accounting',
           items: [
             { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+          ],
+        },
+        {
+          title: 'People',
+          items: [
             { title: 'Staff', href: '/staff', icon: Briefcase },
-            { title: 'Request Advance', href: '/requests', icon: ClipboardList },
-            { 
-              title: 'Expenses', 
-              href: '/expenses', 
-              icon: Receipt,
-            },
-            { 
-              title: 'Payouts', 
-              href: '/payouts', 
-              icon: CreditCard,
-              badge: counts.approvedExpenses,
-            },
+          ],
+        },
+        {
+          title: 'Leave',
+          items: [
             { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          ],
+        },
+        {
+          title: 'Approvals',
+          items: [
+            { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+          ],
+        },
+        {
+          title: 'Payroll',
+          items: [
+            { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
+          ],
+        },
+        {
+          title: 'Finance',
+          items: [
             { title: 'Ledger', href: '/ledger', icon: FileText },
+            { title: 'Expenses', href: '/expenses', icon: Receipt },
+          ],
+        },
+        {
+          title: 'Reports',
+          items: [
             { title: 'Reports', href: '/reports', icon: BarChart3 },
+          ],
+        },
+        {
+          title: 'Account',
+          items: [
             { title: 'Settings', href: '/settings', icon: Settings },
           ],
         },
@@ -256,7 +289,7 @@ function getNavSections(
     }
   }
 
-  // Staff - personal view only
+  // Staff - personal view only — self-service, unchanged
   if (userRole === 'staff') {
     return [
       {
@@ -272,16 +305,36 @@ function getNavSections(
     ];
   }
 
-  // CA - read-only access
+  // CA - read-only access — regrouped into the management taxonomy
   if (userRole === 'ca') {
     return [
       {
         items: [
           { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-          { title: 'Ledger', href: '/ledger', icon: FileText },
+        ],
+      },
+      {
+        title: 'Attendance & Shifts',
+        items: [
           { title: 'Attendance', href: '/attendance', icon: Clock },
+        ],
+      },
+      {
+        title: 'Finance',
+        items: [
+          { title: 'Ledger', href: '/ledger', icon: FileText },
+        ],
+      },
+      {
+        title: 'Reports',
+        items: [
           { title: 'Reports', href: '/reports', icon: BarChart3 },
           { title: 'Audit Log', href: '/audit-log', icon: History },
+        ],
+      },
+      {
+        title: 'Account',
+        items: [
           { title: 'Settings', href: '/settings', icon: Settings },
         ],
       },
