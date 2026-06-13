@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -12,57 +10,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toast } from '@/lib/toast';
-import { CalendarDays, Loader2, Save } from 'lucide-react';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { useSingletonSettings } from '@/hooks/useSingletonSettings';
+import { useSettingsForm } from '@/components/settings/SettingsPanel';
+import { CalendarDays, Loader2 } from 'lucide-react';
 import { toAmount } from '@/lib/utils';
 import type { LeaveAccrual } from '@/lib/leave';
 
 export function LeaveSettingsCard() {
   const { isOwner, isAdmin, user } = useAuth();
   const canManage = isOwner || isAdmin;
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  const { data, loading, error, reload, save } = useSingletonSettings<{
+    annual_quota?: number;
+    accrual?: string;
+  }>('leave_settings', 'annual_quota, accrual', canManage);
+
   const [quota, setQuota] = useState(12);
   const [accrual, setAccrual] = useState<LeaveAccrual>('annual');
 
   useEffect(() => {
-    if (!canManage) {
-      setLoading(false);
-      return;
+    if (data) {
+      setQuota(Number(data.annual_quota ?? 12));
+      setAccrual(data.accrual === 'monthly' ? 'monthly' : 'annual');
     }
-    (async () => {
-      const { data, error } = await supabase
-        .from('leave_settings' as never)
-        .select('annual_quota, accrual')
-        .maybeSingle();
-      if (error) {
-        toast.error('Could not load leave settings — please reload before saving.');
-      } else if (data) {
-        const d = data as { annual_quota?: number; accrual?: string };
-        setQuota(Number(d.annual_quota ?? 12));
-        setAccrual(d.accrual === 'monthly' ? 'monthly' : 'annual');
-      }
-      setLoading(false);
-    })();
-  }, [canManage]);
+  }, [data]);
+
+  const baseQuota = Number(data?.annual_quota ?? 12);
+  const baseAccrual: LeaveAccrual = data?.accrual === 'monthly' ? 'monthly' : 'annual';
+  const dirty = !loading && !error && data != null && (quota !== baseQuota || accrual !== baseAccrual);
+
+  // The panel owns the Save button; this card just contributes its fields.
+  const persist = useCallback(async () => {
+    await save({ annual_quota: quota, accrual, updated_by: user?.id ?? null });
+    await reload();
+  }, [save, reload, quota, accrual, user?.id]);
+  useSettingsForm('leave-entitlement', dirty, persist);
 
   if (!canManage) return null;
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('leave_settings' as never)
-        .update({ annual_quota: quota, accrual, updated_by: user?.id ?? null } as never)
-        .eq('singleton', true);
-      if (error) throw error;
-      toast.success('Leave settings saved');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <Card>
@@ -80,29 +65,28 @@ export function LeaveSettingsCard() {
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <ErrorState
+            title="Couldn't load leave settings"
+            description="Reload to edit — saving is disabled until the saved values load."
+            onRetry={reload}
+            className="py-8"
+          />
         ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Paid leave quota (days / year)</Label>
-                <Input type="number" value={quota} onChange={(e) => setQuota(toAmount(e.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Accrual</Label>
-                <Select value={accrual} onValueChange={(v) => setAccrual(v as LeaveAccrual)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    <SelectItem value="annual">Annual (granted upfront)</SelectItem>
-                    <SelectItem value="monthly">Monthly (accrues over the year)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Paid leave quota (days / year)</Label>
+              <Input type="number" value={quota} onChange={(e) => setQuota(toAmount(e.target.value))} />
             </div>
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving} size="sm">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save
-              </Button>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Accrual</Label>
+              <Select value={accrual} onValueChange={(v) => setAccrual(v as LeaveAccrual)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="annual">Annual (granted upfront)</SelectItem>
+                  <SelectItem value="monthly">Monthly (accrues over the year)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}

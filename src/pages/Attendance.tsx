@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -118,6 +119,7 @@ export default function Attendance() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [leaveDates, setLeaveDates] = useState<Set<string>>(new Set()); // `${staffId}|${date}`
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const [selected, setSelected] = useState<AttendanceSession | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -130,6 +132,7 @@ export default function Attendance() {
 
   const fetchAll = async () => {
     setLoading(true);
+    setHasError(false);
     try {
       const [staffRes, sessRes, leaveRes] = await Promise.all([
         supabase
@@ -165,7 +168,7 @@ export default function Attendance() {
       setLeaveDates(set);
     } catch (e) {
       console.error('Attendance fetch error', e);
-      toast.error('Failed to load attendance');
+      setHasError(true);
     } finally {
       setLoading(false);
     }
@@ -416,6 +419,14 @@ export default function Attendance() {
             color="pink"
           />
         </div>
+
+        {hasError && (
+          <ErrorState
+            onRetry={fetchAll}
+            title="Couldn't load attendance"
+            description="We couldn't load attendance for this period. Please try again."
+          />
+        )}
 
         <Card className="max-w-full min-w-0 overflow-hidden rounded-2xl border-0 shadow-card">
           <CardContent className="min-w-0 p-4 md:p-6 space-y-4">

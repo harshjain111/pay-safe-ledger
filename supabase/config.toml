@@ -1,1 +1,7 @@
 project_id = "tvjcyntqgbipennzbxgt"
+
+# Device/agent calls carry an `x-device-key`, not a Supabase user JWT, so the
+# ingest endpoint must not require JWT verification. It authenticates the device
+# itself by matching the key's SHA-256 hash against biometric_devices.
+[functions.ingest-punches]
+verify_jwt = false

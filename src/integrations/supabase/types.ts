@@ -175,11 +175,12 @@ export type Database = {
           id: string
           late_checkout: boolean
           overtime_reminder_sent: boolean
+          source: string
           staff_id: string | null
           status: string
           total_break_minutes: number
           updated_at: string
-          user_id: string
+          user_id: string | null
           work_date: string
           worked_minutes: number | null
         }
@@ -201,11 +202,12 @@ export type Database = {
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
           updated_at?: string
-          user_id: string
+          user_id?: string | null
           work_date: string
           worked_minutes?: number | null
         }
@@ -227,11 +229,12 @@ export type Database = {
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
           work_date?: string
           worked_minutes?: number | null
         }
@@ -272,6 +275,184 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      // --- biometric attendance subsystem (hand-added; regenerated on deploy) ---
+      biometric_devices: {
+        Row: {
+          api_key_hash: string | null
+          api_key_prefix: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_seen_at: string | null
+          outlet_id: string | null
+          serial: string | null
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometric_devices_outlet_id_fkey"
+            columns: ["outlet_id"]
+            isOneToOne: false
+            referencedRelation: "outlets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      biometric_enrolments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          device_id: string | null
+          enrolled_at: string | null
+          face_vector_ref: string | null
+          id: string
+          kind: string
+          staff_id: string
+          status: string
+          template_ref: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          device_id?: string | null
+          enrolled_at?: string | null
+          face_vector_ref?: string | null
+          id?: string
+          kind?: string
+          staff_id: string
+          status?: string
+          template_ref?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          device_id?: string | null
+          enrolled_at?: string | null
+          face_vector_ref?: string | null
+          id?: string
+          kind?: string
+          staff_id?: string
+          status?: string
+          template_ref?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometric_enrolments_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "biometric_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "biometric_enrolments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      punch_events: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          direction: string
+          geo: Json | null
+          id: string
+          method: string
+          outlet_id: string | null
+          raw_ref: string | null
+          session_id: string | null
+          staff_id: string
+          ts: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          direction: string
+          geo?: Json | null
+          id?: string
+          method?: string
+          outlet_id?: string | null
+          raw_ref?: string | null
+          session_id?: string | null
+          staff_id: string
+          ts: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          direction?: string
+          geo?: Json | null
+          id?: string
+          method?: string
+          outlet_id?: string | null
+          raw_ref?: string | null
+          session_id?: string | null
+          staff_id?: string
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "biometric_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_events_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_expense_categories: {
         Row: {

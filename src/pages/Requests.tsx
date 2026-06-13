@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserDisplayName } from '@/lib/get-user-display-name';
+import { approveAdvanceRequest, rejectAdvanceRequest } from '@/lib/advance-approvals';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
@@ -127,56 +127,12 @@ export default function Requests() {
   }, [fetchRequests]);
 
   const handleApprove = async (request: RequestWithStaff) => {
-    // Prevent self-benefit approval - cannot approve requests where YOU are the beneficiary
-    // But you CAN approve requests you created on behalf of others
-    if (request.staff?.user_id === user?.id) {
-      toast.error('You cannot approve requests for yourself');
-      return;
-    }
-
     setProcessingId(request.id);
     try {
-      const approverName = getUserDisplayName(user, staffData);
-
-      const { error } = await supabase
-        .from('payment_requests')
-        .update({
-          status: 'approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-          approved_by_user_name: approverName,
-        })
-        .eq('id', request.id);
-
-      if (error) throw error;
-
-      // Notify the staff member
-      if (request.staff?.user_id) {
-        await supabase.rpc('create_notification', {
-          _user_id: request.staff.user_id,
-          _title: 'Request Approved',
-          _message: `Your payment request of ₹${request.amount.toLocaleString('en-IN')} has been approved and is ready for payout.`,
-          _type: 'success',
-          _reference_type: 'payment_request',
-          _reference_id: request.id,
-        });
-      }
-
-      // Notify payout executors (server-side fan-out; excludes the approver).
-      await supabase.rpc('notify_users_by_role', {
-        _roles: ['accountant', 'owner', 'admin'],
-        _title: 'Request Ready for Payout',
-        _message: `Advance request for ${request.staff?.full_name} (₹${request.amount.toLocaleString('en-IN')}) is approved and ready in Payouts.`,
-        _type: 'info',
-        _reference_type: 'payment_request',
-        _reference_id: request.id,
-      });
-
+      // Shared mutation — same logic the Approvals page uses (incl. self-benefit guard).
+      await approveAdvanceRequest({ request, user, staffData });
       toast.success('Request approved - now available in Payouts');
-      
-      // Immediately update notification counts
       refetchNotificationCounts();
-      
       fetchRequests();
     } catch (error) {
       console.error('Error approving request:', error);
@@ -189,41 +145,12 @@ export default function Requests() {
 
   const handleReject = async () => {
     if (!selectedRequest) return;
-    
+
     setIsProcessing(true);
     try {
-      const approverName = getUserDisplayName(user, staffData);
-
-      const { error } = await supabase
-        .from('payment_requests')
-        .update({
-          status: 'rejected',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-          rejection_reason: rejectionReason,
-          approved_by_user_name: approverName,
-        })
-        .eq('id', selectedRequest.id);
-
-      if (error) throw error;
-
-      // Notify the staff member
-      if (selectedRequest.staff?.user_id) {
-        await supabase.rpc('create_notification', {
-          _user_id: selectedRequest.staff.user_id,
-          _title: 'Request Rejected',
-          _message: `Your payment request of ₹${selectedRequest.amount.toLocaleString('en-IN')} has been rejected. Reason: ${rejectionReason}`,
-          _type: 'error',
-          _reference_type: 'payment_request',
-          _reference_id: selectedRequest.id,
-        });
-      }
-
+      await rejectAdvanceRequest({ request: selectedRequest, reason: rejectionReason, user, staffData });
       toast.success('Request rejected');
-      
-      // Immediately update notification counts
       refetchNotificationCounts();
-      
       setRejectionReason('');
       fetchRequests();
     } catch (error) {

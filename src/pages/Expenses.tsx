@@ -6,17 +6,16 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { StatusTabs } from '@/components/ui/status-tabs';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Amount } from '@/components/ui/amount';
 import { Input } from '@/components/ui/input';
-import { 
-  Plus, 
-  Receipt, 
-  Search, 
-  Check, 
-  X, 
+import {
+  Plus,
+  Receipt,
+  Search,
   Eye,
   ArrowRight,
   Ban
@@ -26,8 +25,6 @@ import { toast } from '@/hooks/use-toast';
 import type { Expense, ExpenseStatus } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS, EXPENSE_STATUS_LABELS } from '@/types/database';
 import { ExpenseDetailsDialog } from '@/components/expenses/ExpenseDetailsDialog';
-import { ApproveExpenseDialog } from '@/components/expenses/ApproveExpenseDialog';
-import { RejectExpenseDialog } from '@/components/expenses/RejectExpenseDialog';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
 
 export default function Expenses() {
@@ -48,8 +45,6 @@ export default function Expenses() {
   const [activeTab, setActiveTab] = useState<string>('all');
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const fetchExpenses = useCallback(async () => {
@@ -118,16 +113,6 @@ export default function Expenses() {
     setShowDetailsDialog(true);
   };
 
-  const handleApprove = (expense: Expense) => {
-    setSelectedExpense(expense);
-    setShowApproveDialog(true);
-  };
-
-  const handleReject = (expense: Expense) => {
-    setSelectedExpense(expense);
-    setShowRejectDialog(true);
-  };
-
   const handleCancelApproval = (expense: Expense) => {
     setSelectedExpense(expense);
     setShowCancelDialog(true);
@@ -149,18 +134,107 @@ export default function Expenses() {
   // Owner, Admin can create expenses for any staff
   // Accountant can create expenses - in personal mode (My Account) for themselves, in Accounting mode for any staff
   const canCreateExpense = isStaff || isOwner || isAdmin || isAccountant;
-  
-  // Only Owner and Admin can approve/reject (NOT Accountant)
-  const canApprove = canApproveExpenses;
+
+  const expenseColumns: DataTableColumn<Expense>[] = [
+    {
+      id: 'date',
+      header: 'Date',
+      sortable: true,
+      sortAccessor: (e) => new Date(e.expense_date),
+      cellClassName: 'whitespace-nowrap text-sm text-muted-foreground',
+      cell: (e) => format(new Date(e.expense_date), 'dd MMM yyyy'),
+    },
+    {
+      id: 'category',
+      header: 'Category',
+      sortable: true,
+      sortAccessor: (e) => e.category,
+      cell: (e) => <span className="text-sm">{EXPENSE_CATEGORY_LABELS[e.category]}</span>,
+    },
+    {
+      id: 'description',
+      header: 'Description',
+      cellClassName: 'max-w-[260px]',
+      cell: (e) => (
+        <div className="min-w-0">
+          <span className="block truncate font-medium" title={e.description}>{e.description}</span>
+          {e.approved_by_user_name && (
+            <span className="text-[11px] italic text-muted-foreground">
+              {e.status === 'rejected' ? 'Rejected' : 'Approved'} by {e.approved_by_user_name}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'staff',
+      header: 'Staff',
+      sortable: true,
+      sortAccessor: (e) => e.staff?.full_name ?? '',
+      cell: (e) => <span className="text-sm">{e.staff?.full_name || '—'}</span>,
+    },
+    {
+      id: 'amount',
+      header: 'Amount',
+      align: 'right',
+      sortable: true,
+      sortAccessor: (e) => e.amount,
+      cell: (e) => <Amount value={e.amount} size="sm" />,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      sortAccessor: (e) => e.status,
+      cell: (e) => (
+        <StatusBadge status={e.status} variant={getStatusVariant(e.status)}>
+          {EXPENSE_STATUS_LABELS[e.status]}
+        </StatusBadge>
+      ),
+    },
+  ];
+
+  const renderExpenseActions = (expense: Expense) => (
+    <div className="flex items-center justify-end gap-1">
+      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="View expense details" onClick={() => handleViewDetails(expense)}>
+        <Eye className="h-4 w-4" />
+      </Button>
+      {expense.status === 'approved' && (isOwner || isAdmin || isAccountant) && (
+        <Link to="/payouts" onClick={(e) => e.stopPropagation()}>
+          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 px-2">
+            <span className="hidden sm:inline">Pay via </span>Payouts
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      )}
+      {expense.status === 'approved' && (isOwner || isAdmin) && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-destructive hover:text-destructive h-8 w-8"
+          aria-label="Cancel approval"
+          title="Cancel Approval"
+          onClick={() => handleCancelApproval(expense)}
+        >
+          <Ban className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
       <PageHeader
         title="Expenses"
         description="Submit and review expense claims"
-      >
-        <div className="flex items-center gap-2">
-          {canCreateExpense && (
+      />
+
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search expenses..."
+        action={
+          canCreateExpense ? (
             <Link to="/expenses/new">
               <Button className="text-sm sm:text-base px-3 sm:px-4">
                 <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
@@ -168,44 +242,38 @@ export default function Expenses() {
                 <span className="sm:hidden">New</span>
               </Button>
             </Link>
-          )}
-        </div>
-      </PageHeader>
+          ) : undefined
+        }
+      />
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            aria-label="Search expenses"
-            placeholder="Search expenses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      <StatusTabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        tabs={[
+          { value: 'all', label: 'All' },
+          ...(isStaff ? [{ value: 'draft', label: 'Drafts' }] : []),
+          { value: 'pending', label: 'Pending' },
+          { value: 'approved', label: 'Approved' },
+          { value: 'reimbursed', label: 'Paid' },
+          { value: 'rejected', label: 'Rejected' },
+        ]}
+      />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
-          <TabsTrigger value="all" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">All</TabsTrigger>
-          {isStaff && <TabsTrigger value="draft" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">Drafts</TabsTrigger>}
-          <TabsTrigger value="pending" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">Pending</TabsTrigger>
-          <TabsTrigger value="approved" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">Approved</TabsTrigger>
-          <TabsTrigger value="reimbursed" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">Paid</TabsTrigger>
-          <TabsTrigger value="rejected" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">Rejected</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-4 sm:mt-6">
-          {isLoading ? (
-            <ListSkeleton variant="cards" rows={5} />
-          ) : filteredExpenses.length === 0 ? (
+      <div className="mt-1">
+        <DataTable
+          columns={expenseColumns}
+          data={filteredExpenses}
+          rowKey={(e) => e.id}
+          isLoading={isLoading}
+          initialSort={{ columnId: 'date', direction: 'desc' }}
+          rowActions={renderExpenseActions}
+          actionsHeader="Actions"
+          emptyState={
             <EmptyState
               icon={Receipt}
               title="No expenses found"
-              description={activeTab === 'all' 
-                ? "No expenses have been recorded yet." 
+              description={activeTab === 'all'
+                ? "No expenses have been recorded yet."
                 : `No ${EXPENSE_STATUS_LABELS[activeTab as ExpenseStatus] || activeTab} expenses.`}
               action={
                 canCreateExpense ? (
@@ -218,111 +286,9 @@ export default function Expenses() {
                 ) : undefined
               }
             />
-          ) : (
-            <div className="grid gap-3 sm:gap-4">
-              {filteredExpenses.map((expense) => (
-                <Card key={expense.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex flex-col gap-3">
-                      {/* Top row: Status + Category */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <StatusBadge 
-                            status={expense.status} 
-                            variant={getStatusVariant(expense.status)}
-                          >
-                            {EXPENSE_STATUS_LABELS[expense.status]}
-                          </StatusBadge>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground">
-                            {EXPENSE_CATEGORY_LABELS[expense.category]}
-                          </span>
-                        </div>
-                        <Amount value={expense.amount} size="lg" className="text-foreground shrink-0" />
-                      </div>
-                      
-                      {/* Description */}
-                      <p className="font-medium text-sm sm:text-base line-clamp-2">{expense.description}</p>
-                      
-                      {/* Bottom row: Staff + Date + Actions */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                          <span className="truncate max-w-[120px] sm:max-w-none">{expense.staff?.full_name}</span>
-                          <span>{format(new Date(expense.expense_date), 'dd MMM')}</span>
-                          {expense.approved_by_user_name && (
-                            <span className="text-[10px] sm:text-xs italic">
-                              {expense.status === 'rejected' ? 'Rejected' : 'Approved'} by: {expense.approved_by_user_name}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 sm:h-9 sm:w-9"
-                            aria-label="View expense details"
-                            onClick={() => handleViewDetails(expense)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          {/* Owner/Admin can approve/reject pending expenses */}
-                          {canApprove && expense.status === 'pending' && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-success hover:text-success h-8 w-8 sm:h-9 sm:w-9"
-                                aria-label="Approve expense"
-                                onClick={() => handleApprove(expense)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
-                                aria-label="Reject expense"
-                                onClick={() => handleReject(expense)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-
-                          {/* Show "Go to Payouts" indicator for approved expenses */}
-                          {expense.status === 'approved' && (isOwner || isAdmin || isAccountant) && (
-                            <Link to="/payouts">
-                              <Button variant="outline" size="sm" className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
-                                <span className="hidden sm:inline">Pay via </span>Payouts
-                                <ArrowRight className="h-3 w-3" />
-                              </Button>
-                            </Link>
-                          )}
-
-                          {/* Cancel approval button for Owner/Admin on approved expenses */}
-                          {expense.status === 'approved' && (isOwner || isAdmin) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
-                              aria-label="Cancel approval"
-                              onClick={() => handleCancelApproval(expense)}
-                              title="Cancel Approval"
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          }
+        />
+      </div>
 
       {/* Dialogs - No reimbursement dialog anymore */}
       {selectedExpense && (
@@ -331,18 +297,6 @@ export default function Expenses() {
             expense={selectedExpense}
             open={showDetailsDialog}
             onOpenChange={setShowDetailsDialog}
-          />
-          <ApproveExpenseDialog
-            expense={selectedExpense}
-            open={showApproveDialog}
-            onOpenChange={setShowApproveDialog}
-            onSuccess={fetchExpenses}
-          />
-          <RejectExpenseDialog
-            expense={selectedExpense}
-            open={showRejectDialog}
-            onOpenChange={setShowRejectDialog}
-            onSuccess={fetchExpenses}
           />
           <CancelApprovalDialog
             open={showCancelDialog}

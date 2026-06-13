@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -28,35 +30,72 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/lib/toast';
-import { 
-  Settings as SettingsIcon, 
-  Key, 
-  Globe, 
-  Shield, 
-  LogOut, 
+import {
+  Key,
+  Globe,
+  Shield,
+  LogOut,
   Smartphone,
+  Fingerprint,
   Monitor,
   Clock,
   Eye,
   EyeOff,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  User,
+  Calculator,
+  Building2,
+  Database,
+  type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ClearTransactionDataCard } from '@/components/settings/ClearTransactionDataCard';
 import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard';
-import { DisciplineRulesCard } from '@/components/settings/DisciplineRulesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
 import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
 import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
+import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
+
+type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'data';
+
+interface Category {
+  id: CategoryId;
+  label: string;
+  icon: LucideIcon;
+  /** Roles allowed to see/edit this category; 'all' = everyone. */
+  roles: 'all' | string[];
+}
+
+const CATEGORIES: Category[] = [
+  { id: 'account', label: 'My Account', icon: User, roles: 'all' },
+  { id: 'payroll', label: 'Payroll & Statutory', icon: Calculator, roles: ['owner'] },
+  { id: 'attendance', label: 'Attendance & Leave', icon: Clock, roles: ['owner', 'admin'] },
+  { id: 'hardware', label: 'Hardware', icon: Fingerprint, roles: ['owner', 'admin'] },
+  { id: 'organisation', label: 'Organisation', icon: Building2, roles: ['owner'] },
+  { id: 'data', label: 'Data Management', icon: Database, roles: ['owner'] },
+];
 
 export default function Settings() {
-  const { user, userRole, signOut, staffData } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
-  
-  // Password change state
+  const { category } = useParams<{ category?: string }>();
+  const navigate = useNavigate();
+  const { user, userRole, staffData } = useAuth();
+  const { language, setLanguage } = useLanguage();
+
+  const visible = CATEGORIES.filter((c) => c.roles === 'all' || c.roles.includes(userRole ?? ''));
+  const active = visible.find((c) => c.id === category) ?? visible[0];
+
+  // Normalize the URL: unknown / disallowed category → first visible one.
+  useEffect(() => {
+    if (!category || !visible.some((c) => c.id === category)) {
+      navigate(`/settings/${visible[0].id}`, { replace: true });
+    }
+  }, [category, visible, navigate]);
+
+  // --- My Account state (password change) ---
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -66,68 +105,51 @@ export default function Settings() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
 
-  // Device detection
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const deviceType = isMobile ? 'Mobile' : 'Desktop';
   const browserInfo = navigator.userAgent.split(' ').slice(-1)[0].split('/')[0] || 'Browser';
 
   const handlePasswordChange = async () => {
-    // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('Please fill in all password fields');
       return;
     }
-
     if (newPassword.length < 6) {
       toast.error('New password must be at least 6 characters');
       return;
     }
-
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match');
       return;
     }
-
     if (currentPassword === newPassword) {
       toast.error('New password must be different from current password');
       return;
     }
 
     setIsChangingPassword(true);
-
     try {
-      // Verify current password by attempting to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user?.email || '',
         password: currentPassword,
       });
-
       if (signInError) {
         toast.error('Current password is incorrect');
         setIsChangingPassword(false);
         return;
       }
-
-      // Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
 
       setPasswordChangeSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       toast.success('Password changed successfully');
-
-      // Reset success state after 3 seconds
       setTimeout(() => setPasswordChangeSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password change error:', error);
-      toast.error(error.message || 'Failed to change password');
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
     } finally {
       setIsChangingPassword(false);
     }
@@ -137,307 +159,267 @@ export default function Settings() {
     try {
       await supabase.auth.signOut({ scope: 'global' });
       toast.success('Signed out from all devices');
-    } catch (error: any) {
+    } catch {
       toast.error('Failed to sign out from all devices');
     }
   };
 
-  const getRoleLabel = (role: string | null) => {
-    if (!role) return 'User';
-    return role.charAt(0).toUpperCase() + role.slice(1);
-  };
-
-  const lastSignIn = user?.last_sign_in_at 
+  const getRoleLabel = (role: string | null) => (!role ? 'User' : role.charAt(0).toUpperCase() + role.slice(1));
+  const lastSignIn = user?.last_sign_in_at
     ? format(new Date(user.last_sign_in_at), 'dd MMM yyyy, hh:mm a')
     : 'N/A';
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your account preferences and security settings"
-      />
+      <PageHeader title="Settings" description="Manage your account, organisation and data settings" />
 
-      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
-        {/* Account Overview */}
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              Account Overview
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Your account information and status</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs sm:text-sm text-muted-foreground">Name</span>
-              <span className="font-medium text-sm sm:text-base truncate max-w-[180px]">{staffData?.full_name || user?.email?.split('@')[0] || 'User'}</span>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs sm:text-sm text-muted-foreground">Phone</span>
-              <span className="font-medium text-sm sm:text-base">{staffData?.phone || 'Not set'}</span>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs sm:text-sm text-muted-foreground">Role</span>
-              <Badge variant="secondary" className="text-xs">{getRoleLabel(userRole)}</Badge>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                Last Login
-              </span>
-              <span className="text-xs sm:text-sm">{lastSignIn}</span>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                {isMobile ? <Smartphone className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <Monitor className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                Device
-              </span>
-              <span className="text-xs sm:text-sm">{deviceType} • {browserInfo}</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* Left category rail */}
+        <nav aria-label="Settings categories" className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+          {visible.map((c) => {
+            const Icon = c.icon;
+            const isActive = active.id === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => navigate(`/settings/${c.id}`)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors lg:w-full',
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap">{c.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-        {/* Language Settings */}
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Globe className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              {t('language')}
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Choose your preferred language</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="space-y-2">
-              <Label className="text-xs sm:text-sm">Display Language</Label>
-              <Select value={language} onValueChange={(value: 'en' | 'hi' | 'as') => setLanguage(value)}>
-                <SelectTrigger className="h-10 sm:h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">🇬🇧 English</SelectItem>
-                  <SelectItem value="hi">🇮🇳 हिंदी (Hindi)</SelectItem>
-                  <SelectItem value="as">🇮🇳 অসমীয়া (Assamese)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">
-                Language preference is saved automatically
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Change Password */}
-        <Card className="md:col-span-2">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Key className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              Change Password
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Update your account password for security</CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-            {passwordChangeSuccess ? (
-              <div className="flex items-center gap-3 p-3 sm:p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 shrink-0" />
-                <span className="text-green-600 dark:text-green-400 font-medium text-sm sm:text-base">
-                  Password changed successfully!
-                </span>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password" className="text-xs sm:text-sm">Current Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="current-password"
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="h-10 sm:h-11 pr-10 text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      {showCurrentPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+        {/* Right content panel */}
+        <div className="min-w-0">
+          {active.id === 'account' && (
+            <SettingsPanel title="My Account" description="Your profile, language, password and security.">
+              <Card>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                    Account Overview
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Your account information and status</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground">Name</span>
+                    <span className="font-medium text-sm sm:text-base truncate max-w-[180px]">{staffData?.full_name || user?.email?.split('@')[0] || 'User'}</span>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new-password" className="text-xs sm:text-sm">New Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="new-password"
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="h-10 sm:h-11 pr-10 text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground">Phone</span>
+                    <span className="font-medium text-sm sm:text-base">{staffData?.phone || 'Not set'}</span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Minimum 6 characters</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-xs sm:text-sm">Confirm New Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirm-password"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="h-10 sm:h-11 pr-10 text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground">Role</span>
+                    <Badge variant="secondary" className="text-xs">{getRoleLabel(userRole)}</Badge>
                   </div>
-                </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      Last Login
+                    </span>
+                    <span className="text-xs sm:text-sm">{lastSignIn}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                      {isMobile ? <Smartphone className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <Monitor className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+                      Device
+                    </span>
+                    <span className="text-xs sm:text-sm">{deviceType} • {browserInfo}</span>
+                  </div>
+                </CardContent>
+              </Card>
 
-                <div className="sm:col-span-3 flex justify-end pt-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        size="sm"
-                        disabled={!currentPassword || !newPassword || !confirmPassword || isChangingPassword}
-                      >
-                        {isChangingPassword ? (
-                          <>
-                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                            <span className="text-sm">Changing...</span>
-                          </>
-                        ) : (
-                          <span className="text-sm">Change Password</span>
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-base sm:text-lg">Confirm Password Change</AlertDialogTitle>
-                        <AlertDialogDescription className="text-xs sm:text-sm">
-                          Are you sure you want to change your password? You will need to use the new password for future logins.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="text-sm">Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handlePasswordChange} className="text-sm">
-                          Confirm Change
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              <Card>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                    Language
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Choose your preferred language</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm">Display Language</Label>
+                    <Select value={language} onValueChange={(value: 'en' | 'hi' | 'as') => setLanguage(value)}>
+                      <SelectTrigger className="h-10 sm:h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">🇬🇧 English</SelectItem>
+                        <SelectItem value="hi">🇮🇳 हिंदी (Hindi)</SelectItem>
+                        <SelectItem value="as">🇮🇳 অসমীয়া (Assamese)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Language preference is saved automatically</p>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Security Actions */}
-        <Card className="md:col-span-2">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <SettingsIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              Security Actions
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Manage your account security</CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 justify-center">
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-sm">Sign Out All Devices</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="text-base sm:text-lg">Sign Out Everywhere</AlertDialogTitle>
-                    <AlertDialogDescription className="text-xs sm:text-sm">
-                      This will sign you out from all devices and browsers. You will need to log in again on each device.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="text-sm">Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSignOutAllDevices} className="text-sm">
-                      Sign Out All
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Card>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Key className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                    Change Password
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Update your account password for security</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                  {passwordChangeSuccess ? (
+                    <div className="flex items-center gap-3 p-3 sm:p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 shrink-0" />
+                      <span className="text-green-600 dark:text-green-400 font-medium text-sm sm:text-base">Password changed successfully!</span>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      {([
+                        ['current-password', 'Current Password', currentPassword, setCurrentPassword, showCurrentPassword, setShowCurrentPassword],
+                        ['new-password', 'New Password', newPassword, setNewPassword, showNewPassword, setShowNewPassword],
+                        ['confirm-password', 'Confirm New Password', confirmPassword, setConfirmPassword, showConfirmPassword, setShowConfirmPassword],
+                      ] as const).map(([id, label, value, setValue, show, setShow]) => (
+                        <div key={id} className="space-y-2">
+                          <Label htmlFor={id} className="text-xs sm:text-sm">{label}</Label>
+                          <div className="relative">
+                            <Input
+                              id={id}
+                              type={show ? 'text' : 'password'}
+                              value={value}
+                              onChange={(e) => setValue(e.target.value)}
+                              placeholder="••••••••"
+                              className="h-10 sm:h-11 pr-10 text-sm"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              aria-label={show ? 'Hide password' : 'Show password'}
+                              onClick={() => setShow(!show)}
+                            >
+                              {show ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                          </div>
+                          {id === 'new-password' && <p className="text-[10px] sm:text-xs text-muted-foreground">Minimum 6 characters</p>}
+                        </div>
+                      ))}
+                      <div className="sm:col-span-3 flex justify-end pt-2">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" disabled={!currentPassword || !newPassword || !confirmPassword || isChangingPassword}>
+                              {isChangingPassword ? (
+                                <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /><span className="text-sm">Changing...</span></>
+                              ) : (
+                                <span className="text-sm">Change Password</span>
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-base sm:text-lg">Confirm Password Change</AlertDialogTitle>
+                              <AlertDialogDescription className="text-xs sm:text-sm">
+                                Are you sure you want to change your password? You will need to use the new password for future logins.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="text-sm">Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handlePasswordChange} className="text-sm">Confirm Change</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-              <Button variant="destructive" size="sm" className="gap-2 justify-center" onClick={signOut}>
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm">Sign Out</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              <Card>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                    Security
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Manage your account security</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Sign out of all devices</p>
+                      <p className="text-xs text-muted-foreground">Ends your session on every device</p>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2 justify-center shrink-0">
+                          <LogOut className="h-4 w-4" />
+                          <span className="text-sm">Sign out of all devices</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-base sm:text-lg">Sign Out Everywhere</AlertDialogTitle>
+                          <AlertDialogDescription className="text-xs sm:text-sm">
+                            This will sign you out from all devices and browsers. You will need to log in again on each device.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="text-sm">Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleSignOutAllDevices} className="text-sm">Sign out of all devices</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+              </Card>
+            </SettingsPanel>
+          )}
 
-        {/* Statutory Compliance (Owner) */}
-        <StatutorySettingsCard />
+          {active.id === 'payroll' && (
+            <SettingsPanel title="Payroll & Statutory" description="Statutory compliance: PF, ESI, PT and overtime.">
+              <StatutorySettingsCard />
+            </SettingsPanel>
+          )}
 
-        {/* Leave Entitlement (Owner/Admin) */}
-        <LeaveSettingsCard />
+          {active.id === 'attendance' && (
+            <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, leave entitlement and coverage.">
+              <HrPayRulesCard />
+              <LeaveSettingsCard />
+              <AttendanceCoverageCard />
+            </SettingsPanel>
+          )}
 
-        {/* Attendance & Pay Rules (Owner/Admin) */}
-        <HrPayRulesCard />
+          {active.id === 'hardware' && (
+            <SettingsPanel title="Hardware Management" description="Biometric & face-recognition devices that punch attendance.">
+              <BiometricDevicesCard />
+            </SettingsPanel>
+          )}
 
-        {/* Attendance Coverage (Owner) */}
-        <AttendanceCoverageCard />
+          {active.id === 'organisation' && (
+            <SettingsPanel title="Organisation" description="Outlets, departments and expense categories.">
+              <ManageOutletsDepartmentsCard />
+              <ManageCategoriesCard />
+            </SettingsPanel>
+          )}
 
-        {/* Discipline Rules (Owner) */}
-        <DisciplineRulesCard />
-
-        {/* Clear Transaction Data - Owner Only */}
-        <ClearTransactionDataCard />
-
-        {/* Expense Categories Management */}
-        <ManageCategoriesCard />
-
-        {/* Outlets & Departments Management */}
-        <ManageOutletsDepartmentsCard />
+          {active.id === 'data' && (
+            <SettingsPanel title="Data Management" description="Back up and clear transactional data.">
+              <ClearTransactionDataCard />
+            </SettingsPanel>
+          )}
+        </div>
       </div>
     </div>
   );

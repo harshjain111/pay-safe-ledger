@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { Ban, Loader2, RotateCcw, ShieldAlert, AlertTriangle, UserX, PlayCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { ErrorState } from '@/components/layout/ErrorState';
 
 interface Row extends DisciplineLogRow {
   staff_name?: string;
@@ -46,6 +47,7 @@ export function PenaltiesPanel() {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [unscheduledStaff, setUnscheduledStaff] = useState<string[]>([]);
   const [absentToday, setAbsentToday] = useState(0);
   const [runningAbsentCheck, setRunningAbsentCheck] = useState(false);
@@ -58,6 +60,7 @@ export function PenaltiesPanel() {
   const load = async () => {
     if (!canManage) return;
     setLoading(true);
+    setHasError(false);
     try {
       const { data, error } = await supabase
         .from('attendance_discipline_log' as never)
@@ -89,7 +92,7 @@ export function PenaltiesPanel() {
       );
     } catch (e) {
       console.error('Penalties load failed', e);
-      toast.error('Failed to load penalties');
+      setHasError(true);
     } finally {
       setLoading(false);
     }
@@ -328,6 +331,12 @@ export function PenaltiesPanel() {
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…
           </div>
+        ) : hasError ? (
+          <ErrorState
+            onRetry={load}
+            title="Couldn't load penalties"
+            description="We couldn't load penalties for this period. Please try again."
+          />
         ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No penalties charged in this period.

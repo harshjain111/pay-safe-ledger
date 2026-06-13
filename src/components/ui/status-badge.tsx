@@ -1,104 +1,119 @@
 import { cn } from "@/lib/utils";
-import { RequestStatus, SettlementStatus, ExpenseStatus } from "@/types/database";
 import { ReactNode } from "react";
 
-type StatusType = RequestStatus | SettlementStatus | ExpenseStatus | 'active' | 'inactive';
+/**
+ * ONE status badge with fixed colour semantics:
+ *   green = done / approved / paid / active
+ *   amber = pending / needs action
+ *   red   = rejected / failed / overdue
+ *   grey  = neutral / draft
+ *
+ * Pass a `status` string (auto-mapped to a tone) or an explicit `tone`.
+ * The legacy `variant` prop is kept as an alias so existing call sites keep
+ * working — it is mapped onto the same four tones, so no other badge colours
+ * can render.
+ */
 
-type BadgeVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'info';
+export type StatusTone = 'green' | 'amber' | 'red' | 'grey';
+
+type LegacyVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'info';
 
 interface StatusBadgeProps {
-  status: StatusType;
-  variant?: BadgeVariant;
+  status?: string;
+  tone?: StatusTone;
+  /** @deprecated legacy alias — mapped to a tone for back-compat. */
+  variant?: LegacyVariant;
   className?: string;
   children?: ReactNode;
 }
 
-const statusConfig: Record<StatusType, { label: string; className: string; dot: string }> = {
-  pending: {
-    label: 'Pending',
+const toneStyles: Record<StatusTone, { className: string; dot: string }> = {
+  green: {
+    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+  },
+  amber: {
     className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
     dot: 'bg-amber-500',
   },
-  approved: {
-    label: 'Approved',
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  rejected: {
-    label: 'Rejected',
+  red: {
     className: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
     dot: 'bg-red-500',
   },
-  settled: {
-    label: 'Settled',
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  active: {
-    label: 'Active',
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  inactive: {
-    label: 'Inactive',
-    className: 'bg-gray-100 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400',
-    dot: 'bg-gray-400',
-  },
-  draft: {
-    label: 'Draft',
-    className: 'bg-gray-100 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400',
-    dot: 'bg-gray-400',
-  },
-  reimbursed: {
-    label: 'Reimbursed',
-    className: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-    dot: 'bg-blue-500',
-  },
-};
-
-const variantConfig: Record<BadgeVariant, { className: string; dot: string }> = {
-  default: {
-    className: 'bg-primary/10 text-primary',
-    dot: 'bg-primary',
-  },
-  secondary: {
+  grey: {
     className: 'bg-muted text-muted-foreground',
     dot: 'bg-muted-foreground',
   },
-  success: {
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  warning: {
-    className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-    dot: 'bg-amber-500',
-  },
-  destructive: {
-    className: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-    dot: 'bg-red-500',
-  },
-  info: {
-    className: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-    dot: 'bg-blue-500',
-  },
 };
 
-export function StatusBadge({ status, variant, className, children }: StatusBadgeProps) {
-  const config = statusConfig[status];
-  const variantStyle = variant ? variantConfig[variant] : null;
-  const badgeClass = variantStyle?.className || config?.className;
-  const dotClass = variantStyle?.dot || config?.dot;
+// status string -> tone (lower-cased lookup; unknown statuses fall back to grey)
+const STATUS_TONE: Record<string, StatusTone> = {
+  approved: 'green',
+  paid: 'green',
+  reimbursed: 'green',
+  settled: 'green',
+  active: 'green',
+  completed: 'green',
+  done: 'green',
+  success: 'green',
+  present: 'green',
+
+  pending: 'amber',
+  submitted: 'amber',
+  processing: 'amber',
+  awaiting: 'amber',
+  partial: 'amber',
+  half_day: 'amber',
+
+  rejected: 'red',
+  failed: 'red',
+  overdue: 'red',
+  expired: 'red',
+  error: 'red',
+  absent: 'red',
+
+  draft: 'grey',
+  inactive: 'grey',
+  cancelled: 'grey',
+  canceled: 'grey',
+  neutral: 'grey',
+  unknown: 'grey',
+};
+
+// legacy variant -> tone (info/default folded in; no blue/indigo survives)
+const VARIANT_TONE: Record<LegacyVariant, StatusTone> = {
+  success: 'green',
+  info: 'green',
+  warning: 'amber',
+  destructive: 'red',
+  secondary: 'grey',
+  default: 'grey',
+};
+
+function humanize(s?: string): string {
+  if (!s) return '';
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function StatusBadge({ status, tone, variant, className, children }: StatusBadgeProps) {
+  const resolvedTone: StatusTone =
+    tone ??
+    (variant ? VARIANT_TONE[variant] : undefined) ??
+    (status ? STATUS_TONE[status.toLowerCase()] : undefined) ??
+    'grey';
+
+  const style = toneStyles[resolvedTone];
 
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium',
-        badgeClass,
+        style.className,
         className
       )}
     >
-      <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} />
-      {children || config?.label || status}
+      <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
+      {children ?? humanize(status)}
     </span>
   );
 }

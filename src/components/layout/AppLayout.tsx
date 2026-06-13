@@ -61,6 +61,7 @@ import {
   Coins,
   Clock,
   MessageSquare,
+  Fingerprint,
 } from 'lucide-react';
 
 interface NavItem {
@@ -100,6 +101,7 @@ function getNavSections(
         items: [
           { title: 'Staff', href: '/staff', icon: Briefcase },
           { title: 'Users', href: '/users', icon: Users },
+          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
         ],
       },
       {
@@ -119,7 +121,7 @@ function getNavSections(
       {
         title: 'Approvals',
         items: [
-          { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+          { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
         ],
       },
       {
@@ -166,6 +168,7 @@ function getNavSections(
         title: 'People',
         items: [
           { title: 'Staff', href: '/staff', icon: Briefcase },
+          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
         ],
       },
       {
@@ -185,7 +188,7 @@ function getNavSections(
       {
         title: 'Approvals',
         items: [
-          { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+          { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
         ],
       },
       {
@@ -257,7 +260,7 @@ function getNavSections(
         {
           title: 'Approvals',
           items: [
-            { title: 'Approvals', href: '/requests', icon: ClipboardList, badge: pendingApprovals },
+            { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
           ],
         },
         {
@@ -444,7 +447,7 @@ function AppSidebar() {
                 className={cn(
                   'flex-1 text-xs rounded-md h-8 transition-all gap-1.5',
                   accountingMode 
-                    ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white font-medium shadow-sm' 
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
                     : 'text-sidebar-muted hover:text-sidebar-foreground hover:bg-transparent'
                 )}
                 onClick={() => setAccountingMode(true)}
@@ -462,7 +465,7 @@ function AppSidebar() {
                   className={cn(
                     'w-full h-9 rounded-lg transition-all',
                     accountingMode
-                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white'
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                       : 'bg-sidebar-accent/40 text-sidebar-muted hover:text-sidebar-foreground'
                   )}
                   onClick={() => setAccountingMode(!accountingMode)}
@@ -509,12 +512,12 @@ function AppSidebar() {
                           >
                             <Link to={item.href} aria-label={item.title}>
                               {isActive && (
-                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-amber-400 to-orange-500 rounded-r-full" />
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
                               )}
                               <div className="relative flex items-center justify-center w-5 h-5">
                                 <item.icon className={cn(
                                   'h-4 w-4',
-                                  isActive ? 'text-amber-400' : 'text-sidebar-muted'
+                                  isActive ? 'text-sidebar-primary' : 'text-sidebar-muted'
                                 )} />
                                 {typeof item.badge === 'number' && item.badge > 0 && isCollapsed && (
                                   <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive" />
@@ -560,7 +563,7 @@ function AppSidebar() {
               isCollapsed && "justify-center px-2"
             )}>
               <Avatar className="h-8 w-8 border border-sidebar-accent shrink-0">
-                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] font-medium">
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-medium">
                   {getInitials(displayName)}
                 </AvatarFallback>
               </Avatar>
@@ -661,7 +664,7 @@ function AppHeader() {
           </h1>
         </div>
         <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
           <span className="text-[11px] font-medium text-muted-foreground">Konnect 2 Hospitality</span>
         </div>
       </div>

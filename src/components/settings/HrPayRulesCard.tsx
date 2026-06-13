@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { useSingletonSettings } from '@/hooks/useSingletonSettings';
+import { useSettingsForm } from '@/components/settings/SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { toast } from '@/lib/toast';
-import { CalendarClock, Loader2, Save } from 'lucide-react';
+import { CalendarClock, Loader2 } from 'lucide-react';
 import { toAmount } from '@/lib/utils';
 
 interface Rules {
@@ -27,42 +27,36 @@ const DEFAULTS: Rules = {
 export function HrPayRulesCard() {
   const { isOwner, isAdmin, user } = useAuth();
   const canManage = isOwner || isAdmin;
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { data, loading, error, reload, save } = useSingletonSettings<Partial<Rules>>(
+    'hr_pay_rules',
+    '*',
+    canManage,
+  );
   const [rules, setRules] = useState<Rules>(DEFAULTS);
 
   useEffect(() => {
-    if (!canManage) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      const { data, error } = await supabase.from('hr_pay_rules' as never).select('*').maybeSingle();
-      if (error) toast.error('Could not load attendance & pay rules — please reload before saving.');
-      else if (data) setRules({ ...DEFAULTS, ...(data as Partial<Rules>) });
-      setLoading(false);
-    })();
-  }, [canManage]);
+    if (data) setRules({ ...DEFAULTS, ...data });
+  }, [data]);
+
+  const dirty =
+    !loading &&
+    !error &&
+    data != null &&
+    (rules.full_day_minutes !== (data.full_day_minutes ?? DEFAULTS.full_day_minutes) ||
+      rules.half_day_minutes !== (data.half_day_minutes ?? DEFAULTS.half_day_minutes) ||
+      rules.unscheduled_is_off !== (data.unscheduled_is_off ?? DEFAULTS.unscheduled_is_off) ||
+      rules.comp_off_enabled !== (data.comp_off_enabled ?? DEFAULTS.comp_off_enabled));
+
+  // The panel owns the Save button; this card just contributes its fields.
+  const persist = useCallback(async () => {
+    await save({ ...rules, updated_by: user?.id ?? null });
+    await reload();
+  }, [save, reload, rules, user?.id]);
+  useSettingsForm('attendance-pay-rules', dirty, persist);
 
   if (!canManage) return null;
 
   const set = <K extends keyof Rules>(k: K, v: Rules[K]) => setRules((r) => ({ ...r, [k]: v }));
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('hr_pay_rules' as never)
-        .update({ ...rules, updated_by: user?.id ?? null } as never)
-        .eq('singleton', true);
-      if (error) throw error;
-      toast.success('Attendance & pay rules saved');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <Card>
@@ -80,6 +74,13 @@ export function HrPayRulesCard() {
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <ErrorState
+            title="Couldn't load attendance & pay rules"
+            description="Reload to edit — saving is disabled until the saved values load."
+            onRetry={reload}
+            className="py-8"
+          />
         ) : (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -107,12 +108,6 @@ export function HrPayRulesCard() {
                 <p className="text-[10px] text-muted-foreground">Working a rostered off day earns a carried-forward paid leave</p>
               </div>
               <Switch aria-label="Comp-off for working an off day" checked={rules.comp_off_enabled} onCheckedChange={(v) => set('comp_off_enabled', v)} />
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving} size="sm">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save
-              </Button>
             </div>
           </div>
         )}

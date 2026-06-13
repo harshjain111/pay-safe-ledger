@@ -20,6 +20,7 @@ const UsersList = lazy(() => import("./pages/UsersList"));
 const UserForm = lazy(() => import("./pages/UserForm"));
 const Ledger = lazy(() => import("./pages/Ledger"));
 const Requests = lazy(() => import("./pages/Requests"));
+const Approvals = lazy(() => import("./pages/Approvals"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const NewExpense = lazy(() => import("./pages/NewExpense"));
@@ -35,6 +36,7 @@ const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
 const Shifts = lazy(() => import("./pages/Shifts"));
+const BiometricEnrolment = lazy(() => import("./pages/BiometricEnrolment"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -116,6 +118,7 @@ function AppRoutes() {
         <Route path="/ledger" element={<Ledger />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/requests/new" element={<NewRequest />} />
+        <Route path="/approvals" element={<Approvals />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/expenses/new" element={<NewExpense />} />
         <Route path="/payouts" element={<Payouts />} />
@@ -129,7 +132,9 @@ function AppRoutes() {
         <Route path="/my-attendance" element={<MyAttendance />} />
         <Route path="/shifts" element={<Shifts />} />
         <Route path="/roster" element={<Roster />} />
+        <Route path="/biometric-enrolment" element={<BiometricEnrolment />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/:category" element={<Settings />} />
       </Route>
 
       {/* Catch-all */}
