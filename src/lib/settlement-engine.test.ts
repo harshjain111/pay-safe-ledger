@@ -34,6 +34,7 @@ function inputs(over: Partial<SettlementInputs> = {}): SettlementInputs {
     systemDeductionDays: 0,
     overtimeAuto: 0,
     loanEmis: [],
+    arrearsTotal: 0,
     ...over,
   };
 }
@@ -94,6 +95,18 @@ describe('computeSettlement', () => {
     expect(r.advanceToAdjust).toBe(3000);
     expect(r.netPayable).toBe(27000); // 30000 - 3000
     expect(r.carryForwardAdvance).toBe(2000); // 5000 - 3000
+  });
+
+  it('folds positive arrears (back-pay) into net pay as a distinct line', () => {
+    const r = computeSettlement(inputs({ arrearsTotal: 5000 }));
+    expect(r.arrears).toBe(5000);
+    expect(r.netPayable).toBe(35000); // 30000 + 5000
+  });
+
+  it('a recovery (negative arrears) reduces net pay', () => {
+    const r = computeSettlement(inputs({ arrearsTotal: -4000 }));
+    expect(r.arrears).toBe(-4000);
+    expect(r.netPayable).toBe(26000); // 30000 - 4000
   });
 
   it('rounding policy rounds the net payable', () => {

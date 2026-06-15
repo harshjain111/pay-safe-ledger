@@ -1529,6 +1529,66 @@ export type Database = {
         }
         Relationships: []
       }
+      salary_arrears: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          period_label: string | null
+          reason: string
+          settled_at: string | null
+          settlement_id: string | null
+          settlement_month: string
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          period_label?: string | null
+          reason: string
+          settled_at?: string | null
+          settlement_id?: string | null
+          settlement_month: string
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          period_label?: string | null
+          reason?: string
+          settled_at?: string | null
+          settlement_id?: string | null
+          settlement_month?: string
+          staff_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_arrears_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "salary_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_arrears_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       salary_history: {
         Row: {
           change_reason: string | null
@@ -1604,6 +1664,7 @@ export type Database = {
       salary_settlements: {
         Row: {
           advances_adjusted: number | null
+          arrears: number
           balance_payable: number
           base_salary: number
           bonus: number
@@ -1656,6 +1717,7 @@ export type Database = {
         }
         Insert: {
           advances_adjusted?: number | null
+          arrears?: number
           balance_payable: number
           base_salary: number
           bonus?: number
@@ -1708,6 +1770,7 @@ export type Database = {
         }
         Update: {
           advances_adjusted?: number | null
+          arrears?: number
           balance_payable?: number
           base_salary?: number
           bonus?: number

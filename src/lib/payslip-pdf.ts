@@ -33,6 +33,7 @@ export interface PayslipSettlement {
   pt_amount: number;
   loan_emi_total: number;
   advances_adjusted: number;
+  arrears?: number | null;
   net_salary: number;
   balance_payable: number;
   settled_at?: string | null;
@@ -99,6 +100,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   if (s.incentives > 0) earnings.push(['Incentives', s.incentives]);
   if (s.bonus > 0) earnings.push(['Bonus', s.bonus]);
   if (s.overtime_amount > 0) earnings.push(['Overtime', s.overtime_amount]);
+  if ((s.arrears ?? 0) > 0) earnings.push(['Arrears (Back-pay)', s.arrears as number]);
   const totalEarnings = earnings.reduce((sum, [, v]) => sum + v, 0);
 
   const deductions: Array<[string, number]> = [];
@@ -110,6 +112,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   if (s.pt_amount > 0) deductions.push(['Professional Tax', s.pt_amount]);
   if (s.loan_emi_total > 0) deductions.push(['Loan EMI', s.loan_emi_total]);
   if (s.advances_adjusted > 0) deductions.push(['Advance Adjustment', s.advances_adjusted]);
+  if ((s.arrears ?? 0) < 0) deductions.push(['Arrears (Recovery)', Math.abs(s.arrears as number)]);
   const totalDeductions = deductions.reduce((sum, [, v]) => sum + v, 0);
 
   const rows = Math.max(earnings.length, deductions.length);

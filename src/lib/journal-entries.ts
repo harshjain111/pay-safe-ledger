@@ -502,6 +502,47 @@ export async function createSalarySettlementEntry(params: SalarySettlementParams
  * 
  * After this entry, staff balance should be ZERO
  */
+export interface ArrearsEntryParams {
+  staffId: string;
+  staffName: string;
+  amount: number; // signed: + back-pay, - recovery
+  settlementMonth: string;
+  settlementId?: string;
+  createdBy: string;
+}
+
+/**
+ * ARREARS — a balanced double-entry for back-pay (+) or recovery (-):
+ *   back-pay : Dr Salary Expense / Cr Staff Payable   (increases what we owe)
+ *   recovery : Dr Staff Payable   / Cr Salary Expense (reduces what we owe)
+ * Posted as its own entry so it shows distinctly in the staff ledger.
+ */
+export async function createArrearsEntry(params: ArrearsEntryParams): Promise<string> {
+  const { staffId, staffName, amount, settlementMonth, settlementId, createdBy } = params;
+  const abs = Math.abs(amount);
+  if (abs < 0.01) throw new Error('Arrears amount is zero');
+
+  const lines: JournalLine[] = amount > 0
+    ? [
+        { accountCode: ACCOUNT_CODES.SALARY_EXPENSE, debit: abs, credit: 0, description: `Arrears (back-pay) for ${staffName} - ${settlementMonth}` },
+        { accountCode: ACCOUNT_CODES.STAFF_PAYABLE, debit: 0, credit: abs, staffId, description: `Arrears payable to ${staffName} - ${settlementMonth}` },
+      ]
+    : [
+        { accountCode: ACCOUNT_CODES.STAFF_PAYABLE, debit: abs, credit: 0, staffId, description: `Arrears recovery from ${staffName} - ${settlementMonth}` },
+        { accountCode: ACCOUNT_CODES.SALARY_EXPENSE, debit: 0, credit: abs, description: `Arrears recovery for ${staffName} - ${settlementMonth}` },
+      ];
+
+  return createJournalEntry({
+    transactionType: 'salary_settlement',
+    staffId,
+    description: `Arrears for ${staffName} - ${settlementMonth}`,
+    referenceId: settlementId || undefined,
+    createdBy,
+    isImmutable: true,
+    lines,
+  });
+}
+
 export async function createSalaryPayoutEntry(params: SalaryPayoutParams): Promise<string> {
   const { 
     staffId, 

@@ -30,7 +30,7 @@ import { EnhancedSettlementConfirmDialog } from '@/components/settlements/Enhanc
 import { ZeroPaymentConfirmDialog } from '@/components/settlements/ZeroPaymentConfirmDialog';
 import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustmentInput';
 import { LeaveDeductionSection } from '@/components/settlements/LeaveDeductionSection';
-import { createSalarySettlementEntry } from '@/lib/journal-entries';
+import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
 import { downloadPayslipPDF } from '@/lib/payslip-pdf';
 import {
@@ -90,6 +90,7 @@ interface SettlementCalculation {
   advanceToAdjust: number;
   netPayable: number;
   carryForwardAdvance: number;
+  arrears: number;
 }
 
 interface StatutorySettings {
@@ -373,9 +374,17 @@ export default function Settlements() {
 
       const grossSalary = Math.max(0, grossEarnings - leaveDeduction - absentDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
       const advancesOutstanding = toAmount(advanceData);
+      // Pending arrears for this settlement month (signed: + back-pay, - recovery)
+      const { data: arrearsRows } = await supabase
+        .from('salary_arrears')
+        .select('amount')
+        .eq('staff_id', selectedStaffId)
+        .eq('settlement_month', selectedMonth)
+        .eq('status', 'pending');
+      const arrearsTotal = ((arrearsRows ?? []) as { amount: number | null }[]).reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
       const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
       const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = Math.max(0, grossSalary - currentAdj - loanEmiTotal);
+      const netPayable = Math.max(0, grossSalary - currentAdj - loanEmiTotal + arrearsTotal);
       const carryForwardAdvance = advancesOutstanding - currentAdj;
 
       const newWarnings: string[] = [];
@@ -419,6 +428,7 @@ export default function Settlements() {
         advancesOutstanding,
         advanceToAdjust: currentAdj,
         netPayable,
+        arrears: arrearsTotal,
         carryForwardAdvance,
       });
     } catch (error) {
@@ -708,6 +718,7 @@ export default function Settlements() {
           opening_advance_balance: calculation.advancesOutstanding,
           closing_advance_balance: calculation.carryForwardAdvance,
           balance_payable: calculation.netPayable,
+          arrears: calculation.arrears,
           status: 'settled',
           settled_at: new Date().toISOString(),
           settled_by: user.id,
@@ -746,6 +757,24 @@ export default function Settlements() {
         .from('journal_entries')
         .update({ is_immutable: true })
         .eq('id', journalEntryId);
+
+      // Step 4b: Arrears — post their own balanced entry + mark them settled.
+      if (Math.abs(calculation.arrears) >= 0.01) {
+        await createArrearsEntry({
+          staffId: selectedStaffId,
+          staffName,
+          amount: calculation.arrears,
+          settlementMonth: monthLabel,
+          settlementId: settlementRecord.id,
+          createdBy: user.id,
+        });
+        await supabase
+          .from('salary_arrears')
+          .update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
+          .eq('staff_id', selectedStaffId)
+          .eq('settlement_month', selectedMonth)
+          .eq('status', 'pending');
+      }
 
       // Step 5: Create salary payout request (if net payable > 0)
       // This will appear in Payouts page for Owner to execute
@@ -1156,6 +1185,14 @@ export default function Settlements() {
                 
                 <Separator />
                 
+                {calculation.arrears !== 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="font-medium">Arrears {calculation.arrears < 0 ? '(recovery)' : '(back-pay)'}</span>
+                    <span className={calculation.arrears < 0 ? 'font-medium text-destructive' : 'font-medium text-success'}>
+                      {calculation.arrears < 0 ? '-' : '+'}<Amount value={Math.abs(calculation.arrears)} />
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-3 bg-primary/5 rounded-lg px-4 -mx-4">
                   <span className="font-semibold text-lg">Net Payable</span>
                   <Amount value={calculation.netPayable} size="lg" className="font-bold text-primary" />

@@ -65,6 +65,7 @@ import {
   CalendarCheck,
   ShieldCheck,
   Users2,
+  HandCoins,
 } from 'lucide-react';
 
 interface NavItem {
@@ -136,6 +137,7 @@ function getNavSections(
           { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
           { title: 'Settlements', href: '/settlements', icon: Calculator },
           { title: 'Payroll Groups', href: '/payroll-groups', icon: Users2 },
+          { title: 'Arrears', href: '/arrears', icon: HandCoins },
           { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
         ],
       },

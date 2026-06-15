@@ -23,7 +23,7 @@ import {
   getLoanEMIsForMonth, type LoanEMI, type PTSlab,
 } from '@/lib/payroll';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
-import { createSalarySettlementEntry } from '@/lib/journal-entries';
+import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
 import type { Staff } from '@/types/database';
 
 export interface StatutorySettings {
@@ -86,6 +86,7 @@ export interface SettlementResult {
   netPayable: number;
   carryForwardAdvance: number;
   effectiveDays: number;
+  arrears: number; // signed arrears folded into net pay (distinct line)
 }
 
 export interface SettlementInputs {
@@ -101,6 +102,7 @@ export interface SettlementInputs {
   systemDeductionDays: number; // approved-leave deduction days
   overtimeAuto: number;
   loanEmis: LoanEMI[];
+  arrearsTotal: number; // signed; pending arrears for this settlement month
 }
 
 export interface ComputeOpts {
@@ -217,7 +219,7 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
   const advancesOutstanding = toAmount(inp.advancesOutstanding);
   const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
   const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-  const netPayable = applyRounding(Math.max(0, grossSalary - currentAdj - loanEmiTotal), opts.rounding);
+  const netPayable = applyRounding(Math.max(0, grossSalary - currentAdj - loanEmiTotal + inp.arrearsTotal), opts.rounding);
   const carryForwardAdvance = advancesOutstanding - currentAdj;
 
   return {
@@ -254,6 +256,7 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
     netPayable,
     carryForwardAdvance,
     effectiveDays,
+    arrears: inp.arrearsTotal,
   };
 }
 
@@ -271,15 +274,17 @@ export async function gatherSettlementInputs(
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
   const monthEndStr = `${month}-${String(monthEnd.getDate()).padStart(2, '0')}`;
 
-  const [salaryRes, advanceRes, leaveRes] = await Promise.all([
+  const [salaryRes, advanceRes, leaveRes, arrearsRes] = await Promise.all([
     supabase.rpc('get_staff_salary_for_month', { _staff_id: staff.id, _month: month }),
     supabase.rpc('get_staff_advances_from_journals', { _staff_id: staff.id }),
     supabase.from('leave_records').select('deduction_days').eq('staff_id', staff.id).eq('status', 'approved').gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
+    supabase.from('salary_arrears').select('amount').eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending'),
   ]);
 
   const monthlySalary = toAmount(salaryRes.data);
   const advancesOutstanding = toAmount(advanceRes.data);
   const systemDeductionDays = ((leaveRes.data ?? []) as { deduction_days: number | null }[]).reduce((sum, r) => sum + Number(r.deduction_days ?? 0), 0);
+  const arrearsTotal = ((arrearsRes.data ?? []) as { amount: number | null }[]).reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
 
   let statutory = opts?.statutory ?? null;
   if (statutory === undefined || statutory === null) {
@@ -352,7 +357,7 @@ export async function gatherSettlementInputs(
 
   const loanEmis = await getLoanEMIsForMonth(staff.id, month);
 
-  return { staff, month, monthlySalary, advancesOutstanding, statutory, dayBreakdown, attendanceTracked, compOffEnabled, disciplineFine, systemDeductionDays, overtimeAuto, loanEmis };
+  return { staff, month, monthlySalary, advancesOutstanding, statutory, dayBreakdown, attendanceTracked, compOffEnabled, disciplineFine, systemDeductionDays, overtimeAuto, loanEmis, arrearsTotal };
 }
 
 export async function isMonthSettled(staffId: string, month: string): Promise<boolean> {
@@ -412,6 +417,7 @@ export async function persistGroupSettlement(
       opening_advance_balance: calc.advancesOutstanding,
       closing_advance_balance: calc.carryForwardAdvance,
       balance_payable: calc.netPayable,
+      arrears: calc.arrears,
       status: 'settled',
       settled_at: new Date().toISOString(),
       settled_by: userId,
@@ -437,6 +443,13 @@ export async function persistGroupSettlement(
 
   await supabase.from('journal_entries').update({ reference_id: settlementRecord.id }).eq('id', journalEntryId);
   await supabase.from('journal_entries').update({ is_immutable: true }).eq('id', journalEntryId);
+
+  // Arrears: post their own balanced entry + mark the pending arrears settled.
+  if (Math.abs(calc.arrears) >= 0.01) {
+    await createArrearsEntry({ staffId: staff.id, staffName: staff.full_name, amount: calc.arrears, settlementMonth: monthLabel, settlementId: settlementRecord.id, createdBy: userId });
+    await supabase.from('salary_arrears').update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
+      .eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending');
+  }
 
   if (calc.netPayable > 0) {
     const { error: payoutErr } = await supabase.from('payment_requests').insert({
