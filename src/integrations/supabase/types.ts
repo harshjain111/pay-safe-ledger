@@ -1936,6 +1936,36 @@ export type Database = {
           },
         ]
       }
+      saved_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          id: string
+          name: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition: Json
+          id?: string
+          name: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          id?: string
+          name?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shifts: {
         Row: {
           check_in_time: string
