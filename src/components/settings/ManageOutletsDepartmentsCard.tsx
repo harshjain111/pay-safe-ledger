@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
 import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, MapPin } from 'lucide-react';
 
-type MasterTable = 'outlets' | 'departments';
+type MasterTable = 'outlets' | 'departments' | 'designations';
 
 interface MasterRow {
   id: string;
@@ -176,13 +176,13 @@ export function ManageOutletsDepartmentsCard() {
       <CardHeader className="p-4 sm:p-6">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <Store className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-          Outlets &amp; Departments
+          Outlets, Departments &amp; Designations
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Master lists used when enrolling staff outlet-wise and department-wise
+          Master lists used when enrolling staff — outlet, department and designation
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 grid gap-6 sm:grid-cols-2">
+      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 grid gap-6 sm:grid-cols-3">
         <div>
           <p className="text-sm font-medium mb-2">Outlets</p>
           <MasterList
@@ -195,6 +195,10 @@ export function ManageOutletsDepartmentsCard() {
         <div>
           <p className="text-sm font-medium mb-2">Departments</p>
           <MasterList table="departments" singular="Department" placeholder="New department name" />
+        </div>
+        <div>
+          <p className="text-sm font-medium mb-2">Designations</p>
+          <MasterList table="designations" singular="Designation" placeholder="New designation name" />
         </div>
       </CardContent>
     </Card>

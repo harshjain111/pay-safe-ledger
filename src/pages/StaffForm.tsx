@@ -87,8 +87,10 @@ export default function StaffForm() {
   const [managers, setManagers] = useState<{ id: string; full_name: string }[]>([]);
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [designations, setDesignations] = useState<{ id: string; name: string }[]>([]);
   const [outletId, setOutletId] = useState<string>('');
   const [departmentId, setDepartmentId] = useState<string>('');
+  const [designationId, setDesignationId] = useState<string>('');
   const [dateOfLeaving, setDateOfLeaving] = useState<string>('');
   const [weeklyOffDay, setWeeklyOffDay] = useState<string>('');
 
@@ -112,15 +114,17 @@ export default function StaffForm() {
     }
   }, [isEditing]);
 
-  // Outlet & department master lists for the enrollment dropdowns.
+  // Outlet, department & designation master lists for the enrollment dropdowns.
   useEffect(() => {
     (async () => {
-      const [{ data: outletRows }, { data: deptRows }] = await Promise.all([
+      const [{ data: outletRows }, { data: deptRows }, { data: desigRows }] = await Promise.all([
         supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
         supabase.from('departments').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('designations').select('id, name').eq('is_active', true).order('name'),
       ]);
       setOutlets(outletRows || []);
       setDepartments(deptRows || []);
+      setDesignations(desigRows || []);
     })();
   }, []);
 
@@ -151,6 +155,7 @@ export default function StaffForm() {
         setIsActive(data.is_active ?? true);
         setOutletId(data.outlet_id || '');
         setDepartmentId(data.department_id || '');
+        setDesignationId(data.designation_id || '');
         setDateOfLeaving(data.date_of_leaving || '');
         setWeeklyOffDay(data.weekly_off_day != null ? String(data.weekly_off_day) : '');
         setExistingUserId(data.user_id);
@@ -326,7 +331,8 @@ export default function StaffForm() {
           department: departments.find((d) => d.id === departmentId)?.name ?? (department.trim() || null),
           department_id: departmentId || null,
           outlet_id: outletId || null,
-          designation: designation.trim() || null,
+          designation: designations.find((d) => d.id === designationId)?.name ?? (designation.trim() || null),
+          designation_id: designationId || null,
           date_of_joining: format(dateOfJoining, 'yyyy-MM-dd'),
           date_of_leaving: dateOfLeaving || null,
           weekly_off_day: weeklyOffDay === '' ? null : Number(weeklyOffDay),
@@ -460,7 +466,8 @@ export default function StaffForm() {
                 department: departments.find((d) => d.id === departmentId)?.name ?? (department.trim() || null),
                 department_id: departmentId || null,
                 outlet_id: outletId || null,
-                designation: designation.trim() || null,
+                designation: designations.find((d) => d.id === designationId)?.name ?? (designation.trim() || null),
+                designation_id: designationId || null,
                 monthly_salary: salaryToSet,
                 date_of_joining: format(dateOfJoining, 'yyyy-MM-dd'),
                 date_of_leaving: dateOfLeaving || null,
@@ -799,13 +806,14 @@ export default function StaffForm() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="designation">Designation</Label>
-                  <Input
-                    id="designation"
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    placeholder="Manager"
-                  />
+                  <Label>Designation</Label>
+                  <Select value={designationId || 'none'} onValueChange={(v) => setDesignationId(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="none">— None —</SelectItem>
+                      {designations.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Weekly Off</Label>

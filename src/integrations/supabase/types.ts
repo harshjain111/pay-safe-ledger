@@ -520,6 +520,33 @@ export type Database = {
         }
         Relationships: []
       }
+      designations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       discipline_rules: {
         Row: {
           absent_no_checkin_deduction: string
@@ -1910,6 +1937,7 @@ export type Database = {
           department: string | null
           department_id: string | null
           designation: string | null
+          designation_id: string | null
           email: string
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -1956,6 +1984,7 @@ export type Database = {
           department?: string | null
           department_id?: string | null
           designation?: string | null
+          designation_id?: string | null
           email: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -2001,6 +2030,7 @@ export type Database = {
           department?: string | null
           department_id?: string | null
           designation?: string | null
+          designation_id?: string | null
           email?: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null

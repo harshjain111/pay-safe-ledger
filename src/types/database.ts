@@ -32,6 +32,7 @@ export interface Staff {
   department_id?: string | null;
   outlet_id?: string | null;
   designation?: string;
+  designation_id?: string | null;
   date_of_joining: string;
   date_of_leaving?: string | null;
   monthly_salary: number;
