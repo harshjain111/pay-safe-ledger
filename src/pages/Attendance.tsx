@@ -44,6 +44,7 @@ import {
   FileSpreadsheet,
   FileText,
   AlertTriangle,
+  MapPinOff,
 } from 'lucide-react';
 import { exportToPDF, downloadPDF } from '@/lib/pdf-export';
 import { toast } from '@/lib/toast';
@@ -69,6 +70,7 @@ interface DayCell {
   status: Status;
   onLeave: boolean;
   late: boolean;
+  geoFlagged: boolean;
 }
 
 const FD_THRESHOLD = 8 * 60; // 8h
@@ -240,6 +242,7 @@ export default function Attendance() {
           status: deriveStatus(worked, sorted.length > 0, onLeave),
           onLeave,
           late,
+          geoFlagged: sorted.some((s) => s.geo_flagged === true),
         };
       });
     });
@@ -642,6 +645,9 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
                             )}
                             {c.late && (
                               <AlertTriangle className="h-3 w-3 text-amber-600 mt-0.5" />
+                            )}
+                            {c.geoFlagged && (
+                              <MapPinOff className="h-3 w-3 text-amber-600 mt-0.5" aria-label="Out of geofence" />
                             )}
                           </button>
                         </TooltipTrigger>

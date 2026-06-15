@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AppRole, UserRole, Staff } from '@/types/database';
+import { ALL_PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/permissions';
 
 interface AuthContextType {
   user: User | null;
@@ -17,6 +18,8 @@ interface AuthContextType {
   isAccountant: boolean;
   isStaff: boolean;
   isCA: boolean;
+  permissions: Set<string>;
+  can: (permission: string) => boolean;
   canManageStaff: boolean;
   canAddStaff: boolean;
   canEditStaff: boolean;
@@ -35,6 +38,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Client-side fallback if get_my_permissions() isn't deployed yet — mirrors the
+ *  built-in role→permission mapping so the UI never breaks (no lockout). */
+function fallbackPermsFor(role: string | null): Set<string> {
+  if (role === 'owner') return new Set(ALL_PERMISSIONS);
+  return new Set(role ? ROLE_PERMISSIONS[role] ?? [] : []);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -42,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [staffData, setStaffData] = useState<Staff | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [accountingMode, setAccountingMode] = useState(false);
+  const [permissions, setPermissions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let initSettled = false;
@@ -75,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastFetchedUserId = null;
         setUserRole(null);
         setStaffData(null);
+        setPermissions(new Set());
         setIsLoading(false);
       }
     };
@@ -113,6 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (roleData) {
         setUserRole(roleData.role as AppRole);
+      }
+
+      // Effective permissions — server-resolved (get_my_permissions). Falls back
+      // to the role map if the permissions migration isn't deployed yet, so the
+      // UI never breaks and no one is locked out.
+      const roleStr = (roleData?.role as string | undefined) ?? null;
+      try {
+        const { data: permRows, error: permErr } = await supabase.rpc('get_my_permissions');
+        if (permErr) throw permErr;
+        const set = new Set((permRows as string[] | null) ?? []);
+        setPermissions(set.size > 0 ? set : fallbackPermsFor(roleStr));
+      } catch {
+        setPermissions(fallbackPermsFor(roleStr));
       }
 
       // Fetch staff data
@@ -210,6 +235,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Settlement access - Owner ONLY
   const canAccessSettlements = isOwner;
 
+  // Permission check — owners always pass (matches the server-side has_permission).
+  const can = (permission: string) => isOwner || permissions.has(permission);
+
   const value = {
     user,
     session,
@@ -224,6 +252,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAccountant,
     isStaff,
     isCA,
+    permissions,
+    can,
     canManageStaff,
     canAddStaff,
     canEditStaff,

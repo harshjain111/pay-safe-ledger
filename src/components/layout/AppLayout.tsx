@@ -62,6 +62,9 @@ import {
   Clock,
   MessageSquare,
   Fingerprint,
+  CalendarCheck,
+  ShieldCheck,
+  Users2,
 } from 'lucide-react';
 
 interface NavItem {
@@ -101,6 +104,7 @@ function getNavSections(
         items: [
           { title: 'Staff', href: '/staff', icon: Briefcase },
           { title: 'Users', href: '/users', icon: Users },
+          { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
           { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
         ],
       },
@@ -110,12 +114,14 @@ function getNavSections(
           { title: 'Attendance', href: '/attendance', icon: Clock },
           { title: 'Shifts', href: '/shifts', icon: Briefcase },
           { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
+          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
         ],
       },
       {
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
         ],
       },
       {
@@ -129,6 +135,7 @@ function getNavSections(
         items: [
           { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
           { title: 'Settlements', href: '/settlements', icon: Calculator },
+          { title: 'Payroll Groups', href: '/payroll-groups', icon: Users2 },
           { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
         ],
       },
@@ -168,6 +175,7 @@ function getNavSections(
         title: 'People',
         items: [
           { title: 'Staff', href: '/staff', icon: Briefcase },
+          { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
           { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
         ],
       },
@@ -177,12 +185,14 @@ function getNavSections(
           { title: 'Attendance', href: '/attendance', icon: Clock },
           { title: 'Shifts', href: '/shifts', icon: Briefcase },
           { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
+          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
         ],
       },
       {
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
         ],
       },
       {

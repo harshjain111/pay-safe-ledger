@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { BranchGeofenceDialog } from './BranchGeofenceDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
-import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, MapPin } from 'lucide-react';
 
 type MasterTable = 'outlets' | 'departments';
 
@@ -20,10 +21,12 @@ function MasterList({
   table,
   singular,
   placeholder,
+  rowExtra,
 }: {
   table: MasterTable;
   singular: string;
   placeholder: string;
+  rowExtra?: (row: MasterRow) => ReactNode;
 }) {
   const [rows, setRows] = useState<MasterRow[]>([]);
   const [newName, setNewName] = useState('');
@@ -111,6 +114,7 @@ function MasterList({
                 {!row.is_active && <Badge variant="secondary" className="text-[10px]">Disabled</Badge>}
               </div>
               <div className="flex items-center gap-1">
+                {rowExtra?.(row)}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -150,6 +154,18 @@ function MasterList({
   );
 }
 
+function OutletGeofenceAction({ outletId, outletName }: { outletId: string; outletName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="ghost" size="icon" className="h-8 w-8" title="Geofence" aria-label={`Geofence for ${outletName}`} onClick={() => setOpen(true)}>
+        <MapPin className="h-4 w-4 text-muted-foreground" />
+      </Button>
+      <BranchGeofenceDialog open={open} onOpenChange={setOpen} outletId={outletId} outletName={outletName} />
+    </>
+  );
+}
+
 export function ManageOutletsDepartmentsCard() {
   const { isOwner, isAdmin } = useAuth();
   const canManage = isOwner || isAdmin;
@@ -169,7 +185,12 @@ export function ManageOutletsDepartmentsCard() {
       <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 grid gap-6 sm:grid-cols-2">
         <div>
           <p className="text-sm font-medium mb-2">Outlets</p>
-          <MasterList table="outlets" singular="Outlet" placeholder="New outlet name" />
+          <MasterList
+            table="outlets"
+            singular="Outlet"
+            placeholder="New outlet name"
+            rowExtra={(row) => <OutletGeofenceAction outletId={row.id} outletName={row.name} />}
+          />
         </div>
         <div>
           <p className="text-sm font-medium mb-2">Departments</p>

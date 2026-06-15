@@ -14,7 +14,7 @@ import { Amount } from '@/components/ui/amount';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   BarChart3, Download, CalendarIcon, FileSpreadsheet, FileText, Users, Wallet,
-  ArrowUpRight, Receipt, FileDown, Scale, Sparkles, ListOrdered,
+  ArrowUpRight, Receipt, FileDown, Scale, Sparkles, ListOrdered, CalendarClock,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
@@ -28,9 +28,10 @@ import { ExpenseExplorer } from '@/components/reports/ExpenseExplorer';
 import { AdvanceExplorer } from '@/components/reports/AdvanceExplorer';
 import { TransactionsExplorer } from '@/components/reports/TransactionsExplorer';
 import { AIInsights } from '@/components/reports/AIInsights';
+import { AttendanceReports } from '@/components/reports/AttendanceReports';
 import type { Staff } from '@/types/database';
 
-type ReportType = 'expenses' | 'advances' | 'transactions' | 'ai_insights' | 'summary' | 'trial_balance' | 'ledger' | 'salary' | 'payment';
+type ReportType = 'expenses' | 'advances' | 'transactions' | 'ai_insights' | 'attendance' | 'summary' | 'trial_balance' | 'ledger' | 'salary' | 'payment';
 
 interface DateRange { from: Date; to: Date; }
 
@@ -203,7 +204,7 @@ export default function Reports() {
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className={cn(
             "inline-flex w-max min-w-full sm:w-full sm:grid gap-1",
-            canSeeSalaryReports ? "sm:grid-cols-9" : "sm:grid-cols-8"
+            canSeeSalaryReports ? "sm:grid-cols-10" : "sm:grid-cols-9"
           )}>
             <TabsTrigger value="expenses" className="flex items-center gap-1 px-3 whitespace-nowrap">
               <Receipt className="h-4 w-4" /><span className="text-xs sm:text-sm">Expenses</span>
@@ -216,6 +217,9 @@ export default function Reports() {
             </TabsTrigger>
             <TabsTrigger value="ai_insights" className="flex items-center gap-1 px-3 whitespace-nowrap">
               <Sparkles className="h-4 w-4" /><span className="text-xs sm:text-sm">AI Insights</span>
+            </TabsTrigger>
+            <TabsTrigger value="attendance" className="flex items-center gap-1 px-3 whitespace-nowrap">
+              <CalendarClock className="h-4 w-4" /><span className="text-xs sm:text-sm">Attendance</span>
             </TabsTrigger>
             <TabsTrigger value="summary" className="flex items-center gap-1 px-3 whitespace-nowrap">
               <BarChart3 className="h-4 w-4" /><span className="text-xs sm:text-sm">Summary</span>
@@ -301,6 +305,7 @@ export default function Reports() {
         <TabsContent value="advances" className="mt-4"><AdvanceExplorer /></TabsContent>
         <TabsContent value="transactions" className="mt-4"><TransactionsExplorer /></TabsContent>
         <TabsContent value="ai_insights" className="mt-4"><AIInsights /></TabsContent>
+        <TabsContent value="attendance" className="mt-4"><AttendanceReports /></TabsContent>
 
         {/* ===== LEGACY TABS (kept for CA/accounting) ===== */}
         <TabsContent value="summary" className="mt-4">

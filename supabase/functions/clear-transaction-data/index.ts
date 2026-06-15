@@ -71,16 +71,16 @@ Deno.serve(async (req) => {
     // Use service role client for admin operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user is Owner
-    const { data: roleData, error: roleError } = await adminClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    // Verify the caller has the data-management permission (owners always do,
+    // via has_permission's owner short-circuit).
+    const { data: allowed, error: permError } = await adminClient.rpc('has_permission', {
+      _user_id: user.id,
+      _perm: 'settings.data.manage',
+    });
 
-    if (roleError || roleData?.role !== 'owner') {
+    if (permError || allowed !== true) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Only owners can clear transaction data' }),
+        JSON.stringify({ success: false, error: 'You do not have permission to clear transaction data' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

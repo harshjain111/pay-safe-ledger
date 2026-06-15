@@ -9,6 +9,7 @@
    staff_id: string;
    leave_date: string;
    leave_type: LeaveType;
+   leave_type_id?: string | null;
    deduction_days: number;
    status: LeaveStatus;
    remarks?: string;

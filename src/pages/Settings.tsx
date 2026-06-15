@@ -55,8 +55,9 @@ import { ClearTransactionDataCard } from '@/components/settings/ClearTransaction
 import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
-import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
+import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
+import { HolidaysCard } from '@/components/settings/HolidaysCard';
 import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
 import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
 
@@ -66,26 +67,26 @@ interface Category {
   id: CategoryId;
   label: string;
   icon: LucideIcon;
-  /** Roles allowed to see/edit this category; 'all' = everyone. */
-  roles: 'all' | string[];
+  /** Permission required to see this category; undefined = everyone. */
+  permission?: string;
 }
 
 const CATEGORIES: Category[] = [
-  { id: 'account', label: 'My Account', icon: User, roles: 'all' },
-  { id: 'payroll', label: 'Payroll & Statutory', icon: Calculator, roles: ['owner'] },
-  { id: 'attendance', label: 'Attendance & Leave', icon: Clock, roles: ['owner', 'admin'] },
-  { id: 'hardware', label: 'Hardware', icon: Fingerprint, roles: ['owner', 'admin'] },
-  { id: 'organisation', label: 'Organisation', icon: Building2, roles: ['owner'] },
-  { id: 'data', label: 'Data Management', icon: Database, roles: ['owner'] },
+  { id: 'account', label: 'My Account', icon: User },
+  { id: 'payroll', label: 'Payroll & Statutory', icon: Calculator, permission: 'settings.payroll.edit' },
+  { id: 'attendance', label: 'Attendance & Leave', icon: Clock, permission: 'settings.attendance.edit' },
+  { id: 'hardware', label: 'Hardware', icon: Fingerprint, permission: 'settings.attendance.edit' },
+  { id: 'organisation', label: 'Organisation', icon: Building2, permission: 'settings.organisation.edit' },
+  { id: 'data', label: 'Data Management', icon: Database, permission: 'settings.data.manage' },
 ];
 
 export default function Settings() {
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
-  const { user, userRole, staffData } = useAuth();
+  const { user, userRole, staffData, can } = useAuth();
   const { language, setLanguage } = useLanguage();
 
-  const visible = CATEGORIES.filter((c) => c.roles === 'all' || c.roles.includes(userRole ?? ''));
+  const visible = CATEGORIES.filter((c) => !c.permission || can(c.permission));
   const active = visible.find((c) => c.id === category) ?? visible[0];
 
   // Normalize the URL: unknown / disallowed category → first visible one.
@@ -396,8 +397,9 @@ export default function Settings() {
           {active.id === 'attendance' && (
             <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, leave entitlement and coverage.">
               <HrPayRulesCard />
-              <LeaveSettingsCard />
+              <LeaveTypesCard />
               <AttendanceCoverageCard />
+              <HolidaysCard />
             </SettingsPanel>
           )}
 

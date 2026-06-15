@@ -22,6 +22,19 @@ export interface LeaveLite {
   deduction_days: number | null;
 }
 
+export type DayStatus = 'present_full' | 'present_half' | 'leave' | 'off' | 'holiday' | 'absent';
+
+/** Per-day classification, emitted alongside the aggregates so the Muster Roll
+ *  grid and the settlement engine are driven by the SAME loop and cannot
+ *  diverge. */
+export interface DayMark {
+  date: string; // yyyy-MM-dd
+  status: DayStatus;
+  isOff: boolean;
+  offWorked: boolean; // an off day that was actually worked (comp-off candidate)
+  workedMinutes: number;
+}
+
 export interface DayBreakdown {
   presentFull: number; // count of full present days
   presentHalf: number; // count of half present days
@@ -34,6 +47,7 @@ export interface DayBreakdown {
   presentEquiv: number; // presentFull + 0.5*presentHalf
   windowDays: number; // total days in the employment window this month
   workingDays: number; // window days that are not off
+  days: DayMark[]; // per-day classification across the employment window
 }
 
 /**
@@ -57,12 +71,16 @@ export function computeDayBreakdown(params: {
   /** Dates (yyyy-MM-dd) that already incurred a late/early discipline fine; the
    *  short-attendance dock is suppressed on these so a day isn't penalised twice. */
   disciplineFinedDates?: Set<string>;
+  /** Dates (yyyy-MM-dd) that are mandatory, paid holidays for this staff member.
+   *  Treated as paid non-working (off) days; working one earns comp-off / OT. */
+  holidayDates?: Set<string>;
   attendance: AttendanceSessionLite[];
   roster: RosterLite[];
   leaves: LeaveLite[];
 }): DayBreakdown {
   const { monthStart, monthEnd, weeklyOffDay, fullDayMinutes, halfDayMinutes, unscheduledIsOff } = params;
   const disciplineFinedDates = params.disciplineFinedDates ?? new Set<string>();
+  const holidayDates = params.holidayDates ?? new Set<string>();
 
   const joining = parseISO(params.dateOfJoining);
   const leaving = params.dateOfLeaving ? parseISO(params.dateOfLeaving) : null;
@@ -80,6 +98,7 @@ export function computeDayBreakdown(params: {
     presentEquiv: 0,
     windowDays: 0,
     workingDays: 0,
+    days: [],
   };
   if (windowEnd < windowStart) return result;
 
@@ -102,11 +121,14 @@ export function computeDayBreakdown(params: {
     result.windowDays += 1;
 
     const rosterRow = ros.get(ds);
-    // A day is OFF when: the roster marks it off / assigns no shift; OR there is
-    // no roster entry and the org treats unscheduled days as off; OR (legacy) it
-    // falls on the staff member's weekly-off day.
+    const isHoliday = holidayDates.has(ds);
+    // A day is OFF when: it is a mandatory paid holiday; OR the roster marks it
+    // off / assigns no shift; OR there is no roster entry and the org treats
+    // unscheduled days as off; OR (legacy) it falls on the weekly-off day.
     let isOff: boolean;
-    if (rosterRow) {
+    if (isHoliday) {
+      isOff = true;
+    } else if (rosterRow) {
       isOff = rosterRow.is_off || !rosterRow.shift_id;
     } else if (unscheduledIsOff) {
       isOff = true;
@@ -122,20 +144,28 @@ export function computeDayBreakdown(params: {
 
     // 1) A completed session exists -> present (and a comp-off candidate if off).
     if (hasSession) {
+      let status: DayStatus;
       if (worked >= fullDayMinutes) {
         result.presentFull += 1;
+        status = 'present_full';
       } else if (worked >= halfDayMinutes) {
         result.presentHalf += 1;
         // Only dock the half-day shortfall if a discipline fine isn't already
         // penalising this date (otherwise the day would be docked twice).
         if (!isOff && !leave && !disciplineFined) result.absentDeductionDays += 0.5;
+        status = 'present_half';
+      } else if (!isOff && !leave) {
+        result.absentDays += 1;
+        if (!disciplineFined) result.absentDeductionDays += 1;
+        status = 'absent';
       } else {
-        if (!isOff && !leave) {
-          result.absentDays += 1;
-          if (!disciplineFined) result.absentDeductionDays += 1;
-        }
+        // A sub-half session on an off / leave / holiday day: it carries that
+        // day's base status (the aggregate intentionally does not dock it).
+        status = leave ? 'leave' : isHoliday ? 'holiday' : 'off';
       }
-      if (isOff && worked >= halfDayMinutes) result.offWorkedDays += 1;
+      const offWorked = isOff && worked >= halfDayMinutes;
+      if (offWorked) result.offWorkedDays += 1;
+      result.days.push({ date: ds, status, isOff, offWorked, workedMinutes: worked });
       continue;
     }
 
@@ -144,18 +174,21 @@ export function computeDayBreakdown(params: {
     if (leave) {
       const ded = Math.min(1, Math.max(0, Number(leave.deduction_days ?? 0)));
       result.paidLeaveDays += 1 - ded;
+      result.days.push({ date: ds, status: 'leave', isOff, offWorked: false, workedMinutes: 0 });
       continue;
     }
 
     // 3) Off day, not worked -> paid.
     if (isOff) {
       result.offDays += 1;
+      result.days.push({ date: ds, status: isHoliday ? 'holiday' : 'off', isOff: true, offWorked: false, workedMinutes: 0 });
       continue;
     }
 
     // 4) Working day with no attendance and no leave -> unpaid absence.
     result.absentDays += 1;
     result.absentDeductionDays += 1;
+    result.days.push({ date: ds, status: 'absent', isOff: false, offWorked: false, workedMinutes: 0 });
   }
 
   result.presentEquiv = result.presentFull + 0.5 * result.presentHalf;

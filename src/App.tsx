@@ -32,6 +32,10 @@ const Reports = lazy(() => import("./pages/Reports"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeaveRecords = lazy(() => import("./pages/LeaveRecords"));
+const Holidays = lazy(() => import("./pages/Holidays"));
+const RightsTemplates = lazy(() => import("./pages/RightsTemplates"));
+const BulkAttendance = lazy(() => import("./pages/BulkAttendance"));
+const PayrollGroups = lazy(() => import("./pages/PayrollGroups"));
 const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
@@ -124,6 +128,10 @@ function AppRoutes() {
         <Route path="/payouts" element={<Payouts />} />
         <Route path="/settlements" element={<Settlements />} />
         <Route path="/leave-records" element={<LeaveRecords />} />
+        <Route path="/holidays" element={<Holidays />} />
+        <Route path="/rights-templates" element={<RightsTemplates />} />
+        <Route path="/bulk-attendance" element={<BulkAttendance />} />
+        <Route path="/payroll-groups" element={<PayrollGroups />} />
         <Route path="/salaries-advances" element={<SalariesAdvances />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />

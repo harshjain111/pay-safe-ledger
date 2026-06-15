@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeAndLogDiscipline } from '@/lib/discipline';
+import { evaluateGeofence, type BranchGeofence } from '@/lib/geofence';
 
 export type AttendanceStatus = 'active' | 'on_break' | 'completed';
 
@@ -26,6 +27,9 @@ export interface AttendanceSession {
   updated_at: string;
   overtime_reminder_sent?: boolean;
   auto_closed?: boolean;
+  geo_flagged?: boolean;
+  geo_distance_m?: number | null;
+  geo_review?: string | null;
 }
 
 export interface AttendanceBreak {
@@ -105,6 +109,35 @@ export async function checkIn(
   staffId: string | null,
   payload: CapturePayload,
 ): Promise<AttendanceSession> {
+  // Branch geofence (app check-ins): reject hard-blocked out-of-area punches;
+  // flag soft ones for manager review in Approvals.
+  let geoFlagged = false;
+  let geoDistanceM: number | null = null;
+  if (staffId) {
+    const { data: st } = await supabase
+      .from('staff')
+      .select('outlet_id')
+      .eq('id', staffId)
+      .maybeSingle();
+    const outletId = (st as { outlet_id?: string | null } | null)?.outlet_id ?? null;
+    if (outletId) {
+      const { data: outlet } = await supabase
+        .from('outlets')
+        .select('name, latitude, longitude, allowed_radius_meters, geofence_enforcement')
+        .eq('id', outletId)
+        .maybeSingle();
+      if (outlet) {
+        const o = outlet as { name?: string } & BranchGeofence;
+        const geo = evaluateGeofence({ lat: payload.lat, lng: payload.lng }, o, o.name);
+        if (geo.action === 'block') {
+          throw new Error(geo.message ?? 'You are outside the allowed check-in area for your branch.');
+        }
+        geoFlagged = geo.action === 'flag';
+        geoDistanceM = geo.distanceM;
+      }
+    }
+  }
+
   // Insert row first to get id, with placeholder photo url
   const { data: inserted, error: insertErr } = await supabase
     .from('attendance_sessions' as never)
@@ -117,6 +150,8 @@ export async function checkIn(
       check_in_lat: payload.lat,
       check_in_lng: payload.lng,
       check_in_accuracy: payload.accuracy,
+      geo_flagged: geoFlagged,
+      geo_distance_m: geoDistanceM,
       status: 'active',
     } as never)
     .select('*')

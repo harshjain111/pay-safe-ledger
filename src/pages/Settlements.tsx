@@ -44,6 +44,7 @@ import {
 } from '@/lib/payroll';
 import type { Staff, PaymentMode } from '@/types/database';
 import { computeDayBreakdown, type DayBreakdown } from '@/lib/attendance-pay';
+import { resolveHolidayDatesForStaff, type HolidayRow, type HolidayAssignmentRow } from '@/lib/holidays';
 
 interface SettlementCalculation {
   monthlySalary: number; // pro-rata contractual (Basic+HRA+Allow)
@@ -281,7 +282,7 @@ export default function Settlements() {
       if (attendanceTracked && currentStaff) {
         const monthStartStr = format(monthStart, 'yyyy-MM-dd');
         const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
-        const [attRes, rosRes, lvRes, rulesRes] = await Promise.all([
+        const [attRes, rosRes, lvRes, rulesRes, holRes, holAssignRes] = await Promise.all([
           supabase.from('attendance_sessions').select('work_date, worked_minutes, status')
             .eq('staff_id', selectedStaffId).gte('work_date', monthStartStr).lte('work_date', monthEndStr),
           supabase.from('staff_roster').select('roster_date, shift_id, is_off')
@@ -291,12 +292,21 @@ export default function Settlements() {
             .gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
           supabase.from('hr_pay_rules' as never)
             .select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
+          supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
+          supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
         ]);
         const payRules = (rulesRes.data ?? null) as {
           full_day_minutes?: number; half_day_minutes?: number;
           unscheduled_is_off?: boolean; comp_off_enabled?: boolean;
         } | null;
         compOffEnabled = payRules?.comp_off_enabled ?? true;
+        const holidayDates = resolveHolidayDatesForStaff(
+          { id: selectedStaffId, outlet_id: (currentStaff as { outlet_id?: string | null }).outlet_id ?? null },
+          (holRes.data ?? []) as unknown as HolidayRow[],
+          (holAssignRes.data ?? []) as unknown as HolidayAssignmentRow[],
+          monthStartStr,
+          monthEndStr,
+        );
         dayBreakdown = computeDayBreakdown({
           monthStart,
           monthEnd,
@@ -307,6 +317,7 @@ export default function Settlements() {
           halfDayMinutes: payRules?.half_day_minutes ?? HALF_DAY_MINUTES,
           unscheduledIsOff: payRules?.unscheduled_is_off ?? true,
           disciplineFinedDates,
+          holidayDates,
           attendance: attRes.data ?? [],
           roster: rosRes.data ?? [],
           leaves: lvRes.data ?? [],

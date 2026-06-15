@@ -172,6 +172,9 @@ export type Database = {
           check_out_lng: number | null
           check_out_photo_url: string | null
           created_at: string
+          geo_distance_m: number | null
+          geo_flagged: boolean
+          geo_review: string | null
           id: string
           late_checkout: boolean
           overtime_reminder_sent: boolean
@@ -199,6 +202,9 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_flagged?: boolean
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
@@ -226,6 +232,9 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_flagged?: boolean
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
@@ -729,6 +738,94 @@ export type Database = {
           },
         ]
       }
+      holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          is_paid: boolean
+          name: string
+          note: string | null
+          org_wide: boolean
+          recurring_yearly: boolean
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          is_paid?: boolean
+          name: string
+          note?: string | null
+          org_wide?: boolean
+          recurring_yearly?: boolean
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          is_paid?: boolean
+          name?: string
+          note?: string | null
+          org_wide?: boolean
+          recurring_yearly?: boolean
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      holiday_assignments: {
+        Row: {
+          created_at: string
+          holiday_id: string
+          id: string
+          outlet_id: string | null
+          staff_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          holiday_id: string
+          id?: string
+          outlet_id?: string | null
+          staff_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          holiday_id?: string
+          id?: string
+          outlet_id?: string | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_assignments_holiday_id_fkey"
+            columns: ["holiday_id"]
+            isOneToOne: false
+            referencedRelation: "holidays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_assignments_outlet_id_fkey"
+            columns: ["outlet_id"]
+            isOneToOne: false
+            referencedRelation: "outlets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           created_at: string
@@ -857,6 +954,105 @@ export type Database = {
           },
         ]
       }
+      leave_balances: {
+        Row: {
+          created_at: string
+          id: string
+          leave_type_id: string
+          opening: number
+          staff_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leave_type_id: string
+          opening?: number
+          staff_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leave_type_id?: string
+          opening?: number
+          staff_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_balances_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_balances_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_types: {
+        Row: {
+          accrual: string
+          carry_forward: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          default_deduction: number
+          default_quota: number
+          id: string
+          is_active: boolean
+          is_default: boolean
+          is_paid: boolean
+          max_balance: number | null
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          accrual?: string
+          carry_forward?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          accrual?: string
+          carry_forward?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leave_records: {
         Row: {
           approved_at: string | null
@@ -868,6 +1064,7 @@ export type Database = {
           is_immutable: boolean
           leave_date: string
           leave_type: Database["public"]["Enums"]["leave_type"]
+          leave_type_id: string | null
           rejection_reason: string | null
           remarks: string | null
           staff_id: string
@@ -884,6 +1081,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id: string
@@ -900,6 +1098,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date?: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id?: string
@@ -1043,31 +1242,43 @@ export type Database = {
       outlets: {
         Row: {
           address: string | null
+          allowed_radius_meters: number | null
           code: string | null
           created_at: string
           created_by: string | null
+          geofence_enforcement: string
           id: string
           is_active: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           updated_at: string
         }
         Insert: {
           address?: string | null
+          allowed_radius_meters?: number | null
           code?: string | null
           created_at?: string
           created_by?: string | null
+          geofence_enforcement?: string
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           updated_at?: string
         }
         Update: {
           address?: string | null
+          allowed_radius_meters?: number | null
           code?: string | null
           created_at?: string
           created_by?: string | null
+          geofence_enforcement?: string
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           updated_at?: string
         }
@@ -1164,6 +1375,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payroll_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          esi_default: boolean
+          id: string
+          is_default: boolean
+          name: string
+          pay_cycle: string
+          payment_mode_default: string
+          pf_default: boolean
+          pt_default: boolean
+          rounding: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          esi_default?: boolean
+          id?: string
+          is_default?: boolean
+          name: string
+          pay_cycle?: string
+          payment_mode_default?: string
+          pf_default?: boolean
+          pt_default?: boolean
+          rounding?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          esi_default?: boolean
+          id?: string
+          is_default?: boolean
+          name?: string
+          pay_cycle?: string
+          payment_mode_default?: string
+          pf_default?: boolean
+          pt_default?: boolean
+          rounding?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       payroll_statutory_settings: {
         Row: {
@@ -1607,6 +1863,7 @@ export type Database = {
           monthly_salary: number
           other_allowances: number
           outlet_id: string | null
+          payroll_group_id: string | null
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
@@ -1651,6 +1908,7 @@ export type Database = {
           location?: string | null
           monthly_salary?: number
           other_allowances?: number
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
@@ -1695,6 +1953,7 @@ export type Database = {
           location?: string | null
           monthly_salary?: number
           other_allowances?: number
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
@@ -1878,6 +2137,89 @@ export type Database = {
             columns: ["shift_id"]
             isOneToOne: false
             referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permissions: {
+        Row: { key: string; label: string; module: string; sort_order: number }
+        Insert: { key: string; label: string; module: string; sort_order?: number }
+        Update: { key?: string; label?: string; module?: string; sort_order?: number }
+        Relationships: []
+      }
+      rights_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_builtin: boolean
+          is_owner: boolean
+          name: string
+          permissions: string[]
+          role_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          is_owner?: boolean
+          name: string
+          permissions?: string[]
+          role_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          is_owner?: boolean
+          name?: string
+          permissions?: string[]
+          role_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted: string[]
+          revoked: string[]
+          template_id: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted?: string[]
+          revoked?: string[]
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: string[]
+          revoked?: string[]
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "rights_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -2096,6 +2438,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      has_permission: {
+        Args: { _perm: string; _user_id: string }
+        Returns: boolean
+      }
+      get_my_permissions: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      log_bulk_attendance_adjustment: {
+        Args: { _action: string; _scope: Json }
+        Returns: string
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_finance_user: { Args: { _user_id: string }; Returns: boolean }

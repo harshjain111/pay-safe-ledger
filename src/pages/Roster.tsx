@@ -14,6 +14,7 @@ import {
 import { ChevronLeft, ChevronRight, Loader2, CalendarDays, ShieldAlert } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { toast } from '@/lib/toast';
+import { resolveHolidayDatesByStaff, expandHolidaysInRange, type HolidayRow, type HolidayAssignmentRow } from '@/lib/holidays';
 import {
   format,
   addMonths,
@@ -29,6 +30,7 @@ interface StaffRow {
   full_name: string;
   employee_id: string;
   weekly_off_day: number | null;
+  outlet_id: string | null;
 }
 interface Shift {
   id: string;
@@ -51,6 +53,8 @@ export default function Roster() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [roster, setRoster] = useState<Record<string, RosterRow>>({});
+  const [holidays, setHolidays] = useState<HolidayRow[]>([]);
+  const [holAssignments, setHolAssignments] = useState<HolidayAssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
@@ -60,16 +64,40 @@ export default function Roster() {
     [monthDate],
   );
 
+  const monthStartStr = useMemo(() => format(startOfMonth(monthDate), 'yyyy-MM-dd'), [monthDate]);
+  const monthEndStr = useMemo(() => format(endOfMonth(monthDate), 'yyyy-MM-dd'), [monthDate]);
+
+  // Mandatory paid holiday dates per staff (these are the paid off days).
+  const holidayDatesByStaff = useMemo(
+    () =>
+      resolveHolidayDatesByStaff(
+        staff.map((s) => ({ id: s.id, outlet_id: s.outlet_id })),
+        holidays,
+        holAssignments,
+        monthStartStr,
+        monthEndStr,
+      ),
+    [staff, holidays, holAssignments, monthStartStr, monthEndStr],
+  );
+  // Org-wide holidays tint the whole column header.
+  const headerHolidayName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of expandHolidaysInRange(holidays.filter((h) => h.org_wide), monthStartStr, monthEndStr)) {
+      if (!m.has(o.date)) m.set(o.date, o.holiday.name);
+    }
+    return m;
+  }, [holidays, monthStartStr, monthEndStr]);
+
   const cellKey = (staffId: string, date: string) => `${staffId}_${date}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
-    const [{ data: staffRows }, { data: shiftRows }, { data: rosterRows }] = await Promise.all([
+    const [{ data: staffRows }, { data: shiftRows }, { data: rosterRows }, { data: holRows }, { data: holAssignRows }] = await Promise.all([
       supabase
         .from('staff')
-        .select('id, full_name, employee_id, weekly_off_day')
+        .select('id, full_name, employee_id, weekly_off_day, outlet_id')
         .eq('is_active', true)
         .eq('attendance_tracked', true)
         .order('full_name'),
@@ -79,9 +107,13 @@ export default function Roster() {
         .select('staff_id, roster_date, shift_id, is_off')
         .gte('roster_date', start)
         .lte('roster_date', end),
+      supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
+      supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
     ]);
     setStaff((staffRows as StaffRow[]) || []);
     setShifts((shiftRows as Shift[]) || []);
+    setHolidays((holRows as unknown as HolidayRow[]) || []);
+    setHolAssignments((holAssignRows as unknown as HolidayAssignmentRow[]) || []);
     const map: Record<string, RosterRow> = {};
     (rosterRows as RosterRow[] | null)?.forEach((r) => {
       map[`${r.staff_id}_${r.roster_date}`] = r;
@@ -166,6 +198,9 @@ export default function Roster() {
       const shift = shifts.find((x) => x.id === row.shift_id);
       return { label: shift?.name ?? '—', cls: 'bg-primary/10 text-primary' };
     }
+    if (holidayDatesByStaff.get(s.id)?.has(dateStr)) {
+      return { label: 'Holiday', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300' };
+    }
     if (isDefaultOff) return { label: 'Off', cls: 'bg-muted text-muted-foreground' };
     return { label: '·', cls: 'text-muted-foreground/50' };
   };
@@ -202,15 +237,17 @@ export default function Roster() {
                     </th>
                     {days.map((d) => {
                       const weekend = getDay(d) === 0;
+                      const holName = headerHolidayName.get(format(d, 'yyyy-MM-dd'));
                       return (
                         <th
                           key={d.toISOString()}
+                          title={holName ?? undefined}
                           className={`border-b p-1 text-center font-medium ${weekend ? 'text-amber-600' : ''} ${
-                            isSameDay(d, today) ? 'bg-primary/10' : ''
+                            holName ? 'bg-violet-100 dark:bg-violet-500/20' : isSameDay(d, today) ? 'bg-primary/10' : ''
                           }`}
                         >
                           <div>{format(d, 'd')}</div>
-                          <div className="text-[10px] font-normal text-muted-foreground">{DOW[getDay(d)]}</div>
+                          <div className="text-[10px] font-normal text-muted-foreground">{holName ? 'Hol' : DOW[getDay(d)]}</div>
                         </th>
                       );
                     })}

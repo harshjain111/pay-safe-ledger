@@ -56,6 +56,7 @@ import { approveAdvanceRequest, rejectAdvanceRequest } from '@/lib/advance-appro
 import { ApproveExpenseDialog } from '@/components/expenses/ApproveExpenseDialog';
 import { RejectExpenseDialog } from '@/components/expenses/RejectExpenseDialog';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
+import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 
 // A single row in the unified approvals queue — either an advance request or an
 // expense claim, normalized to a common shape (the raw record is kept for the
@@ -419,6 +420,9 @@ export default function Approvals() {
           </span>
         )}
       </PageHeader>
+
+      {/* Out-of-geofence check-ins awaiting a manager decision */}
+      <GeoFlaggedPunches />
 
       {/* Filters */}
       <StatusTabs
