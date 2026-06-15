@@ -40,12 +40,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, ClipboardList, Check, X, Loader2, ArrowRight, Ban } from 'lucide-react';
+import { Plus, ClipboardList, Check, X, Loader2, ArrowRight, Ban, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/lib/toast';
 import type { PaymentRequest, StaffPublic } from '@/types/database';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
+import { RaiseLoginResetDialog } from '@/components/approvals/RaiseLoginResetDialog';
 
 interface RequestWithStaff extends PaymentRequest {
   staff: StaffPublic;
@@ -169,6 +170,7 @@ export default function Requests() {
   // Staff, Accountant, and Admin can create requests
   // Owner can also create but usually doesn't need to
   const canCreateRequest = isStaff || isAccountant || isAdmin || isOwner;
+  const [loginResetOpen, setLoginResetOpen] = useState(false);
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
@@ -180,15 +182,24 @@ export default function Requests() {
             : "View and create advance requests"
         }
       >
-        {canCreateRequest && (
-          <Link to="/requests/new">
-            <Button className="text-sm sm:text-base px-3 sm:px-4">
-              <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">New Request</span>
-              <span className="sm:hidden">New</span>
+        <div className="flex items-center gap-2">
+          {staffData?.id && (
+            <Button variant="outline" className="text-sm sm:text-base px-3 sm:px-4" onClick={() => setLoginResetOpen(true)}>
+              <KeyRound className="mr-1.5 sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Reset login</span>
+              <span className="sm:hidden">Login</span>
             </Button>
-          </Link>
-        )}
+          )}
+          {canCreateRequest && (
+            <Link to="/requests/new">
+              <Button className="text-sm sm:text-base px-3 sm:px-4">
+                <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">New Request</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </Link>
+          )}
+        </div>
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
@@ -517,6 +528,14 @@ export default function Requests() {
           description: cancelRequest.reason,
         } : null}
       />
+
+      {staffData?.id && (
+        <RaiseLoginResetDialog
+          open={loginResetOpen}
+          onOpenChange={setLoginResetOpen}
+          fixedStaff={{ id: staffData.id, full_name: staffData.full_name }}
+        />
+      )}
     </div>
   );
 }

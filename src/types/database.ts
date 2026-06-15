@@ -228,6 +228,21 @@ export interface PaymentRequest {
   staff?: StaffPublic;
 }
 
+export interface LoginResetRequest {
+  id: string;
+  staff_id: string;
+  requested_by: string | null;
+  reason: string;
+  status: RequestStatus;
+  reviewed_by?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  staff?: { id: string; user_id: string | null; full_name: string; employee_id: string };
+}
+
 export interface SalarySettlement {
   id: string;
   staff_id: string;

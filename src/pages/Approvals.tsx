@@ -47,14 +47,16 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Search, Check, X, Eye, Loader2, Wallet, Receipt } from 'lucide-react';
+import { ClipboardList, Search, Check, X, Eye, Loader2, Wallet, Receipt, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/lib/toast';
-import type { PaymentRequest, Expense, ExpenseCategory, RequestStatus } from '@/types/database';
+import type { PaymentRequest, Expense, ExpenseCategory, RequestStatus, LoginResetRequest } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
 import { approveAdvanceRequest, rejectAdvanceRequest } from '@/lib/advance-approvals';
+import { approveLoginResetRequest, rejectLoginResetRequest } from '@/lib/login-reset';
 import { ApproveExpenseDialog } from '@/components/expenses/ApproveExpenseDialog';
 import { RejectExpenseDialog } from '@/components/expenses/RejectExpenseDialog';
+import { RaiseLoginResetDialog } from '@/components/approvals/RaiseLoginResetDialog';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
 import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 
@@ -62,7 +64,7 @@ import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 // expense claim, normalized to a common shape (the raw record is kept for the
 // reused mutations + ledger preview).
 interface ApprovalItem {
-  kind: 'advance' | 'expense';
+  kind: 'advance' | 'expense' | 'login_reset';
   id: string;
   requestedBy: string;
   staffUserId: string | null;
@@ -71,7 +73,7 @@ interface ApprovalItem {
   date: string;
   amount: number;
   status: string;
-  raw: PaymentRequest | Expense;
+  raw: PaymentRequest | Expense | LoginResetRequest;
 }
 
 type StatusBucket = 'pending' | 'approved' | 'rejected';
@@ -165,7 +167,7 @@ export default function Approvals() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'advance' | 'expense'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'advance' | 'expense' | 'login_reset'>('all');
   const [search, setSearch] = useState('');
 
   // Per-row processing (advance inline approve/reject).
@@ -177,6 +179,9 @@ export default function Approvals() {
   const [rejectReason, setRejectReason] = useState('');
   const [expenseApprove, setExpenseApprove] = useState<Expense | null>(null);
   const [expenseReject, setExpenseReject] = useState<Expense | null>(null);
+  const [loginResetApprove, setLoginResetApprove] = useState<ApprovalItem | null>(null);
+  const [loginResetReject, setLoginResetReject] = useState<ApprovalItem | null>(null);
+  const [raiseOpen, setRaiseOpen] = useState(false);
   const [drawerItem, setDrawerItem] = useState<ApprovalItem | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -187,7 +192,7 @@ export default function Approvals() {
     setIsLoading(true);
     setHasError(false);
     try {
-      const [advancesRes, expensesRes] = await Promise.all([
+      const [advancesRes, expensesRes, loginResetsRes] = await Promise.all([
         supabase
           .from('payment_requests')
           .select(`
@@ -204,10 +209,15 @@ export default function Approvals() {
           .select('*, staff:staff_public(*)')
           .neq('status', 'draft')
           .order('created_at', { ascending: false }),
+        supabase
+          .from('login_reset_requests')
+          .select('*, staff:staff_id ( id, user_id, full_name, employee_id )')
+          .order('created_at', { ascending: false }),
       ]);
 
       if (advancesRes.error) throw advancesRes.error;
       if (expensesRes.error) throw expensesRes.error;
+      if (loginResetsRes.error) throw loginResetsRes.error;
 
       const advances: ApprovalItem[] = ((advancesRes.data || []) as unknown as PaymentRequest[]).map((r) => ({
         kind: 'advance',
@@ -234,8 +244,20 @@ export default function Approvals() {
         raw: e,
       }));
 
-      // Most-recent first across both types.
-      const merged = [...advances, ...expenses].sort(
+      const loginResets: ApprovalItem[] = ((loginResetsRes.data || []) as unknown as LoginResetRequest[]).map((r) => ({
+        kind: 'login_reset',
+        id: r.id,
+        requestedBy: r.staff?.full_name || 'Staff',
+        staffUserId: r.staff?.user_id ?? null,
+        details: r.reason,
+        date: r.created_at,
+        amount: 0,
+        status: r.status,
+        raw: r,
+      }));
+
+      // Most-recent first across all types.
+      const merged = [...advances, ...expenses, ...loginResets].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
       setItems(merged);
@@ -267,7 +289,12 @@ export default function Approvals() {
   }, [items, typeFilter, activeTab, search]);
 
   const canActOn = (item: ApprovalItem) =>
-    item.status === 'pending' && (item.kind === 'advance' ? canApproveRequests : canApproveExpenses);
+    item.status === 'pending' &&
+    (item.kind === 'advance'
+      ? canApproveRequests
+      : item.kind === 'expense'
+        ? canApproveExpenses
+        : isOwner); // login resets are owner-only (the reset edge function is owner-only)
 
   const afterMutation = () => {
     refetchNotificationCounts();
@@ -306,14 +333,48 @@ export default function Approvals() {
     }
   };
 
-  // Approve/Reject dispatch by type — advances use the shared lib (inline
-  // confirm/reason dialogs); expenses reuse the existing expense dialogs.
+  const doApproveLoginReset = async (item: ApprovalItem) => {
+    setProcessingId(item.id);
+    try {
+      await approveLoginResetRequest({ request: item.raw as LoginResetRequest, user, staffData });
+      toast.success('Login reset — credential reset and staff notified');
+      afterMutation();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to reset login');
+    } finally {
+      setProcessingId(null);
+      setLoginResetApprove(null);
+      setDrawerItem(null);
+    }
+  };
+
+  const doRejectLoginReset = async () => {
+    if (!loginResetReject) return;
+    setProcessingId(loginResetReject.id);
+    try {
+      await rejectLoginResetRequest({ request: loginResetReject.raw as LoginResetRequest, reason: rejectReason, user, staffData });
+      toast.success('Login-reset request rejected');
+      setRejectReason('');
+      afterMutation();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to reject');
+    } finally {
+      setProcessingId(null);
+      setLoginResetReject(null);
+      setDrawerItem(null);
+    }
+  };
+
+  // Approve/Reject dispatch by type — advances and login resets use shared libs
+  // (inline confirm/reason dialogs); expenses reuse the existing expense dialogs.
   const onApprove = (item: ApprovalItem) => {
     if (item.kind === 'advance') setAdvanceApprove(item);
+    else if (item.kind === 'login_reset') setLoginResetApprove(item);
     else setExpenseApprove(item.raw as Expense);
   };
   const onReject = (item: ApprovalItem) => {
     if (item.kind === 'advance') setAdvanceReject(item);
+    else if (item.kind === 'login_reset') setLoginResetReject(item);
     else setExpenseReject(item.raw as Expense);
   };
 
@@ -363,10 +424,12 @@ export default function Approvals() {
     <span className="inline-flex items-center gap-1.5 text-xs font-medium">
       {item.kind === 'advance' ? (
         <Wallet className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+      ) : item.kind === 'login_reset' ? (
+        <KeyRound className="h-3.5 w-3.5 text-sky-500 shrink-0" />
       ) : (
         <Receipt className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
       )}
-      {item.kind === 'advance' ? 'Advance' : 'Expense'}
+      {item.kind === 'advance' ? 'Advance' : item.kind === 'login_reset' ? 'Login Reset' : 'Expense'}
     </span>
   );
 
@@ -394,7 +457,7 @@ export default function Approvals() {
       cellClassName: 'whitespace-nowrap text-sm text-muted-foreground',
       cell: (i) => format(new Date(i.date), 'dd MMM yyyy'),
     },
-    { id: 'amount', header: 'Amount', align: 'right', sortable: true, sortAccessor: (i) => i.amount, cell: (i) => <Amount value={i.amount} size="sm" /> },
+    { id: 'amount', header: 'Amount', align: 'right', sortable: true, sortAccessor: (i) => i.amount, cell: (i) => i.kind === 'login_reset' ? <span className="text-muted-foreground">—</span> : <Amount value={i.amount} size="sm" /> },
     {
       id: 'status',
       header: 'Status',
@@ -412,12 +475,17 @@ export default function Approvals() {
     <div className="space-y-4 sm:space-y-6 pb-6">
       <PageHeader
         title="Approvals"
-        description="Review and clear advance and expense requests from one place."
+        description="Review and clear advance, expense and login-reset requests from one place."
       >
         {pendingCount > 0 && (
           <span className="rounded-full bg-destructive/15 px-3 py-1 text-sm font-semibold text-destructive">
             {pendingCount} pending
           </span>
+        )}
+        {(isOwner || isAdmin) && (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRaiseOpen(true)}>
+            <KeyRound className="h-4 w-4" /><span className="hidden sm:inline">Login reset</span>
+          </Button>
         )}
       </PageHeader>
 
@@ -441,6 +509,7 @@ export default function Approvals() {
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="advance">Advances</SelectItem>
               <SelectItem value="expense">Expenses</SelectItem>
+              <SelectItem value="login_reset">Login Resets</SelectItem>
             </SelectContent>
           </Select>
         }
@@ -496,8 +565,10 @@ export default function Approvals() {
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Amount</p>
-                    <Amount value={drawerItem.amount} size="md" />
+                    <p className="text-xs text-muted-foreground">{drawerItem.kind === 'login_reset' ? 'Account' : 'Amount'}</p>
+                    {drawerItem.kind === 'login_reset'
+                      ? <p className="font-medium">{drawerItem.requestedBy}</p>
+                      : <Amount value={drawerItem.amount} size="md" />}
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
@@ -522,7 +593,7 @@ export default function Approvals() {
                   <p className="text-sm">{drawerItem.details || '—'}</p>
                 </div>
 
-                <LedgerImpactPreview item={drawerItem} />
+                {drawerItem.kind !== 'login_reset' && <LedgerImpactPreview item={drawerItem} />}
 
                 {canActOn(drawerItem) && (
                   <div className="flex gap-2 pt-2">
@@ -630,6 +701,65 @@ export default function Approvals() {
           onSuccess={() => { setExpenseReject(null); setDrawerItem(null); afterMutation(); }}
         />
       )}
+
+      {/* Login reset — approve confirmation (performs the actual credential reset) */}
+      <AlertDialog open={!!loginResetApprove} onOpenChange={(o) => !o && processingId === null && setLoginResetApprove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve login reset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {loginResetApprove && (
+                <>
+                  This resets the app login for{' '}
+                  <span className="font-semibold text-foreground">{loginResetApprove.requestedBy}</span>{' '}
+                  to the default password and notifies them to change it. The action is recorded in the Audit Log.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (loginResetApprove) doApproveLoginReset(loginResetApprove); }}
+              disabled={processingId !== null}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {processingId !== null ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resetting…</>) : 'Approve & reset'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Login reset — reject reason */}
+      <Dialog open={!!loginResetReject} onOpenChange={(o) => !o && processingId === null && (setLoginResetReject(null), setRejectReason(''))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject login reset</DialogTitle>
+            <DialogDescription>Please provide a reason for rejecting this login-reset request.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="lr-reject-reason">Reason for rejection</Label>
+            <Textarea
+              id="lr-reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason…"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setLoginResetReject(null); setRejectReason(''); }} disabled={processingId !== null}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={doRejectLoginReset} disabled={processingId !== null || !rejectReason.trim()}>
+              {processingId !== null ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rejecting…</>) : 'Reject Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Raise a login-reset request on behalf of a staff member */}
+      <RaiseLoginResetDialog open={raiseOpen} onOpenChange={setRaiseOpen} onCreated={afterMutation} />
     </div>
   );
 }
