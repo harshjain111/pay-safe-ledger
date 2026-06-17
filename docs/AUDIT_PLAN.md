@@ -278,7 +278,7 @@ items I must click-test myself.
 
 ### Progress
 - [x] P0 Foundations — docs/audit/PHASE-P0-findings.md (3 High, 5 Medium, 6 Low)
-- [ ] P1 Settlement engine + ledger
+- [x] P1 Settlement engine + ledger — docs/audit/PHASE-P1-findings.md (1 Critical, 3 High, 8 Medium, 3 Low)
 - [ ] P2 Batch payroll & payouts
 - [ ] P3 Advances, expenses, approvals
 - [ ] P4 Attendance + pay-day engine
