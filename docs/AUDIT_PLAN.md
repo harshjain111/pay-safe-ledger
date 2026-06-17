@@ -277,7 +277,7 @@ items I must click-test myself.
 4. Track progress in the checklist below.
 
 ### Progress
-- [ ] P0 Foundations
+- [x] P0 Foundations — docs/audit/PHASE-P0-findings.md (3 High, 5 Medium, 6 Low)
 - [ ] P1 Settlement engine + ledger
 - [ ] P2 Batch payroll & payouts
 - [ ] P3 Advances, expenses, approvals
