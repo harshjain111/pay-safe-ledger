@@ -1368,6 +1368,7 @@ export type Database = {
           created_by: string | null
           date_of_birth: string | null
           date_of_joining: string
+          date_of_leaving: string | null
           department: string | null
           designation: string | null
           email: string
@@ -1409,6 +1410,7 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           date_of_joining?: string
+          date_of_leaving?: string | null
           department?: string | null
           designation?: string | null
           email: string
@@ -1450,6 +1452,7 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           date_of_joining?: string
+          date_of_leaving?: string | null
           department?: string | null
           designation?: string | null
           email?: string
