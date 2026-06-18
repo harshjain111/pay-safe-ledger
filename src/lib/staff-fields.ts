@@ -41,6 +41,8 @@ export const STAFF_SAFE_COLUMNS = [
   'date_of_joining',
   'date_of_leaving',
   'is_active',
+  'status',
+  'separation_reason',
   'attendance_tracked',
   'weekly_off_day',
   'reporting_manager_id',
