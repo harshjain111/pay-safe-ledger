@@ -124,7 +124,10 @@ function getNavSections(
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
           { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
+          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
+          { title: 'Holiday Templates', href: '/holiday-templates', icon: CalendarRange },
+          { title: 'Holiday Assign', href: '/holiday-assign', icon: UserPlus },
         ],
       },
       {
@@ -197,7 +200,10 @@ function getNavSections(
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
           { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
+          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
+          { title: 'Holiday Templates', href: '/holiday-templates', icon: CalendarRange },
+          { title: 'Holiday Assign', href: '/holiday-assign', icon: UserPlus },
         ],
       },
       {
