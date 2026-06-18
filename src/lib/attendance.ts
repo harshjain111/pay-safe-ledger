@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeAndLogDiscipline } from '@/lib/discipline';
 import { evaluateGeofence, type BranchGeofence } from '@/lib/geofence';
+import { autoPromoteOnCheckIn } from '@/lib/shift-roster-service';
 
 export type AttendanceStatus = 'active' | 'on_break' | 'completed';
 
@@ -168,6 +169,14 @@ export async function checkIn(
     .single();
   if (updErr) throw updErr;
   const result = updated as AttendanceSession;
+
+  // §7: an unrostered / OFF staff member who checks in is auto-promoted into
+  // today's roster as AUTO_PRESENT. Best-effort — never block a real check-in.
+  if (staffId) {
+    try { await autoPromoteOnCheckIn(staffId, result.work_date); }
+    catch (e) { console.error('Auto-promote on check-in failed', e); }
+  }
+
   return result;
 }
 
