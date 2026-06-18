@@ -1,0 +1,1 @@
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS date_of_leaving DATE;
