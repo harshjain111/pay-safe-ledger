@@ -45,7 +45,7 @@ export interface Staff {
   esi_enrolled?: boolean;
   esi_employee_rate?: number | null;
   is_active: boolean;
-  status?: 'active' | 'inactive' | 'left' | 'terminated';
+  status?: 'active' | 'inactive' | 'left' | 'terminated' | string;
   separation_reason?: string | null;
   attendance_tracked?: boolean;
   weekly_off_day?: number | null;
