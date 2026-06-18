@@ -172,6 +172,8 @@ export type Database = {
           check_out_lng: number | null
           check_out_photo_url: string | null
           created_at: string
+          geo_distance_m: number | null
+          geo_review: string | null
           id: string
           late_checkout: boolean
           overtime_reminder_sent: boolean
@@ -198,6 +200,8 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
@@ -224,6 +228,8 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
@@ -272,6 +278,59 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      biometric_devices: {
+        Row: {
+          api_key_hash: string | null
+          api_key_prefix: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_seen_at: string | null
+          outlet_id: string | null
+          serial: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometric_devices_outlet_id_fkey"
+            columns: ["outlet_id"]
+            isOneToOne: false
+            referencedRelation: "outlets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clubs: {
         Row: {
@@ -324,6 +383,60 @@ export type Database = {
           is_active?: boolean
           name?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      designations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -749,6 +862,60 @@ export type Database = {
           },
         ]
       }
+      leave_types: {
+        Row: {
+          accrual: string
+          carry_forward: boolean
+          code: string | null
+          created_at: string
+          created_by: string | null
+          default_deduction: number
+          default_quota: number
+          id: string
+          is_active: boolean
+          is_default: boolean
+          is_paid: boolean
+          max_balance: number | null
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          accrual?: string
+          carry_forward?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          accrual?: string
+          carry_forward?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ledger_entries: {
         Row: {
           approved_by: string | null
@@ -863,6 +1030,45 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      outlets: {
+        Row: {
+          allowed_radius_meters: number | null
+          created_at: string
+          created_by: string | null
+          geofence_enforcement: string
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_radius_meters?: number | null
+          created_at?: string
+          created_by?: string | null
+          geofence_enforcement?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_radius_meters?: number | null
+          created_at?: string
+          created_by?: string | null
+          geofence_enforcement?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1320,6 +1526,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      saved_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          id: string
+          name: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition: Json
+          id?: string
+          name: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          id?: string
+          name?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       shifts: {
         Row: {
@@ -1782,6 +2018,7 @@ export type Database = {
           remarks: string
         }[]
       }
+      get_my_permissions: { Args: never; Returns: Json }
       get_payment_account_code: {
         Args: { _payment_mode: Database["public"]["Enums"]["payment_mode"] }
         Returns: string
@@ -1836,6 +2073,17 @@ export type Database = {
       is_salary_settled: {
         Args: { _month: string; _staff_id: string }
         Returns: boolean
+      }
+      notify_users_by_role: {
+        Args: {
+          _message: string
+          _reference_id?: string
+          _reference_type?: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _title: string
+          _type?: string
+        }
+        Returns: number
       }
       validate_settlement: {
         Args: { _month: string; _staff_id: string }
