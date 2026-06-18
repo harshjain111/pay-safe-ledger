@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

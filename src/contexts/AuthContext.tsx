@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/anyClient';
 import { AppRole, UserRole, Staff } from '@/types/database';
 import { ALL_PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/permissions';
 
