@@ -63,6 +63,7 @@ import {
   MessageSquare,
   Fingerprint,
   CalendarCheck,
+  CalendarRange,
   ShieldCheck,
   Users2,
   HandCoins,
@@ -122,6 +123,7 @@ function getNavSections(
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
         ],
       },
@@ -194,6 +196,7 @@ function getNavSections(
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
         ],
       },

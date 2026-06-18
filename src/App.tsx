@@ -38,6 +38,7 @@ const RightsTemplates = lazy(() => import("./pages/RightsTemplates"));
 const BulkAttendance = lazy(() => import("./pages/BulkAttendance"));
 const PayrollGroups = lazy(() => import("./pages/PayrollGroups"));
 const Arrears = lazy(() => import("./pages/Arrears"));
+const LeaveTypes = lazy(() => import("./pages/LeaveTypes"));
 const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="/bulk-attendance" element={<BulkAttendance />} />
         <Route path="/payroll-groups" element={<PayrollGroups />} />
         <Route path="/arrears" element={<Arrears />} />
+        <Route path="/leave-types" element={<LeaveTypes />} />
         <Route path="/salaries-advances" element={<SalariesAdvances />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />
