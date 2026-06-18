@@ -1391,6 +1391,8 @@ export type Database = {
           photo_url: string | null
           pt_exempt: boolean
           reporting_manager_id: string | null
+          separation_reason: string | null
+          status: string
           updated_at: string
           user_id: string | null
         }
@@ -1430,6 +1432,8 @@ export type Database = {
           photo_url?: string | null
           pt_exempt?: boolean
           reporting_manager_id?: string | null
+          separation_reason?: string | null
+          status?: string
           updated_at?: string
           user_id?: string | null
         }
@@ -1469,6 +1473,8 @@ export type Database = {
           photo_url?: string | null
           pt_exempt?: boolean
           reporting_manager_id?: string | null
+          separation_reason?: string | null
+          status?: string
           updated_at?: string
           user_id?: string | null
         }
