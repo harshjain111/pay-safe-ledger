@@ -224,6 +224,18 @@ async function createJournalEntry(params: CreateJournalEntryParams): Promise<str
   // Validate balance
   validateBalance(lines);
 
+  // Resolve every account id up front so a missing/invalid account code throws
+  // BEFORE the header row (or a reference number) is created — no orphan header.
+  const resolvedLines = await Promise.all(
+    lines.map(async (line) => ({
+      account_id: await getAccountId(line.accountCode),
+      staff_id: line.staffId || null,
+      debit: line.debit,
+      credit: line.credit,
+      description: line.description || null,
+    }))
+  );
+
   // Generate reference number
   const referenceNo = await generateReferenceNo(transactionType);
 
@@ -249,17 +261,11 @@ async function createJournalEntry(params: CreateJournalEntryParams): Promise<str
     throw new Error(`Failed to create journal entry: ${journalError?.message}`);
   }
 
-  // Create journal lines
-  const lineInserts = await Promise.all(
-    lines.map(async (line) => ({
-      journal_entry_id: journalEntry.id,
-      account_id: await getAccountId(line.accountCode),
-      staff_id: line.staffId || null,
-      debit: line.debit,
-      credit: line.credit,
-      description: line.description || null,
-    }))
-  );
+  // Create journal lines (account ids already resolved above)
+  const lineInserts = resolvedLines.map((line) => ({
+    journal_entry_id: journalEntry.id,
+    ...line,
+  }));
 
   const { error: linesError } = await supabase
     .from('journal_lines')

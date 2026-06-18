@@ -51,7 +51,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [staffData, setStaffData] = useState<Staff | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [accountingMode, setAccountingMode] = useState(false);
+  // Persist the accountant's context across reloads (was resetting to Personal).
+  const [accountingMode, setAccountingModeState] = useState<boolean>(() => {
+    try { return localStorage.getItem('accountingMode') === 'true'; } catch { return false; }
+  });
+  const setAccountingMode = (mode: boolean) => {
+    setAccountingModeState(mode);
+    try { localStorage.setItem('accountingMode', String(mode)); } catch { /* storage unavailable */ }
+  };
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -134,8 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: permRows, error: permErr } = await supabase.rpc('get_my_permissions');
         if (permErr) throw permErr;
-        const set = new Set((permRows as string[] | null) ?? []);
-        setPermissions(set.size > 0 ? set : fallbackPermsFor(roleStr));
+        // Trust the server's effective set verbatim — INCLUDING an intentionally
+        // empty result (a user restricted to no permissions). Falling back to the
+        // role map on empty would silently un-revoke them. The catch below covers
+        // the only case that needs the fallback: the RPC not deployed yet (errors).
+        setPermissions(new Set((permRows as string[] | null) ?? []));
       } catch {
         setPermissions(fallbackPermsFor(roleStr));
       }

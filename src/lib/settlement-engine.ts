@@ -200,7 +200,11 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
 
   const esiOn = !!(s?.esi_enabled && esiEnrolled);
   const esiBase = proRataSalary;
-  const esiEligible = esiOn && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
+  // Eligibility is decided on the contractual MONTHLY wage vs the statutory
+  // ceiling — NOT the pro-rated amount — so a mid-month joiner/leaver whose
+  // monthly wage exceeds the ceiling stays ineligible. The deduction base
+  // (esiBase) still pro-rates.
+  const esiEligible = esiOn && monthlySalary <= (s?.esi_eligibility_ceiling ?? Infinity);
   const esiRateEmployee = esiEligible ? toAmount((cs as { esi_employee_rate?: number | null }).esi_employee_rate) : 0;
   const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
   const esiEmployee = esiEligible ? round2((esiBase * esiRateEmployee) / 100) : 0;
@@ -377,25 +381,13 @@ export async function persistGroupSettlement(
   const { staff, month, userId } = ctx;
   const monthLabel = parseISO(month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-  const journalEntryId = await createSalarySettlementEntry({
-    staffId: staff.id,
-    staffName: staff.full_name,
-    settlementMonth: monthLabel,
-    grossSalary: calc.grossSalary,
-    leaveDeduction: calc.leaveDeduction,
-    advanceAdjustment: calc.advanceToAdjust,
-    pfEmployee: calc.pfEmployee,
-    pfEmployer: calc.pfEmployer,
-    esiEmployee: calc.esiEmployee,
-    esiEmployer: calc.esiEmployer,
-    ptAmount: calc.ptAmount,
-    loanEmiTotal: calc.loanEmiTotal,
-    bonus: calc.bonus,
-    overtimeAmount: calc.overtimeAmount,
-    settlementId: '',
-    createdBy: userId,
-  });
+  // Idempotency: never double-post for an already-settled month.
+  if (await isMonthSettled(staff.id, month)) {
+    throw new Error(`${staff.full_name}: salary for ${monthLabel} is already settled`);
+  }
 
+  // Reserve the unique (staff, month) slot BEFORE posting any immutable journal,
+  // so a duplicate is rejected by the constraint with no orphan ledger entry.
   const { data: settlementRecord, error } = await supabase
     .from('salary_settlements')
     .insert({
@@ -421,7 +413,7 @@ export async function persistGroupSettlement(
       status: 'settled',
       settled_at: new Date().toISOString(),
       settled_by: userId,
-      journal_entry_id: journalEntryId,
+      journal_entry_id: null,
       system_deduction_days: calc.systemDeductionDays,
       final_deduction_days: calc.finalDeductionDays,
       discipline_fine: calc.disciplineFine,
@@ -441,8 +433,33 @@ export async function persistGroupSettlement(
     .single();
   if (error) throw error;
 
-  await supabase.from('journal_entries').update({ reference_id: settlementRecord.id }).eq('id', journalEntryId);
-  await supabase.from('journal_entries').update({ is_immutable: true }).eq('id', journalEntryId);
+  // Post the (immutable) settlement journal now that the slot is reserved. If it
+  // fails, roll back the reserved row so a retry is clean — no orphan journal.
+  let journalEntryId: string;
+  try {
+    journalEntryId = await createSalarySettlementEntry({
+      staffId: staff.id,
+      staffName: staff.full_name,
+      settlementMonth: monthLabel,
+      grossSalary: calc.grossSalary,
+      leaveDeduction: calc.leaveDeduction,
+      advanceAdjustment: calc.advanceToAdjust,
+      pfEmployee: calc.pfEmployee,
+      pfEmployer: calc.pfEmployer,
+      esiEmployee: calc.esiEmployee,
+      esiEmployer: calc.esiEmployer,
+      ptAmount: calc.ptAmount,
+      loanEmiTotal: calc.loanEmiTotal,
+      bonus: calc.bonus,
+      overtimeAmount: calc.overtimeAmount,
+      settlementId: settlementRecord.id,
+      createdBy: userId,
+    });
+  } catch (e) {
+    await supabase.from('salary_settlements').delete().eq('id', settlementRecord.id);
+    throw e;
+  }
+  await supabase.from('salary_settlements').update({ journal_entry_id: journalEntryId }).eq('id', settlementRecord.id);
 
   // Arrears: post their own balanced entry + mark the pending arrears settled.
   if (Math.abs(calc.arrears) >= 0.01) {

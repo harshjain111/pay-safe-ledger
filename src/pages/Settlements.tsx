@@ -340,7 +340,10 @@ export default function Settlements() {
 
       const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
       const esiBase = proRataSalary;
-      const esiEligible = esiEnrolled && esiBase <= (s?.esi_eligibility_ceiling ?? Infinity);
+      // Eligibility is decided on the contractual MONTHLY wage vs the ceiling, not
+      // the pro-rated amount — a mid-month joiner/leaver above the ceiling stays
+      // ineligible. The deduction base (esiBase) still pro-rates.
+      const esiEligible = esiEnrolled && monthlySalary <= (s?.esi_eligibility_ceiling ?? Infinity);
       const esiRateEmployee = esiEligible ? toAmount(cs?.esi_employee_rate) : 0;
       const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
       const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
@@ -675,27 +678,9 @@ export default function Settlements() {
       //    - Debit: Staff Payable (reduce liability)
       //    - Credit: Staff Advances (reduce receivable)
       
-      // Step 1: Create journal entry for salary settlement
-      const journalEntryId = await createSalarySettlementEntry({
-        staffId: selectedStaffId,
-        staffName,
-        settlementMonth: monthLabel,
-        grossSalary: calculation.grossSalary,
-        leaveDeduction: calculation.leaveDeduction,
-        advanceAdjustment: calculation.advanceToAdjust,
-        pfEmployee: calculation.pfEmployee,
-        pfEmployer: calculation.pfEmployer,
-        esiEmployee: calculation.esiEmployee,
-        esiEmployer: calculation.esiEmployer,
-        ptAmount: calculation.ptAmount,
-        loanEmiTotal: calculation.loanEmiTotal,
-        bonus: calculation.bonus,
-        overtimeAmount: calculation.overtimeAmount,
-        settlementId: '',
-        createdBy: user.id,
-      });
-
-      // Step 2: Create settlement record linking to journal entry
+      // Step 1: Reserve the settlement row FIRST (unique staff+month slot) so a
+      // duplicate/retry is rejected by the constraint BEFORE any immutable journal
+      // is posted — no orphan ledger entries.
       const { data: settlementRecord, error: settlementError } = await supabase
         .from('salary_settlements')
         .insert({
@@ -722,7 +707,7 @@ export default function Settlements() {
           status: 'settled',
           settled_at: new Date().toISOString(),
           settled_by: user.id,
-          journal_entry_id: journalEntryId, // Link to double-entry journal
+          journal_entry_id: null, // linked after the journal posts (below)
           system_deduction_days: calculation.systemDeductionDays,
           final_deduction_days: calculation.finalDeductionDays,
           deduction_adjustment_reason: calculation.deductionAdjustmentReason || null,
@@ -746,17 +731,42 @@ export default function Settlements() {
 
       if (settlementError) throw settlementError;
 
-      // Step 3: Update journal entry with settlement reference
+      // Step 2: Post the (immutable) settlement journal now that the slot is
+      // reserved. If it fails, roll back the reserved row so a retry is clean.
+      let journalEntryId: string;
+      try {
+        journalEntryId = await createSalarySettlementEntry({
+          staffId: selectedStaffId,
+          staffName,
+          settlementMonth: monthLabel,
+          grossSalary: calculation.grossSalary,
+          leaveDeduction: calculation.leaveDeduction,
+          advanceAdjustment: calculation.advanceToAdjust,
+          pfEmployee: calculation.pfEmployee,
+          pfEmployer: calculation.pfEmployer,
+          esiEmployee: calculation.esiEmployee,
+          esiEmployer: calculation.esiEmployer,
+          ptAmount: calculation.ptAmount,
+          loanEmiTotal: calculation.loanEmiTotal,
+          bonus: calculation.bonus,
+          overtimeAmount: calculation.overtimeAmount,
+          settlementId: settlementRecord.id,
+          createdBy: user.id,
+        });
+      } catch (e) {
+        await supabase.from('salary_settlements').delete().eq('id', settlementRecord.id);
+        throw e;
+      }
+
+      // Step 3: Link the settlement to its journal.
       await supabase
         .from('journal_entries')
         .update({ reference_id: settlementRecord.id })
         .eq('id', journalEntryId);
-
-      // Step 4: Mark journal entry as immutable
       await supabase
-        .from('journal_entries')
-        .update({ is_immutable: true })
-        .eq('id', journalEntryId);
+        .from('salary_settlements')
+        .update({ journal_entry_id: journalEntryId })
+        .eq('id', settlementRecord.id);
 
       // Step 4b: Arrears — post their own balanced entry + mark them settled.
       if (Math.abs(calculation.arrears) >= 0.01) {

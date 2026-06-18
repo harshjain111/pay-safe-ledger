@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "next-themes";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 // Pages (lazy-loaded so each route is a separate chunk)
@@ -67,9 +68,11 @@ function ProtectedLayout() {
       return;
     }
 
+    // Must stay above AuthContext's own 15s init failsafe, otherwise a slow but
+    // valid session restore gets bounced to /auth before auth settles.
     const timeoutId = window.setTimeout(() => {
       setLoadingTimedOut(true);
-    }, 7000);
+    }, 20000);
 
     return () => window.clearTimeout(timeoutId);
   }, [isLoading]);
@@ -162,7 +165,9 @@ const App = () => (
           <Toaster />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
             </AuthProvider>
           </BrowserRouter>
           <InstallPrompt />

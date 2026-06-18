@@ -114,4 +114,29 @@ describe('computeSettlement', () => {
     const r = computeSettlement(inputs({ monthlySalary: 30000.4 }), { rounding: 'nearest' });
     expect(Number.isInteger(r.netPayable)).toBe(true);
   });
+
+  it('ESI eligibility uses the full monthly wage, not the pro-rata amount', () => {
+    const stat: StatutorySettings = { ...ALL_OFF, esi_enabled: true, esi_employer_rate: 3.25, esi_eligibility_ceiling: 21000 };
+    // 30000/month is above the ceiling; joining on the 16th pro-rates to ~15000.
+    const r = computeSettlement(inputs({
+      statutory: stat,
+      monthlySalary: 30000,
+      staff: makeStaff({ esi_enrolled: true, date_of_joining: '2026-06-16', esi_employee_rate: 0.75 } as unknown as Partial<Staff>),
+    }));
+    expect(r.effectiveDays).toBe(15);
+    expect(r.esiBase).toBe(15000);     // deduction base still pro-rates
+    expect(r.esiEligible).toBe(false); // eligibility is decided on the 30000 monthly wage
+    expect(r.esiEmployee).toBe(0);
+  });
+
+  it('ESI applies when the monthly wage is within the ceiling', () => {
+    const stat: StatutorySettings = { ...ALL_OFF, esi_enabled: true, esi_employer_rate: 3.25, esi_eligibility_ceiling: 21000 };
+    const r = computeSettlement(inputs({
+      statutory: stat,
+      monthlySalary: 18000,
+      staff: makeStaff({ esi_enrolled: true, esi_employee_rate: 0.75 } as unknown as Partial<Staff>),
+    }));
+    expect(r.esiEligible).toBe(true);
+    expect(r.esiEmployee).toBe(135);   // 0.75% of 18000
+  });
 });

@@ -121,3 +121,22 @@ divergence is H1's empty-set masking.
 H1 (one-line, high impact) → H3 → M5 → M3 → M4 → H2 (wrapper) → the rest.
 H2/M1/M2 are the "incremental permission migration" cluster — best fixed together
 as a deliberate "finish the permission system" task rather than piecemeal.
+
+---
+
+## Resolution (applied)
+- **H1 FIXED** — `AuthContext.tsx`: server permission set is now used verbatim
+  (empty included); fallback only on RPC error.
+- **M3 FIXED** — `App.tsx`: route loading timeout 7s → 20s (above the 15s auth
+  failsafe).
+- **M4 FIXED** — new `components/layout/ErrorBoundary.tsx` wraps the routes; a
+  page crash now shows a reload card instead of a white screen.
+- **M5 FIXED** — `AuthContext.tsx`: `accountingMode` persists to localStorage.
+- **DEFERRED (need a decision / live verification):**
+  - **H2** route guards — pages self-gate today; a blind route→permission map
+    risks lockout. Do as a focused task with live verification.
+  - **H3** salary double-gate — product decision: is salary owner-only forever,
+    or grantable via a rights template? (Changes `canViewSalaries`.)
+  - **M1/M2** finish the server-side permission migration + make nav `can()`-based.
+  - L1–L6 polish.
+Verified: tsc clean · 124 tests · build OK.

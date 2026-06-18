@@ -139,3 +139,35 @@ recalc, payslip download, the already-settled lock) → optional **P1b**.
 C1 (atomic finalize — Postgres function) → H1 (ESI eligibility, both copies) →
 H2 (unify onto the engine, which also closes the "both copies" risk) → H3 →
 M4/M2/M3 (statutory accuracy) → M5/M6 → the rest.
+
+---
+
+## Resolution (applied)
+- **C1 SUBSTANTIALLY MITIGATED** — both `persistGroupSettlement` and the
+  single-staff `handleSettle` now **reserve the `salary_settlements` row first**
+  (unique slot) and post the immutable journal only after; on journal failure the
+  reserved row is deleted. A duplicate/retry/double-click is now rejected by the
+  constraint **before any journal is posted** — no more orphan immutable salary
+  journal. Batch also re-checks `isMonthSettled`. *Residual:* the multi-write
+  finalize still isn't a single transaction, so a hard crash between the row
+  insert and the journal post could leave a settled row with `journal_entry_id =
+  null`. Full atomicity (one Postgres function) is the remaining work — deferred
+  with live verification.
+- **H1 FIXED** — ESI eligibility now tests the **full monthly wage** vs the
+  ceiling (not the pro-rata amount) in both the engine and `Settlements.tsx`; the
+  deduction base still pro-rates. 2 engine tests added (124 total).
+- **M5 FIXED** — `createJournalEntry` resolves all account ids **before** the
+  header insert, so a missing account code no longer orphans an empty header.
+- **DEFERRED (need a decision / large refactor / live verification):**
+  - **H2** unify the single-staff screen onto `computeSettlement` (post-deploy
+    refactor; can't verify live here).
+  - **H3** batch advance recovery — product decision (should batch auto-recover
+    outstanding advances?).
+  - **M1** require `date_of_leaving` for exit proration; **M2** PF base policy;
+    **M3** statutory employee-ESI rate fallback; **M4** round stored amounts;
+    **M6** filter holiday fetch; **M8** double-reversal guard; L1–L3.
+  - Same ordering reorder should be applied to the 3 inline payout/advance entry
+    builders (`createSalaryPayoutEntry`, `createExpensePayoutEntry`,
+    `createAdvancePaidEntry`) — they share the header-before-lines pattern; in
+    P3/P8 scope.
+Verified: tsc clean · 124 tests · build OK.
