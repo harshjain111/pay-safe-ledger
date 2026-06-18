@@ -177,6 +177,7 @@ export type Database = {
           id: string
           late_checkout: boolean
           overtime_reminder_sent: boolean
+          source: string | null
           staff_id: string | null
           status: string
           total_break_minutes: number
@@ -205,6 +206,7 @@ export type Database = {
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string | null
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
@@ -233,6 +235,7 @@ export type Database = {
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string | null
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
@@ -750,6 +753,7 @@ export type Database = {
           id: string
           is_paid: boolean
           name: string
+          note: string | null
           org_wide: boolean
           recurring_yearly: boolean
           type: string
@@ -762,6 +766,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           name: string
+          note?: string | null
           org_wide?: boolean
           recurring_yearly?: boolean
           type?: string
@@ -774,6 +779,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           name?: string
+          note?: string | null
           org_wide?: boolean
           recurring_yearly?: boolean
           type?: string
@@ -983,6 +989,7 @@ export type Database = {
           is_immutable: boolean
           leave_date: string
           leave_type: Database["public"]["Enums"]["leave_type"]
+          leave_type_id: string | null
           rejection_reason: string | null
           remarks: string | null
           staff_id: string
@@ -999,6 +1006,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id: string
@@ -1015,6 +1023,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date?: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id?: string
@@ -1581,7 +1590,10 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          created_by: string | null
           id: string
+          period_label: string | null
+          reason: string | null
           settled_at: string | null
           settlement_id: string | null
           settlement_month: string
@@ -1592,7 +1604,10 @@ export type Database = {
         Insert: {
           amount?: number
           created_at?: string
+          created_by?: string | null
           id?: string
+          period_label?: string | null
+          reason?: string | null
           settled_at?: string | null
           settlement_id?: string | null
           settlement_month: string
@@ -1603,7 +1618,10 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          created_by?: string | null
           id?: string
+          period_label?: string | null
+          reason?: string | null
           settled_at?: string | null
           settlement_id?: string | null
           settlement_month?: string
@@ -1688,6 +1706,7 @@ export type Database = {
       salary_settlements: {
         Row: {
           advances_adjusted: number | null
+          arrears: number | null
           balance_payable: number
           base_salary: number
           bonus: number
@@ -1740,6 +1759,7 @@ export type Database = {
         }
         Insert: {
           advances_adjusted?: number | null
+          arrears?: number | null
           balance_payable: number
           base_salary: number
           bonus?: number
@@ -1792,6 +1812,7 @@ export type Database = {
         }
         Update: {
           advances_adjusted?: number | null
+          arrears?: number | null
           balance_payable?: number
           base_salary?: number
           bonus?: number
@@ -1959,6 +1980,7 @@ export type Database = {
           date_of_joining: string
           date_of_leaving: string | null
           department: string | null
+          department_id: string | null
           designation: string | null
           email: string
           emergency_contact_name: string | null
@@ -1986,6 +2008,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string | null
+          weekly_off_day: number | null
         }
         Insert: {
           address?: string | null
@@ -2002,6 +2025,7 @@ export type Database = {
           date_of_joining?: string
           date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email: string
           emergency_contact_name?: string | null
@@ -2029,6 +2053,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Update: {
           address?: string | null
@@ -2045,6 +2070,7 @@ export type Database = {
           date_of_joining?: string
           date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email?: string
           emergency_contact_name?: string | null
@@ -2072,6 +2098,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Relationships: [
           {
@@ -2417,6 +2444,13 @@ export type Database = {
       }
       get_account_id: { Args: { _code: string }; Returns: string }
       get_advances_outstanding: { Args: { _staff_id: string }; Returns: number }
+      get_comp_off_earned_by_staff: {
+        Args: { _year: number }
+        Returns: {
+          comp_off: number
+          staff_id: string
+        }[]
+      }
       get_expense_account_code: {
         Args: { _category: Database["public"]["Enums"]["expense_category"] }
         Returns: string
