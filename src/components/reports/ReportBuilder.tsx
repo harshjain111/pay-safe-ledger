@@ -3,7 +3,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import {
   Play, Save, FileSpreadsheet, FileText, Trash2, Loader2, Wrench, Lock,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Json } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
