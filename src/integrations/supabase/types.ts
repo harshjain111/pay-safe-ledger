@@ -173,6 +173,7 @@ export type Database = {
           check_out_photo_url: string | null
           created_at: string
           geo_distance_m: number | null
+          geo_flagged: boolean
           geo_review: string | null
           id: string
           late_checkout: boolean
@@ -202,6 +203,7 @@ export type Database = {
           check_out_photo_url?: string | null
           created_at?: string
           geo_distance_m?: number | null
+          geo_flagged?: boolean
           geo_review?: string | null
           id?: string
           late_checkout?: boolean
@@ -231,6 +233,7 @@ export type Database = {
           check_out_photo_url?: string | null
           created_at?: string
           geo_distance_m?: number | null
+          geo_flagged?: boolean
           geo_review?: string | null
           id?: string
           late_checkout?: boolean
@@ -1998,6 +2001,7 @@ export type Database = {
           monthly_salary: number
           other_allowances: number
           outlet_id: string | null
+          payroll_group_id: string | null
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
@@ -2043,6 +2047,7 @@ export type Database = {
           monthly_salary?: number
           other_allowances?: number
           outlet_id?: string | null
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
@@ -2088,6 +2093,7 @@ export type Database = {
           monthly_salary?: number
           other_allowances?: number
           outlet_id?: string | null
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
