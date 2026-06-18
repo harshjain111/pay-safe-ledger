@@ -172,9 +172,13 @@ export type Database = {
           check_out_lng: number | null
           check_out_photo_url: string | null
           created_at: string
+          geo_distance_m: number | null
+          geo_flagged: boolean
+          geo_review: string | null
           id: string
           late_checkout: boolean
           overtime_reminder_sent: boolean
+          source: string | null
           staff_id: string | null
           status: string
           total_break_minutes: number
@@ -198,9 +202,13 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_flagged?: boolean
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string | null
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
@@ -224,9 +232,13 @@ export type Database = {
           check_out_lng?: number | null
           check_out_photo_url?: string | null
           created_at?: string
+          geo_distance_m?: number | null
+          geo_flagged?: boolean
+          geo_review?: string | null
           id?: string
           late_checkout?: boolean
           overtime_reminder_sent?: boolean
+          source?: string | null
           staff_id?: string | null
           status?: string
           total_break_minutes?: number
@@ -270,6 +282,101 @@ export type Database = {
           performed_by?: string | null
           record_id?: string
           table_name?: string
+        }
+        Relationships: []
+      }
+      biometric_devices: {
+        Row: {
+          api_key_hash: string | null
+          api_key_prefix: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_seen_at: string | null
+          outlet_id: string | null
+          serial: string | null
+          status: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          status?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_seen_at?: string | null
+          outlet_id?: string | null
+          serial?: string | null
+          status?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometric_devices_outlet_id_fkey"
+            columns: ["outlet_id"]
+            isOneToOne: false
+            referencedRelation: "outlets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      biometric_enrolments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          device_id: string | null
+          enrolled_at: string | null
+          face_vector_ref: string | null
+          id: string
+          kind: string | null
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          device_id?: string | null
+          enrolled_at?: string | null
+          face_vector_ref?: string | null
+          id?: string
+          kind?: string | null
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          device_id?: string | null
+          enrolled_at?: string | null
+          face_vector_ref?: string | null
+          id?: string
+          kind?: string | null
+          staff_id?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -324,6 +431,60 @@ export type Database = {
           is_active?: boolean
           name?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      designations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -555,6 +716,113 @@ export type Database = {
           },
         ]
       }
+      holiday_assignments: {
+        Row: {
+          created_at: string
+          holiday_id: string
+          id: string
+          outlet_id: string | null
+          staff_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          holiday_id: string
+          id?: string
+          outlet_id?: string | null
+          staff_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          holiday_id?: string
+          id?: string
+          outlet_id?: string | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_assignments_holiday_id_fkey"
+            columns: ["holiday_id"]
+            isOneToOne: false
+            referencedRelation: "holidays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          is_paid: boolean
+          name: string
+          note: string | null
+          org_wide: boolean
+          recurring_yearly: boolean
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          is_paid?: boolean
+          name: string
+          note?: string | null
+          org_wide?: boolean
+          recurring_yearly?: boolean
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          is_paid?: boolean
+          name?: string
+          note?: string | null
+          org_wide?: boolean
+          recurring_yearly?: boolean
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hr_pay_rules: {
+        Row: {
+          comp_off_enabled: boolean
+          created_at: string
+          full_day_minutes: number
+          half_day_minutes: number
+          id: string
+          settings: Json
+          unscheduled_is_off: boolean
+          updated_at: string
+        }
+        Insert: {
+          comp_off_enabled?: boolean
+          created_at?: string
+          full_day_minutes?: number
+          half_day_minutes?: number
+          id?: string
+          settings?: Json
+          unscheduled_is_off?: boolean
+          updated_at?: string
+        }
+        Update: {
+          comp_off_enabled?: boolean
+          created_at?: string
+          full_day_minutes?: number
+          half_day_minutes?: number
+          id?: string
+          settings?: Json
+          unscheduled_is_off?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       journal_entries: {
         Row: {
           created_at: string
@@ -683,6 +951,36 @@ export type Database = {
           },
         ]
       }
+      leave_balances: {
+        Row: {
+          created_at: string
+          id: string
+          leave_type_id: string
+          opening: number
+          staff_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leave_type_id: string
+          opening?: number
+          staff_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leave_type_id?: string
+          opening?: number
+          staff_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       leave_records: {
         Row: {
           approved_at: string | null
@@ -694,6 +992,7 @@ export type Database = {
           is_immutable: boolean
           leave_date: string
           leave_type: Database["public"]["Enums"]["leave_type"]
+          leave_type_id: string | null
           rejection_reason: string | null
           remarks: string | null
           staff_id: string
@@ -710,6 +1009,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id: string
@@ -726,6 +1026,7 @@ export type Database = {
           is_immutable?: boolean
           leave_date?: string
           leave_type?: Database["public"]["Enums"]["leave_type"]
+          leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
           staff_id?: string
@@ -748,6 +1049,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leave_settings: {
+        Row: {
+          created_at: string
+          id: string
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leave_types: {
+        Row: {
+          accrual: string
+          carry_forward: boolean
+          code: string | null
+          created_at: string
+          created_by: string | null
+          default_deduction: number
+          default_quota: number
+          id: string
+          is_active: boolean
+          is_default: boolean
+          is_paid: boolean
+          max_balance: number | null
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          accrual?: string
+          carry_forward?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          accrual?: string
+          carry_forward?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_deduction?: number
+          default_quota?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          is_paid?: boolean
+          max_balance?: number | null
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       ledger_entries: {
         Row: {
@@ -830,6 +1206,42 @@ export type Database = {
           },
         ]
       }
+      login_reset_requests: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          staff_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -863,6 +1275,45 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      outlets: {
+        Row: {
+          allowed_radius_meters: number | null
+          created_at: string
+          created_by: string | null
+          geofence_enforcement: string
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_radius_meters?: number | null
+          created_at?: string
+          created_by?: string | null
+          geofence_enforcement?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_radius_meters?: number | null
+          created_at?: string
+          created_by?: string | null
+          geofence_enforcement?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -957,6 +1408,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payroll_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          esi_default: boolean
+          id: string
+          is_default: boolean
+          name: string
+          pay_cycle: string | null
+          payment_mode_default: string | null
+          pf_default: boolean
+          pt_default: boolean
+          rounding: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          esi_default?: boolean
+          id?: string
+          is_default?: boolean
+          name: string
+          pay_cycle?: string | null
+          payment_mode_default?: string | null
+          pf_default?: boolean
+          pt_default?: boolean
+          rounding?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          esi_default?: boolean
+          id?: string
+          is_default?: boolean
+          name?: string
+          pay_cycle?: string | null
+          payment_mode_default?: string | null
+          pf_default?: boolean
+          pt_default?: boolean
+          rounding?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       payroll_statutory_settings: {
         Row: {
@@ -1054,6 +1550,90 @@ export type Database = {
         }
         Relationships: []
       }
+      rights_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_builtin: boolean
+          is_owner: boolean
+          name: string
+          permissions: Json
+          role_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          is_owner?: boolean
+          name: string
+          permissions?: Json
+          role_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          is_owner?: boolean
+          name?: string
+          permissions?: Json
+          role_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      salary_arrears: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          period_label: string | null
+          reason: string | null
+          settled_at: string | null
+          settlement_id: string | null
+          settlement_month: string
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          period_label?: string | null
+          reason?: string | null
+          settled_at?: string | null
+          settlement_id?: string | null
+          settlement_month: string
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          period_label?: string | null
+          reason?: string | null
+          settled_at?: string | null
+          settlement_id?: string | null
+          settlement_month?: string
+          staff_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       salary_history: {
         Row: {
           change_reason: string | null
@@ -1129,6 +1709,7 @@ export type Database = {
       salary_settlements: {
         Row: {
           advances_adjusted: number | null
+          arrears: number | null
           balance_payable: number
           base_salary: number
           bonus: number
@@ -1181,6 +1762,7 @@ export type Database = {
         }
         Insert: {
           advances_adjusted?: number | null
+          arrears?: number | null
           balance_payable: number
           base_salary: number
           bonus?: number
@@ -1233,6 +1815,7 @@ export type Database = {
         }
         Update: {
           advances_adjusted?: number | null
+          arrears?: number | null
           balance_payable?: number
           base_salary?: number
           bonus?: number
@@ -1321,6 +1904,36 @@ export type Database = {
           },
         ]
       }
+      saved_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          id: string
+          name: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition: Json
+          id?: string
+          name: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          id?: string
+          name?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shifts: {
         Row: {
           check_in_time: string
@@ -1370,6 +1983,7 @@ export type Database = {
           date_of_joining: string
           date_of_leaving: string | null
           department: string | null
+          department_id: string | null
           designation: string | null
           email: string
           emergency_contact_name: string | null
@@ -1386,6 +2000,8 @@ export type Database = {
           location: string | null
           monthly_salary: number
           other_allowances: number
+          outlet_id: string | null
+          payroll_group_id: string | null
           pf_employee_rate_override: number | null
           pf_enrolled: boolean
           phone: string | null
@@ -1396,6 +2012,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string | null
+          weekly_off_day: number | null
         }
         Insert: {
           address?: string | null
@@ -1412,6 +2029,7 @@ export type Database = {
           date_of_joining?: string
           date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email: string
           emergency_contact_name?: string | null
@@ -1428,6 +2046,8 @@ export type Database = {
           location?: string | null
           monthly_salary?: number
           other_allowances?: number
+          outlet_id?: string | null
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
@@ -1438,6 +2058,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Update: {
           address?: string | null
@@ -1454,6 +2075,7 @@ export type Database = {
           date_of_joining?: string
           date_of_leaving?: string | null
           department?: string | null
+          department_id?: string | null
           designation?: string | null
           email?: string
           emergency_contact_name?: string | null
@@ -1470,6 +2092,8 @@ export type Database = {
           location?: string | null
           monthly_salary?: number
           other_allowances?: number
+          outlet_id?: string | null
+          payroll_group_id?: string | null
           pf_employee_rate_override?: number | null
           pf_enrolled?: boolean
           phone?: string | null
@@ -1480,6 +2104,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          weekly_off_day?: number | null
         }
         Relationships: [
           {
@@ -1579,6 +2204,33 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_roster: {
+        Row: {
+          created_at: string
+          is_off: boolean
+          roster_date: string
+          shift_id: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          is_off?: boolean
+          roster_date: string
+          shift_id?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          is_off?: boolean
+          roster_date?: string
+          shift_id?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_shift_assignments: {
         Row: {
           created_at: string
@@ -1619,6 +2271,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted: Json
+          revoked: Json
+          template_id: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted?: Json
+          revoked?: Json
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: Json
+          revoked?: Json
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -1768,6 +2450,13 @@ export type Database = {
       }
       get_account_id: { Args: { _code: string }; Returns: string }
       get_advances_outstanding: { Args: { _staff_id: string }; Returns: number }
+      get_comp_off_earned_by_staff: {
+        Args: { _year: number }
+        Returns: {
+          comp_off: number
+          staff_id: string
+        }[]
+      }
       get_expense_account_code: {
         Args: { _category: Database["public"]["Enums"]["expense_category"] }
         Returns: string
@@ -1782,6 +2471,7 @@ export type Database = {
           remarks: string
         }[]
       }
+      get_my_permissions: { Args: never; Returns: Json }
       get_payment_account_code: {
         Args: { _payment_mode: Database["public"]["Enums"]["payment_mode"] }
         Returns: string
@@ -1836,6 +2526,17 @@ export type Database = {
       is_salary_settled: {
         Args: { _month: string; _staff_id: string }
         Returns: boolean
+      }
+      notify_users_by_role: {
+        Args: {
+          _message: string
+          _reference_id?: string
+          _reference_type?: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _title: string
+          _type?: string
+        }
+        Returns: number
       }
       validate_settlement: {
         Args: { _month: string; _staff_id: string }
