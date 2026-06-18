@@ -42,6 +42,7 @@ const LeaveTypes = lazy(() => import("./pages/LeaveTypes"));
 const LeaveAssign = lazy(() => import("./pages/LeaveAssign"));
 const HolidayTemplates = lazy(() => import("./pages/HolidayTemplates"));
 const HolidayAssign = lazy(() => import("./pages/HolidayAssign"));
+const LeaveBalance = lazy(() => import("./pages/LeaveBalance"));
 const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
@@ -145,6 +146,7 @@ function AppRoutes() {
         <Route path="/leave-assign" element={<LeaveAssign />} />
         <Route path="/holiday-templates" element={<HolidayTemplates />} />
         <Route path="/holiday-assign" element={<HolidayAssign />} />
+        <Route path="/leave-balance" element={<LeaveBalance />} />
         <Route path="/salaries-advances" element={<SalariesAdvances />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />
