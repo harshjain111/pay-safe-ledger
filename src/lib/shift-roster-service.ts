@@ -17,7 +17,7 @@ const todayISO = () => format(new Date(), 'yyyy-MM-dd');
 export interface ShiftRow {
   id: string; name: string; alias: string | null; color: string | null; description: string | null;
   is_one_time_all_days: boolean; has_break: boolean; is_open: boolean; is_active: boolean;
-  check_in_time: string | null; check_out_time: string | null;
+  check_in_time: string | null; check_out_time: string | null; created_at: string;
 }
 export interface ShiftTiming { weekday: number; start_time: string | null; end_time: string | null; break_start: string | null; break_end: string | null }
 
