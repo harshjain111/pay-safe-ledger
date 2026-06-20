@@ -169,3 +169,19 @@ export function expandHolidayDays(
   }
   return out;
 }
+
+/**
+ * Union a base holiday-date set with the dates an assigned holiday TEMPLATE
+ * contributes within [from, to] (each template day-range expanded). The
+ * settlement engine folds this in so template holidays count as paid days.
+ */
+export function mergeTemplateHolidays(
+  base: Set<string>,
+  templateDays: Array<{ start_date: string; end_date: string }>,
+  fromISO: string,
+  toISO: string,
+): Set<string> {
+  const out = new Set(base);
+  for (const d of expandHolidayDays(templateDays, fromISO, toISO)) out.add(d);
+  return out;
+}

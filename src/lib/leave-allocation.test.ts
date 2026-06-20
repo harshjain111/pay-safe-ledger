@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   applyAutoAllocation, allocatesOn, applyPeriodEnd,
   validateEmployeeSelection, validateHolidayTemplateExists, validateBalanceAdjustment,
-  validateLeaveTypeForm, planAssignments, expandHolidayDays,
+  validateLeaveTypeForm, planAssignments, expandHolidayDays, mergeTemplateHolidays,
   type LeaveTypeConfig,
 } from './leave-allocation';
 
@@ -119,5 +119,18 @@ describe('multi-day holiday expansion', () => {
   it('drops days outside the [from,to] window', () => {
     const out = expandHolidayDays([{ start_date: '2026-05-30', end_date: '2026-06-02' }], '2026-06-01', '2026-06-30');
     expect([...out].sort()).toEqual(['2026-06-01', '2026-06-02']);
+  });
+});
+
+describe('mergeTemplateHolidays (engine paid-day union)', () => {
+  it('unions expanded template ranges with the base holiday set', () => {
+    const base = new Set(['2026-06-01']);
+    const merged = mergeTemplateHolidays(base, [{ start_date: '2026-06-10', end_date: '2026-06-11' }], '2026-06-01', '2026-06-30');
+    expect([...merged].sort()).toEqual(['2026-06-01', '2026-06-10', '2026-06-11']);
+  });
+  it('does not mutate the base set', () => {
+    const base = new Set(['2026-06-01']);
+    mergeTemplateHolidays(base, [{ start_date: '2026-06-10', end_date: '2026-06-10' }], '2026-06-01', '2026-06-30');
+    expect([...base]).toEqual(['2026-06-01']);
   });
 });

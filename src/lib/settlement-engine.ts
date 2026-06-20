@@ -24,6 +24,8 @@ import {
 } from '@/lib/payroll';
 import { getMonthlyDisciplineFine } from '@/lib/discipline';
 import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
+import { supabase as anyDb } from '@/integrations/supabase/anyClient';
+import { mergeTemplateHolidays } from '@/lib/leave-allocation';
 import type { Staff } from '@/types/database';
 
 export interface StatutorySettings {
@@ -328,12 +330,21 @@ export async function gatherSettlementInputs(
     ]);
     const payRules = (rulesRes.data ?? null) as { full_day_minutes?: number; half_day_minutes?: number; unscheduled_is_off?: boolean; comp_off_enabled?: boolean } | null;
     compOffEnabled = payRules?.comp_off_enabled ?? true;
-    const holidayDates = resolveHolidayDatesForStaff(
+    let holidayDates = resolveHolidayDatesForStaff(
       { id: staff.id, outlet_id: (staff as { outlet_id?: string | null }).outlet_id ?? null },
       (holRes.data ?? []) as unknown as HolidayRow[],
       (holAssignRes.data ?? []) as unknown as HolidayAssignmentRow[],
       monthStartStr, monthEndStr,
     );
+    // Fold any assigned holiday-TEMPLATE dates into the paid-day set (Leaves module).
+    try {
+      const { data: eht } = await anyDb.from('employee_holiday_template').select('template_id').eq('staff_id', staff.id).maybeSingle();
+      const templateId = (eht as { template_id?: string } | null)?.template_id;
+      if (templateId) {
+        const { data: tdays } = await anyDb.from('holiday_template_days').select('start_date, end_date').eq('template_id', templateId);
+        holidayDates = mergeTemplateHolidays(holidayDates, (tdays ?? []) as { start_date: string; end_date: string }[], monthStartStr, monthEndStr);
+      }
+    } catch (e) { console.error('Holiday template resolution failed', e); }
     dayBreakdown = computeDayBreakdown({
       monthStart,
       monthEnd,
