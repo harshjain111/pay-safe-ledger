@@ -768,7 +768,9 @@ export default function Settlements() {
         .update({ journal_entry_id: journalEntryId })
         .eq('id', settlementRecord.id);
 
-      // Step 4b: Arrears — post their own balanced entry + mark them settled.
+      // Step 4b: Arrears — post a balanced entry only when there's a net to move,
+      // but ALWAYS mark the month's pending arrears settled (zero-sum arrears must
+      // not stay pending forever against an already-settled month).
       if (Math.abs(calculation.arrears) >= 0.01) {
         await createArrearsEntry({
           staffId: selectedStaffId,
@@ -778,13 +780,13 @@ export default function Settlements() {
           settlementId: settlementRecord.id,
           createdBy: user.id,
         });
-        await supabase
-          .from('salary_arrears')
-          .update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
-          .eq('staff_id', selectedStaffId)
-          .eq('settlement_month', selectedMonth)
-          .eq('status', 'pending');
       }
+      await supabase
+        .from('salary_arrears')
+        .update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
+        .eq('staff_id', selectedStaffId)
+        .eq('settlement_month', selectedMonth)
+        .eq('status', 'pending');
 
       // Step 5: Create salary payout request (if net payable > 0)
       // This will appear in Payouts page for Owner to execute

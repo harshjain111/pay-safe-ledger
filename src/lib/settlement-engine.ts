@@ -472,12 +472,14 @@ export async function persistGroupSettlement(
   }
   await supabase.from('salary_settlements').update({ journal_entry_id: journalEntryId }).eq('id', settlementRecord.id);
 
-  // Arrears: post their own balanced entry + mark the pending arrears settled.
+  // Arrears: post a balanced entry only when there's a net to move, but ALWAYS mark
+  // the month's pending arrears settled — zero-sum arrears (e.g. +500 / −500) must
+  // not stay pending forever against an already-settled month.
   if (Math.abs(calc.arrears) >= 0.01) {
     await createArrearsEntry({ staffId: staff.id, staffName: staff.full_name, amount: calc.arrears, settlementMonth: monthLabel, settlementId: settlementRecord.id, createdBy: userId });
-    await supabase.from('salary_arrears').update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
-      .eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending');
   }
+  await supabase.from('salary_arrears').update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
+    .eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending');
 
   if (calc.netPayable > 0) {
     const { error: payoutErr } = await supabase.from('payment_requests').insert({

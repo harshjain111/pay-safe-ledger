@@ -25,7 +25,9 @@ export async function approveAdvanceRequest(opts: {
 
   const approverName = getUserDisplayName(user, staffData);
 
-  const { error } = await supabase
+  // Claim-first: only a still-pending row transitions, so a double-click / second
+  // reviewer / stale drawer can't re-approve and re-notify a terminal request.
+  const { data: updated, error } = await supabase
     .from('payment_requests')
     .update({
       status: 'approved',
@@ -33,8 +35,11 @@ export async function approveAdvanceRequest(opts: {
       approved_at: new Date().toISOString(),
       approved_by_user_name: approverName,
     })
-    .eq('id', request.id);
+    .eq('id', request.id)
+    .eq('status', 'pending')
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) throw new Error('This request was already actioned.');
 
   // Notify the staff member.
   if (request.staff?.user_id) {
@@ -68,7 +73,7 @@ export async function rejectAdvanceRequest(opts: {
   const { request, reason, user, staffData } = opts;
   const approverName = getUserDisplayName(user, staffData);
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('payment_requests')
     .update({
       status: 'rejected',
@@ -77,8 +82,11 @@ export async function rejectAdvanceRequest(opts: {
       rejection_reason: reason,
       approved_by_user_name: approverName,
     })
-    .eq('id', request.id);
+    .eq('id', request.id)
+    .eq('status', 'pending')
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) throw new Error('This request was already actioned.');
 
   if (request.staff?.user_id) {
     await supabase.rpc('create_notification', {

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, toAmount } from "@/lib/utils";
 
 interface AmountProps {
   value: number;
@@ -16,9 +16,11 @@ export function Amount({
   className,
   size = 'md'
 }: AmountProps) {
-  const isPositive = value > 0;
-  const isNegative = value < 0;
-  const displayValue = Math.abs(value);
+  // Sanitise: null/undefined/NaN/Infinity/dust never reach the formatter.
+  const v = toAmount(value);
+  const isPositive = v > 0;
+  const isNegative = v < 0;
+  const displayValue = Math.abs(v);
 
   const sizeClasses = {
     sm: 'text-sm',
@@ -75,9 +77,12 @@ export function AmountInput({
   'aria-invalid': ariaInvalid,
 }: AmountInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/[^0-9.]/g, '');
-    const numValue = parseFloat(rawValue) || 0;
-    onChange(numValue);
+    // Keep digits + a SINGLE decimal point, then normalise via toAmount (finite,
+    // 2-decimal) so malformed/multi-dot input ("1.2.3") can't reach a money column.
+    const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const single = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+    onChange(toAmount(single));
   };
 
   return (
@@ -92,7 +97,7 @@ export function AmountInput({
         inputMode="decimal"
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}
-        value={value > 0 ? value.toString() : ''}
+        value={value > 0 ? String(toAmount(value)) : ''}
         onChange={handleChange}
         placeholder={placeholder}
         disabled={disabled}
