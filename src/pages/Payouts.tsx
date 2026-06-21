@@ -192,12 +192,58 @@ export default function Payouts() {
 
     setIsProcessing(true);
     try {
-      let journalEntryId: string;
+      let journalEntryId = '';
       
       // Maker-checker: the payer is always the logged-in user (no manual
       // selection), so the person who records the payment is the one on record.
       const paidByUserId = user.id;
       const paidByUserName = getUserDisplayName(user, staffData);
+      const paidAt = new Date().toISOString();
+
+      // Salary payouts MUST carry their settlement link; without it the payout
+      // journal clears the payable while the salary_settlements row stays
+      // "unpaid" and could be paid again. Refuse rather than orphan it. (P2-H4)
+      if (selectedItem.type === 'salary' && !selectedItem.settlementId) {
+        throw new Error('This salary payout is missing its settlement link and cannot be paid. Please regenerate the salary settlement.');
+      }
+
+      // CLAIM-FIRST: flip the row to its paid state BEFORE posting any journal,
+      // gated on its still-unpaid state, so a double-click or a second payer can
+      // never post the money-out journal twice (double payout). (P2-C1)
+      if (selectedItem.type === 'expense') {
+        const { data: claimed, error: claimErr } = await supabase
+          .from('expenses')
+          .update({
+            status: 'reimbursed',
+            reimbursed_at: paidAt,
+            reimbursed_by: paidByUserId,
+            reimbursed_by_user_name: paidByUserName,
+          })
+          .eq('id', selectedItem.id)
+          .eq('status', 'approved')
+          .select('id');
+        if (claimErr) throw claimErr;
+        if (!claimed || claimed.length === 0) throw new Error('This item was already paid.');
+      } else {
+        // advance or salary -> payment_requests, gated on paid_at IS NULL
+        const { data: claimed, error: claimErr } = await supabase
+          .from('payment_requests')
+          .update({
+            paid_at: paidAt,
+            paid_by: paidByUserId,
+            paid_by_user_name: paidByUserName,
+          })
+          .eq('id', selectedItem.id)
+          .eq('status', 'approved')
+          .is('paid_at', null)
+          .select('id');
+        if (claimErr) throw claimErr;
+        if (!claimed || claimed.length === 0) throw new Error('This item was already paid.');
+      }
+
+      // We own the row now. Post the double-entry journal under a rollback guard:
+      // if it fails, release the claim so the item returns to the payout queue.
+      try {
 
       // ========================================
       // DOUBLE-ENTRY ACCOUNTING: PAYOUT ENTRIES
@@ -229,20 +275,6 @@ export default function Payouts() {
           paidByUserId,
           paidByUserName,
         });
-
-        // Update salary settlement with payout journal entry
-        if (selectedItem.settlementId) {
-          await supabase
-            .from('salary_settlements')
-            .update({
-              paid_at: new Date().toISOString(),
-              paid_by: paidByUserId,
-              paid_by_user_name: paidByUserName,
-              payment_mode: paymentMode,
-              payout_journal_entry_id: journalEntryId,
-            })
-            .eq('id', selectedItem.settlementId);
-        }
 
       } else if (selectedItem.type === 'advance') {
         // ADVANCE PAYOUT
@@ -276,6 +308,37 @@ export default function Payouts() {
           paidByUserName,
         });
       }
+      } catch (journalErr) {
+        // Journal failed — release the claim so the item can be retried.
+        if (selectedItem.type === 'expense') {
+          await supabase
+            .from('expenses')
+            .update({ status: 'approved', reimbursed_at: null, reimbursed_by: null, reimbursed_by_user_name: null })
+            .eq('id', selectedItem.id);
+        } else {
+          await supabase
+            .from('payment_requests')
+            .update({ paid_at: null, paid_by: null, paid_by_user_name: null })
+            .eq('id', selectedItem.id);
+        }
+        throw journalErr;
+      }
+
+      // Reconcile the salary settlement now that the payout journal exists. AFTER
+      // the rollback guard on purpose: a failure here leaves a valid payout with
+      // an unreconciled settlement (recoverable), not a rolled-back posted journal.
+      if (selectedItem.type === 'salary' && selectedItem.settlementId) {
+        await supabase
+          .from('salary_settlements')
+          .update({
+            paid_at: paidAt,
+            paid_by: paidByUserId,
+            paid_by_user_name: paidByUserName,
+            payment_mode: paymentMode,
+            payout_journal_entry_id: journalEntryId,
+          })
+          .eq('id', selectedItem.settlementId);
+      }
 
       // Record petty cash transaction if paid via petty cash
       if (paymentMode === 'petty_cash' && user) {
@@ -293,37 +356,8 @@ export default function Payouts() {
         setPettyCashBalance(newPcBalance);
       }
 
-      // NOTE: ledger_entry_id references legacy ledger_entries table
-      // Journal entries are tracked separately via journal_entry_id where applicable
-      if (selectedItem.type === 'expense') {
-        const { error: updateError } = await supabase
-          .from('expenses')
-          .update({
-            status: 'reimbursed',
-            reimbursed_at: new Date().toISOString(),
-            reimbursed_by: paidByUserId,
-            reimbursed_by_user_name: paidByUserName,
-            // Don't set ledger_entry_id - it references legacy ledger_entries table
-            // The payout is tracked via journal_entries
-          })
-          .eq('id', selectedItem.id);
-
-        if (updateError) throw updateError;
-      } else if (selectedItem.type === 'advance' || selectedItem.type === 'salary') {
-        // Mark payment request as paid
-        const { error: updateError } = await supabase
-          .from('payment_requests')
-          .update({
-            paid_at: new Date().toISOString(),
-            paid_by: paidByUserId,
-            paid_by_user_name: paidByUserName,
-            // Don't set ledger_entry_id - it references legacy ledger_entries table
-            // The payout is tracked via journal_entries
-          })
-          .eq('id', selectedItem.id);
-
-        if (updateError) throw updateError;
-      }
+      // (Status was already flipped in the claim-first step above, before the
+      // journal was posted — see the claim block at the top of this handler.)
 
       // Notify the staff member
       if (selectedItem.staffUserId) {

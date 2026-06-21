@@ -37,11 +37,12 @@ export function RejectExpenseDialog({
   const [reason, setReason] = useState('');
 
   const handleReject = async () => {
-    // Prevent self-rejection - cannot reject own expense submissions
-    if (expense.created_by === user?.id) {
+    // Prevent self-rejection — cannot reject an expense where YOU are the
+    // beneficiary (mirrors the approve guard, which checks the beneficiary).
+    if (expense.staff?.user_id === user?.id) {
       toast({
         title: 'Cannot reject',
-        description: 'You cannot reject your own expense submissions.',
+        description: 'You cannot reject expenses where you are the beneficiary.',
         variant: 'destructive',
       });
       onOpenChange(false);
@@ -62,7 +63,7 @@ export function RejectExpenseDialog({
 
       const approverName = getUserDisplayName(user, staffData);
 
-      const { error } = await supabase
+      const { data: claimed, error } = await supabase
         .from('expenses')
         .update({
           status: 'rejected',
@@ -71,9 +72,12 @@ export function RejectExpenseDialog({
           rejection_reason: reason.trim(),
           approved_by_user_name: approverName,
         })
-        .eq('id', expense.id);
+        .eq('id', expense.id)
+        .eq('status', 'pending')
+        .select('id');
 
       if (error) throw error;
+      if (!claimed || claimed.length === 0) throw new Error('This expense was already actioned.');
 
       // Notify the staff member about rejection
       if (expense.staff?.user_id) {

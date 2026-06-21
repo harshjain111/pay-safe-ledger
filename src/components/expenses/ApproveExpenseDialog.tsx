@@ -57,32 +57,11 @@ export function ApproveExpenseDialog({
     try {
       setIsSubmitting(true);
 
-      // ========================================
-      // DOUBLE-ENTRY ACCOUNTING: EXPENSE APPROVAL
-      // ========================================
-      // When an expense is approved (creates payable to staff):
-      // 1. Debit: Expense Account (based on category)
-      // 2. Credit: Staff Payable (we owe staff this amount)
-      //
-      // The actual payout will create another entry:
-      // 1. Debit: Staff Payable (clear liability)
-      // 2. Credit: Bank/Cash (money out)
-
-      const journalEntryId = await createExpenseApprovalEntry({
-        staffId: expense.staff_id,
-        staffName: expense.staff?.full_name || 'Staff',
-        expenseId: expense.id,
-        amount: expense.amount,
-        category: expense.category,
-        description: expense.description,
-        createdBy: user.id,
-      });
-
-      // Get approver name from staff data or user metadata
       const approverName = getUserDisplayName(user, staffData);
 
-      // Update expense status and link to journal entry
-      const { error } = await supabase
+      // Claim-first: flip the status only if it is STILL pending, so a double-click
+      // or a second reviewer cannot re-post the approval journal (double accrual).
+      const { data: claimed, error: claimErr } = await supabase
         .from('expenses')
         .update({
           status: 'approved',
@@ -90,9 +69,30 @@ export function ApproveExpenseDialog({
           approved_at: new Date().toISOString(),
           approved_by_user_name: approverName,
         })
-        .eq('id', expense.id);
+        .eq('id', expense.id)
+        .eq('status', 'pending')
+        .select('id');
+      if (claimErr) throw claimErr;
+      if (!claimed || claimed.length === 0) throw new Error('This expense was already actioned.');
 
-      if (error) throw error;
+      // DOUBLE-ENTRY: Dr Expense head / Cr Staff Payable. Post it now that we own the
+      // row; if it fails, revert the claim so the expense can be retried.
+      try {
+        await createExpenseApprovalEntry({
+          staffId: expense.staff_id,
+          staffName: expense.staff?.full_name || 'Staff',
+          expenseId: expense.id,
+          amount: expense.amount,
+          category: expense.category,
+          description: expense.description,
+          createdBy: user.id,
+        });
+      } catch (e) {
+        await supabase.from('expenses')
+          .update({ status: 'pending', approved_by: null, approved_at: null, approved_by_user_name: null })
+          .eq('id', expense.id);
+        throw e;
+      }
 
       // Notify the staff member
       if (expense.staff?.user_id) {
