@@ -280,7 +280,7 @@ items I must click-test myself.
 - [x] P0 Foundations — docs/audit/PHASE-P0-findings.md (3 High, 5 Medium, 6 Low)
 - [x] P1 Settlement engine + ledger — docs/audit/PHASE-P1-findings.md (1 Critical, 3 High, 8 Medium, 3 Low)
 - [x] P2 Batch payroll & payouts — docs/audit/PHASE-P2-findings.md (1 Critical, 5 High, 7 Medium, 6 Low)
-- [ ] P3 Advances, expenses, approvals
+- [x] P3 Advances, expenses, approvals — docs/audit/PHASE-P3-findings.md (5 High, 7 Medium, 7 Low)
 - [ ] P4 Attendance + pay-day engine
 - [ ] P5 Biometric + edge functions
 - [ ] P6 Leave, holidays, roster, shifts
