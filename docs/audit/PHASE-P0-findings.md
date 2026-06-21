@@ -132,11 +132,16 @@ as a deliberate "finish the permission system" task rather than piecemeal.
 - **M4 FIXED** — new `components/layout/ErrorBoundary.tsx` wraps the routes; a
   page crash now shows a reload card instead of a white screen.
 - **M5 FIXED** — `AuthContext.tsx`: `accountingMode` persists to localStorage.
+- **H3 FIXED** (fix-all pass, 2026-06-22) — `ReportBuilder.tsx`: the salary report
+  source is now gated by `canViewSalaries` (owner-only — the app-wide source of
+  truth) instead of the looser `salaries.view` permission, closing the leak where
+  a non-owner granted that permission could build salary reports. The broader
+  product question (should salary become grantable via a rights template?) stays
+  open, but is now a single-flag change in `AuthContext` that the builder follows
+  automatically.
 - **DEFERRED (need a decision / live verification):**
   - **H2** route guards — pages self-gate today; a blind route→permission map
     risks lockout. Do as a focused task with live verification.
-  - **H3** salary double-gate — product decision: is salary owner-only forever,
-    or grantable via a rights template? (Changes `canViewSalaries`.)
   - **M1/M2** finish the server-side permission migration + make nav `can()`-based.
   - L1–L6 polish.
 Verified: tsc clean · 124 tests · build OK.

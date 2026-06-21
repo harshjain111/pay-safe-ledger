@@ -136,3 +136,32 @@ H4 (`AmountInput`→`toAmount` — one site, app-wide) → H2 + H3 (claim-first
 H1 (forward migration to re-scope `login_reset_requests` RLS — Lovable-introduced)
 → H5 (multi-file proof) → M1/M2/M3 → the rest. H1/H2's DB pieces and M5/M7 are
 **NEEDS-LIVE** RLS items best confirmed in **P11**.
+
+## Resolution (applied) — "fix all issues" pass (2026-06-22)
+- **H1 FIXED** — migration `20260618130000_fix_login_reset_rls.sql`: drops the
+  blanket world-read / admin-manage policies on `login_reset_requests`; review is
+  owner-only, matching the owner-only edge function.
+- **H2 FIXED** — `ApproveExpenseDialog.tsx` + `RejectExpenseDialog.tsx`: both
+  claim the row on `status='pending'` with a rowcount check before acting;
+  approve posts its journal under a rollback guard.
+- **H3 FIXED** — `advance-approvals.ts`: approve and reject both gate on
+  `status='pending'` with a rowcount check.
+- **H4 FIXED** — `ui/amount.tsx`: `AmountInput` (and `Amount`) route through
+  `toAmount`.
+- **H5 FIXED** — new `lib/expense-proofs.ts` splits the comma-joined `proof_url`
+  and signs each path; `ExpenseDetailsDialog` + `ExpenseExplorer` render one link
+  per file (the broken single-key / raw-path links are gone).
+- **M1 FIXED** — `RejectExpenseDialog.tsx`: the self-reject guard now checks the
+  beneficiary (`staff.user_id`), matching the approve guard.
+- **M2 FIXED** — `NewExpense.tsx` + `NewRequest.tsx`: best-effort notify moved out
+  of the critical path; orphaned proof uploads removed on insert failure.
+- **M3 FIXED** — `NewRequest.tsx`: `safeParse` + return (a non-Zod throw can no
+  longer fall through to the insert).
+- **M4 FIXED** — `NewRequest.tsx`: double-submit guard + `amount` ceiling
+  (≤ 1,00,00,000). NewExpense already guards via RHF `isSubmitting`.
+- **M6 FIXED** — `Approvals.tsx`: reject-reason state split per flow
+  (`advanceRejectReason` / `loginResetRejectReason`).
+- **DEFERRED (NEEDS-LIVE RLS):** **M5** advance-reject server self-guard; **M7**
+  GeoFlaggedPunches role gate — confirm against live RLS in P11.
+
+Verified: tsc clean · 161 tests · build OK.

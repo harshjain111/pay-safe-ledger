@@ -144,3 +144,29 @@ line, app-wide) → M1 (zero-sum arrears) → M2/M3 (payout journal guards) →
 H4/H3/M5 → H1/H5 (server-side permission/guards — the P0-M1 cluster, do together)
 → the rest. Several of these (H1, H5) are the same "finish the server-side
 permission + write-guards" theme as P0-M1/M2.
+
+## Resolution (applied) — "fix all issues" pass (2026-06-22)
+- **C1 FIXED** — `Payouts.tsx`: `handleExecutePayout` is now claim-first. The row
+  is flipped to its paid state (expense `status='approved'→'reimbursed'`;
+  advance/salary `paid_at IS NULL → now`) with a rowcount check **before** the
+  cash-out journal is posted; the journal runs under a rollback guard that
+  releases the claim on failure. A double-click or a second payer can no longer
+  post the journal twice.
+- **H2 FIXED** — `ui/amount.tsx`: `Amount` and `AmountInput` route through
+  `toAmount` (shared with P3-H4).
+- **H4 FIXED** — `Payouts.tsx`: a salary payout with no `settlement_id` is refused
+  rather than clearing the payable while leaving the settlement unpaid +
+  re-payable; settlement reconciliation runs only after the journal succeeds.
+- **M1 FIXED** — `settlement-engine.ts` + `Settlements.tsx`: zero-sum arrears are
+  marked `settled` unconditionally (journal posted only on a non-zero net), so
+  they no longer stick in `pending`.
+- **M2 FIXED** — `journal-entries.ts`: `createExpensePayoutEntry` /
+  `createAdvancePaidEntry` now guard `amount > 0`.
+- **M3 FIXED** — `journal-entries.ts`: the 3 inline payout/advance builders
+  resolve all account ids **before** inserting the header (no orphaned header on
+  a bad account code).
+- **DEFERRED:** **H1/H5** server-side re-pay guard + batch-settle write-path RLS
+  (NEEDS-LIVE); **H3** petty-cash atomicity (needs a DB function + live test);
+  **M4–M7, L1–L6** lower-severity polish/resilience.
+
+Verified: tsc clean · 161 tests · build OK.
