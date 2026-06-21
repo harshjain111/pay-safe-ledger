@@ -236,7 +236,16 @@ export default function NewExpense() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // The insert failed after the proofs were uploaded — remove the orphaned
+        // files so storage doesn't accumulate unreferenced uploads. (P3-M2)
+        if (proofUrl) {
+          await supabase.storage
+            .from('expense-proofs')
+            .remove(proofUrl.split(',').map((p) => p.trim()).filter(Boolean));
+        }
+        throw error;
+      }
 
       // Get staff name for notification
       const staffName = isPersonalRequest
@@ -247,14 +256,21 @@ export default function NewExpense() {
       // server-side via notify_users_by_role(), which excludes the submitter by
       // default, so the client no longer needs to read user_roles.
       if (!asDraft && newExpense) {
-        await supabase.rpc('notify_users_by_role', {
-          _roles: ['owner', 'admin'],
-          _title: 'New Expense Submitted',
-          _message: `${staffName} has submitted an expense of ₹${values.amount.toLocaleString('en-IN')} for "${values.description.slice(0, 50)}${values.description.length > 50 ? '...' : ''}"`,
-          _type: 'info',
-          _reference_type: 'expense',
-          _reference_id: newExpense.id,
-        });
+        // Notification is best-effort: the expense is already saved, so a notify
+        // failure must NOT surface as "Failed to create expense" (which would
+        // prompt a confused duplicate re-submit). (P3-M2)
+        try {
+          await supabase.rpc('notify_users_by_role', {
+            _roles: ['owner', 'admin'],
+            _title: 'New Expense Submitted',
+            _message: `${staffName} has submitted an expense of ₹${values.amount.toLocaleString('en-IN')} for "${values.description.slice(0, 50)}${values.description.length > 50 ? '...' : ''}"`,
+            _type: 'info',
+            _reference_type: 'expense',
+            _reference_id: newExpense.id,
+          });
+        } catch (notifyErr) {
+          console.error('Expense created but notification failed:', notifyErr);
+        }
       }
 
       toast({

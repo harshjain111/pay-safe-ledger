@@ -22,7 +22,7 @@ import type { StaffPublic } from '@/types/database';
 
 const requestSchema = z.object({
   staffId: z.string().min(1, 'Please select a staff member'),
-  amount: z.number().min(1, 'Amount must be greater than 0'),
+  amount: z.number().min(1, 'Amount must be greater than 0').max(10_000_000, 'Amount is too large'),
   reason: z.string().min(5, 'Please provide a valid reason').max(500, 'Reason is too long'),
 });
 
@@ -75,17 +75,18 @@ export default function NewRequest() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      requestSchema.parse({
-        staffId: selectedStaff,
-        amount,
-        reason,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-        return;
-      }
+    if (isLoading) return; // guard against rapid double-submit (P3-M4)
+
+    // safeParse + return: a non-Zod throw must not silently fall through to the
+    // insert with invalid data, as the old parse()/instanceof branch allowed. (P3-M3)
+    const parsed = requestSchema.safeParse({
+      staffId: selectedStaff,
+      amount,
+      reason,
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0].message);
+      return;
     }
 
     setIsLoading(true);
@@ -111,14 +112,20 @@ export default function NewRequest() {
           ? staffData?.full_name
           : staffList.find(s => s.id === selectedStaff)?.full_name || 'Staff';
 
-        await supabase.rpc('notify_users_by_role', {
-          _roles: ['owner', 'admin'],
-          _title: 'New Payment Request',
-          _message: `${staffName} has submitted a payment request of ₹${amount.toLocaleString('en-IN')} for "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
-          _type: 'info',
-          _reference_type: 'payment_request',
-          _reference_id: newRequest.id,
-        });
+        // Best-effort notify: the request is already saved, so a notify failure
+        // must not surface as "Failed to create request" and prompt a re-submit. (P3-M2)
+        try {
+          await supabase.rpc('notify_users_by_role', {
+            _roles: ['owner', 'admin'],
+            _title: 'New Payment Request',
+            _message: `${staffName} has submitted a payment request of ₹${amount.toLocaleString('en-IN')} for "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+            _type: 'info',
+            _reference_type: 'payment_request',
+            _reference_id: newRequest.id,
+          });
+        } catch (notifyErr) {
+          console.error('Request created but notification failed:', notifyErr);
+        }
       }
 
       toast.success('Request submitted successfully');

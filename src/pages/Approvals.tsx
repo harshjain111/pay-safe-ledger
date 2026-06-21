@@ -176,7 +176,10 @@ export default function Approvals() {
   // Advance dialogs (built here); expense dialogs are reused from the Expenses module.
   const [advanceApprove, setAdvanceApprove] = useState<ApprovalItem | null>(null);
   const [advanceReject, setAdvanceReject] = useState<ApprovalItem | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
+  // Separate reason state per reject flow — a single shared field would let a
+  // reason typed for one request type bleed into another. (P3-M6)
+  const [advanceRejectReason, setAdvanceRejectReason] = useState('');
+  const [loginResetRejectReason, setLoginResetRejectReason] = useState('');
   const [expenseApprove, setExpenseApprove] = useState<Expense | null>(null);
   const [expenseReject, setExpenseReject] = useState<Expense | null>(null);
   const [loginResetApprove, setLoginResetApprove] = useState<ApprovalItem | null>(null);
@@ -320,9 +323,9 @@ export default function Approvals() {
     if (!advanceReject) return;
     setProcessingId(advanceReject.id);
     try {
-      await rejectAdvanceRequest({ request: advanceReject.raw as PaymentRequest, reason: rejectReason, user, staffData });
+      await rejectAdvanceRequest({ request: advanceReject.raw as PaymentRequest, reason: advanceRejectReason, user, staffData });
       toast.success('Advance rejected');
-      setRejectReason('');
+      setAdvanceRejectReason('');
       afterMutation();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to reject');
@@ -352,9 +355,9 @@ export default function Approvals() {
     if (!loginResetReject) return;
     setProcessingId(loginResetReject.id);
     try {
-      await rejectLoginResetRequest({ request: loginResetReject.raw as LoginResetRequest, reason: rejectReason, user, staffData });
+      await rejectLoginResetRequest({ request: loginResetReject.raw as LoginResetRequest, reason: loginResetRejectReason, user, staffData });
       toast.success('Login-reset request rejected');
-      setRejectReason('');
+      setLoginResetRejectReason('');
       afterMutation();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to reject');
@@ -657,7 +660,7 @@ export default function Approvals() {
       </AlertDialog>
 
       {/* Advance — reject reason */}
-      <Dialog open={!!advanceReject} onOpenChange={(o) => !o && processingId === null && (setAdvanceReject(null), setRejectReason(''))}>
+      <Dialog open={!!advanceReject} onOpenChange={(o) => !o && processingId === null && (setAdvanceReject(null), setAdvanceRejectReason(''))}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject advance</DialogTitle>
@@ -667,17 +670,17 @@ export default function Approvals() {
             <Label htmlFor="reject-reason">Reason for rejection</Label>
             <Textarea
               id="reject-reason"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              value={advanceRejectReason}
+              onChange={(e) => setAdvanceRejectReason(e.target.value)}
               placeholder="Enter reason…"
               rows={3}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setAdvanceReject(null); setRejectReason(''); }} disabled={processingId !== null}>
+            <Button variant="outline" onClick={() => { setAdvanceReject(null); setAdvanceRejectReason(''); }} disabled={processingId !== null}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={doRejectAdvance} disabled={processingId !== null || !rejectReason.trim()}>
+            <Button variant="destructive" onClick={doRejectAdvance} disabled={processingId !== null || !advanceRejectReason.trim()}>
               {processingId !== null ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rejecting…</>) : 'Reject Advance'}
             </Button>
           </DialogFooter>
@@ -731,7 +734,7 @@ export default function Approvals() {
       </AlertDialog>
 
       {/* Login reset — reject reason */}
-      <Dialog open={!!loginResetReject} onOpenChange={(o) => !o && processingId === null && (setLoginResetReject(null), setRejectReason(''))}>
+      <Dialog open={!!loginResetReject} onOpenChange={(o) => !o && processingId === null && (setLoginResetReject(null), setLoginResetRejectReason(''))}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject login reset</DialogTitle>
@@ -741,17 +744,17 @@ export default function Approvals() {
             <Label htmlFor="lr-reject-reason">Reason for rejection</Label>
             <Textarea
               id="lr-reject-reason"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              value={loginResetRejectReason}
+              onChange={(e) => setLoginResetRejectReason(e.target.value)}
               placeholder="Enter reason…"
               rows={3}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setLoginResetReject(null); setRejectReason(''); }} disabled={processingId !== null}>
+            <Button variant="outline" onClick={() => { setLoginResetReject(null); setLoginResetRejectReason(''); }} disabled={processingId !== null}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={doRejectLoginReset} disabled={processingId !== null || !rejectReason.trim()}>
+            <Button variant="destructive" onClick={doRejectLoginReset} disabled={processingId !== null || !loginResetRejectReason.trim()}>
               {processingId !== null ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rejecting…</>) : 'Reject Request'}
             </Button>
           </DialogFooter>

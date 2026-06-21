@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import type { Expense } from '@/types/database';
 import { EXPENSE_CATEGORY_LABELS, EXPENSE_STATUS_LABELS } from '@/types/database';
-import { supabase } from '@/integrations/supabase/client';
+import { getExpenseProofUrls } from '@/lib/expense-proofs';
 import { useState, useEffect } from 'react';
 import { ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,34 +26,27 @@ export function ExpenseDetailsDialog({
   open,
   onOpenChange,
 }: ExpenseDetailsDialogProps) {
-  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
   const [isLoadingProof, setIsLoadingProof] = useState(false);
 
   useEffect(() => {
-    const fetchSignedUrl = async () => {
-      if (expense.proof_url && open) {
-        setIsLoadingProof(true);
-        try {
-          // Use signed URL for private bucket
-          const { data, error } = await supabase.storage
-            .from('expense-proofs')
-            .createSignedUrl(expense.proof_url, 3600); // 1 hour expiry
-          
-          if (error) {
-            console.error('Error getting signed URL:', error);
-            return;
-          }
-          
-          setProofUrl(data.signedUrl);
-        } catch (error) {
-          console.error('Error fetching proof URL:', error);
-        } finally {
-          setIsLoadingProof(false);
-        }
-      }
+    if (!expense.proof_url || !open) {
+      setProofUrls([]);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingProof(true);
+    // proof_url may hold MULTIPLE comma-joined paths — sign each one. (P3-H5)
+    getExpenseProofUrls(expense.proof_url)
+      .then((urls) => {
+        if (!cancelled) setProofUrls(urls);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingProof(false);
+      });
+    return () => {
+      cancelled = true;
     };
-
-    fetchSignedUrl();
   }, [expense.proof_url, open]);
 
   const getStatusColor = (status: string) => {
@@ -119,14 +112,18 @@ export function ExpenseDetailsDialog({
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                     Loading...
                   </div>
-                ) : proofUrl ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={proofUrl} target="_blank" rel="noopener noreferrer">
-                      <FileText className="mr-2 h-4 w-4" />
-                      View Attachment
-                      <ExternalLink className="ml-2 h-3 w-3" />
-                    </a>
-                  </Button>
+                ) : proofUrls.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {proofUrls.map((url, i) => (
+                      <Button key={i} variant="outline" size="sm" asChild className="w-fit">
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          <FileText className="mr-2 h-4 w-4" />
+                          {proofUrls.length > 1 ? `View Attachment ${i + 1}` : 'View Attachment'}
+                          <ExternalLink className="ml-2 h-3 w-3" />
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Unable to load attachment</p>
                 )}

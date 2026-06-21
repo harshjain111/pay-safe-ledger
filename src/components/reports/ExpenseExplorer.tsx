@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toAmount } from '@/lib/utils';
+import { getExpenseProofUrls } from '@/lib/expense-proofs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,8 +40,20 @@ export function ExpenseExplorer() {
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
 
   useEffect(() => { fetchFiltersData(); }, []);
+
+  // proof_url may hold MULTIPLE comma-joined paths in a private bucket — sign each
+  // one rather than linking the raw path (which never resolves). (P3-H5)
+  useEffect(() => {
+    if (!selectedExpense?.proof_url) { setProofUrls([]); return; }
+    let cancelled = false;
+    getExpenseProofUrls(selectedExpense.proof_url).then((urls) => {
+      if (!cancelled) setProofUrls(urls);
+    });
+    return () => { cancelled = true; };
+  }, [selectedExpense?.proof_url]);
 
   useEffect(() => {
     const now = new Date();
@@ -478,7 +491,17 @@ export function ExpenseExplorer() {
               {selectedExpense.proof_url && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Receipt/Proof</p>
-                  <a href={selectedExpense.proof_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">View Attachment</a>
+                  {proofUrls.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {proofUrls.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">
+                          {proofUrls.length > 1 ? `View Attachment ${i + 1}` : 'View Attachment'}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Loading attachment…</p>
+                  )}
                 </div>
               )}
             </div>

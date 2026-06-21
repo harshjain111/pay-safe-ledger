@@ -30,10 +30,20 @@ const NONE = '__none__';
 const ALL = '__all__';
 
 export function ReportBuilder() {
-  const { user, can } = useAuth();
+  const { user, can, canViewSalaries } = useAuth();
+
+  // Salary data is owner-only everywhere in the app (canViewSalaries === isOwner),
+  // so the report builder must apply the SAME gate to its salary source rather
+  // than the looser `salaries.view` permission — otherwise a non-owner granted
+  // that permission could build salary reports the rest of the app denies. (P0-H3)
+  const canUseSource = useCallback(
+    (permission: string) =>
+      can(permission) && (permission !== 'salaries.view' || canViewSalaries),
+    [can, canViewSalaries],
+  );
 
   // Only sources whose data permission the user holds (C.6 enforcement).
-  const allowedSources = useMemo(() => REPORT_SOURCES.filter((s) => can(s.permission)), [can]);
+  const allowedSources = useMemo(() => REPORT_SOURCES.filter((s) => canUseSource(s.permission)), [canUseSource]);
 
   const [source, setSource] = useState<SourceKey | null>(allowedSources[0]?.key ?? null);
   const [enabled, setEnabled] = useState<Set<string>>(new Set());
@@ -109,7 +119,7 @@ export function ReportBuilder() {
     const definition = def ?? buildDefinition();
     if (!definition) return;
     const src = getSource(definition.source);
-    if (!can(src.permission)) {
+    if (!canUseSource(src.permission)) {
       toast.error(`You don't have permission to view ${src.label.toLowerCase()} data`);
       return;
     }
@@ -126,7 +136,7 @@ export function ReportBuilder() {
     } finally {
       setRunning(false);
     }
-  }, [buildDefinition, can]);
+  }, [buildDefinition, canUseSource]);
 
   const toggleColumn = (key: string) => {
     setEnabled((prev) => {
@@ -159,7 +169,7 @@ export function ReportBuilder() {
 
   const loadReport = (r: SavedReport) => {
     const src = REPORT_SOURCES.find((s) => s.key === r.source);
-    if (!src || !can(src.permission)) {
+    if (!src || !canUseSource(src.permission)) {
       toast.error('You no longer have access to this report’s data');
       return;
     }
