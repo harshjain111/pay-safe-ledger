@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { permissionForPath } from '@/lib/route-permissions';
+import { RequirePermission } from '@/components/auth/RequirePermission';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -83,8 +85,30 @@ interface NavSection {
   items: NavItem[];
 }
 
-// Get navigation items based on role and context
+// Public entry: build the role's nav, then drop any management item whose mapped
+// permission the user lacks (audit P0-M2 — nav follows can(), so a revoked
+// permission removes its link). Self-service items have no mapped permission and
+// always show. Owners pass every check (can() short-circuits on owner).
 function getNavSections(
+  userRole: string | null,
+  accountingMode: boolean,
+  isAccountant: boolean,
+  counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number },
+  can: (permission: string) => boolean
+): NavSection[] {
+  return roleNavSections(userRole, accountingMode, isAccountant, counts)
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const required = permissionForPath(item.href);
+        return !required || can(required);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+// Role -> nav taxonomy (the base lists; filtered by getNavSections above).
+function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
@@ -386,7 +410,7 @@ function NotificationBadge({ count }: { count: number }) {
 }
 
 function AppSidebar() {
-  const { userRole, staffData, signOut, isAccountant, accountingMode, setAccountingMode, user } = useAuth();
+  const { userRole, staffData, signOut, isAccountant, accountingMode, setAccountingMode, user, can } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
@@ -400,7 +424,7 @@ function AppSidebar() {
     }
   }, [location.pathname, isMobile, setOpenMobile]);
 
-  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts);
+  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can);
 
   const handleSignOut = async () => {
     await signOut();
@@ -630,14 +654,14 @@ function AppSidebar() {
 }
 
 function AppHeader() {
-  const { user, staffData, userRole, isAccountant, accountingMode, signOut } = useAuth();
+  const { user, staffData, userRole, isAccountant, accountingMode, signOut, can } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const counts = useNotificationCounts();
 
-  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts);
+  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can);
   const allItems = navSections.flatMap(s => s.items);
 
   const getInitials = (name: string) => {
@@ -788,7 +812,9 @@ export function AppLayout() {
           >
             <Suspense fallback={<ContentSkeleton />}>
               <div key={pathname} className="animate-fade-in">
-                <Outlet />
+                <RequirePermission>
+                  <Outlet />
+                </RequirePermission>
               </div>
             </Suspense>
           </div>
