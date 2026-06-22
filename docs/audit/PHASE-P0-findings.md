@@ -139,9 +139,23 @@ as a deliberate "finish the permission system" task rather than piecemeal.
   product question (should salary become grantable via a rights template?) stays
   open, but is now a single-flag change in `AuthContext` that the builder follows
   automatically.
-- **DEFERRED (need a decision / live verification):**
-  - **H2** route guards — pages self-gate today; a blind route→permission map
-    risks lockout. Do as a focused task with live verification.
-  - **M1/M2** finish the server-side permission migration + make nav `can()`-based.
+- **H2 FIXED** (perm-cluster pass, 2026-06-22) — new `lib/route-permissions.ts`
+  maps each confidential route to a permission; `components/auth/RequirePermission.tsx`
+  wraps the page `<Outlet>` and blocks a route before its page renders. Owners
+  always pass. Safe by construction: confidential owner-only areas map to
+  owner-default perms (`salaries.view`/`settlements.run`), so default visibility is
+  unchanged.
+- **M2 FIXED** (perm-cluster pass, 2026-06-22) — `AppLayout.tsx` now filters each
+  role's nav by the same route→permission map via `can()`, so a revoked permission
+  removes its nav link. The filter only REMOVES items a role already shows (never
+  adds), so every default template is byte-identical to before; only an owner's
+  explicit template customization takes effect.
+- **DEFERRED:**
+  - **M1** server-side RLS convergence — the plan + safe recipe + per-area mapping
+    is delivered in `docs/audit/permission-server-convergence.md`. Execution is
+    **live-gated**: the effective policy names span 94 migrations (only reliable
+    from live `pg_policies`), and at least one area (`staff` create/edit for
+    accountants) needs a product decision first, so a blind sweep would risk
+    lockout. Converge one area per migration with a post-Publish smoke test.
   - L1–L6 polish.
-Verified: tsc clean · 124 tests · build OK.
+Verified (perm-cluster pass): tsc clean · 161 tests · build OK.
