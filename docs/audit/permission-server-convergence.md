@@ -5,6 +5,22 @@ salary gate). Server RLS convergence is **execution-gated on the live DB** — s
 "Why this is live-gated" — so this file is the plan + safe recipe, not a blind
 migration.
 
+## ⚠️ PREREQUISITE (found during this work): `get_my_permissions()` was clobbered
+
+Migration `20260619090000_restore_get_my_permissions_keys.sql` fixes a live bug
+that makes the ENTIRE permission system inert on the client. `permissions_system`
+(20260614) defined `get_my_permissions() RETURNS SETOF text` (permission keys),
+but the later Lovable schema-sync `20260618064914` redefined it `RETURNS JSONB`
+(`{roles:[…]}`). Postgres can't change a function's return type via
+`CREATE OR REPLACE`, so they raced; `types.ts` (regenerated from live) shows
+`Returns: Json`, i.e. the **live DB has the JSONB version**. The client then does
+`new Set(permRows)` on a JSONB object → throws → falls back to legacy-role
+defaults, so template grants/revokes (and P0-H1, P0-M2, P0-H2) currently do
+**nothing** at runtime. The fix `DROP`s + recreates the `SETOF text` body (safe:
+nothing in SQL references it, and it's a no-op if live is already correct).
+**This must land + be smoke-tested before any RLS convergence** — otherwise the
+templates that `has_permission` reads aren't the ones the client shows.
+
 ## The goal
 
 Most table RLS still gates by `has_role(...)`. Granular template grants/revokes
@@ -89,3 +105,37 @@ live policy name is known. `⚠️` = a divergence to resolve first.
 
 Convergence should land **one area per migration** so a regression is isolated and
 revertable, never a 282-policy sweep.
+
+## Introspection SQL (run in the Supabase SQL editor, project `tvjcyntqgbipennzbxgt`)
+
+After Publishing the `get_my_permissions` fix, confirm it took and gather the
+ground truth needed to write the first real convergence migration:
+
+```sql
+-- 1. Confirm get_my_permissions now returns permission KEYS (text), not JSONB:
+SELECT pg_get_function_result(oid) AS returns
+FROM pg_proc WHERE proname = 'get_my_permissions';
+-- expect: SETOF text
+
+-- 2. Spot-check a non-owner with a customised template actually resolves it:
+--    (run while logged in as that user, or impersonate via the dashboard)
+SELECT * FROM public.get_my_permissions();
+
+-- 3. Dump the CURRENT effective policies for the first convergence targets so the
+--    migration drops the exact old names (petty cash / roster / holidays / etc.):
+SELECT tablename, policyname, cmd, roles, qual, with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('petty_cash_transactions','shifts','shift_assignments',
+                    'week_off','holidays','holiday_templates','audit_log')
+ORDER BY tablename, cmd, policyname;
+```
+
+Paste the section-3 output back and the first table convergence migration can be
+written against the real policy names (not guessed from the migration history).
+
+## Note on `user_roles` — do NOT converge
+
+Role assignment is intentionally **owner-only** (`"Owners can manage all roles"`,
+`has_role('owner')`). Converging it to `users.manage` (owner+admin) would let an
+admin insert a `role='owner'` row and self-escalate. Leave it role-based.
