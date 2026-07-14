@@ -4,6 +4,42 @@
 system into VIBRND HR BUDDY **fully automatically** — API-pull first, DB/export
 sync as fallback — with **no data loss, no delay, and no manual syncing**.
 
+## Update — device list received (2026-07-14)
+
+The ADMS console screenshot confirms the setup:
+- **eSSL / ZKTeco ADMS push server** (columns T Stamp / Op Stamp / altinout /
+  Validate Status / Last Ping; device serials `PHY72447013xx`). Almost certainly
+  **eSSL eTimeTrackLite** (SQL Server DB `etimetracklite1`, table `DeviceLogs`).
+- 5 devices: **Mirosh** and **Reality** are **online and pinging today** (real-time
+  push is live); **Ballu** offline since Feb; **Mobile**/**TD** are stale/test rows.
+- **Reachable from outside the office** (public IP:port) → a cloud puller can reach
+  it; no on-prem agent strictly required. (My sandbox can't reach it — that's a
+  sandbox restriction, not a firewall on your side.)
+
+### Recommended path (decisive)
+**Pull a copy — do NOT reroute the devices.** The devices' push to this server is
+your *live* attendance (pay depends on it); rerouting them to a new endpoint is
+high-risk and untestable from here. Instead, poll a read-only copy into the app
+every few minutes — automatic, idempotent (no double entries), near-real-time.
+
+Source, in order of preference for eTimeTrackLite:
+1. **DB read** — poll `DeviceLogs` with a read-only SQL login (best if the DB is
+   reachable externally or via a secure tunnel).
+2. **AutoExport** — set the software to export new punches to a file/FTP on a
+   schedule; the app ingests that.
+
+eTimeTrackLite has no built-in REST API, so "API pull" most likely resolves to one
+of those two. A real-time **transparent ADMS proxy** (repoint devices at our
+endpoint, forward to eSSL) is possible but higher-risk — kept as a fallback.
+
+### Still needed — two screenshots, no technical checks
+1. The **login / home page** (confirms exact product + version).
+2. The **Settings / Admin / Tools menu** (to spot AutoExport / Database / API /
+   Integration options).
+
+Mapping: you're flexible, so easiest is to set each device user's ID = the app's
+`employee_id`; otherwise we keep a small map.
+
 ## What the existing system is
 
 `http://203.163.246.91:86/iclock/Main.aspx` — the `/iclock/` path is the
