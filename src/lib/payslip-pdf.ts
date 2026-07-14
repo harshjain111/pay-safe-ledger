@@ -1,5 +1,6 @@
 import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { qrPngDataUrl, docFingerprint } from './qr';
 
 export interface PayslipStaff {
   full_name: string;
@@ -62,6 +63,35 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   // (Employer name — kept on payslip; product footer below)
   doc.setFontSize(9);
   doc.text(`Pay Period: ${monthLabel}`, pageWidth / 2, startY + 11, { align: 'center' });
+
+  // Verification QR (top-right) — encodes the payslip's canonical fields so a
+  // scan can be cross-checked against the printed figures. (QR stamp)
+  const payDate = s.paid_at
+    ? format(new Date(s.paid_at), 'dd MMM yyyy')
+    : s.settled_at
+      ? format(new Date(s.settled_at), 'dd MMM yyyy')
+      : '-';
+  const ref = docFingerprint(
+    `payslip|${staff.employee_id}|${s.settlement_month}|${s.net_salary}|${s.balance_payable}`,
+  );
+  const qr = await qrPngDataUrl(
+    [
+      'VIBRND HR BUDDY - Payslip verification',
+      'Konnect 2 Hospitality',
+      `Emp: ${staff.full_name} (${staff.employee_id})`,
+      `Period: ${monthLabel}`,
+      `Net Payable: ${inr(s.balance_payable)}`,
+      `Paid: ${payDate}`,
+      `Ref: ${ref}`,
+    ].join('\n'),
+  );
+  const qrSize = 18;
+  const qrX = pageWidth - 14 - qrSize;
+  const qrY = startY - 6;
+  doc.addImage(qr, 'PNG', qrX, qrY, qrSize, qrSize);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Scan to verify · ${ref}`, qrX + qrSize / 2, qrY + qrSize + 2.5, { align: 'center' });
 
   // Staff details box
   const detailsY = startY + 18;

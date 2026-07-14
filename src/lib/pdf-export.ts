@@ -1,5 +1,6 @@
 import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { qrPngDataUrl, docFingerprint } from './qr';
 
 interface PDFExportOptions {
   title: string;
@@ -69,7 +70,31 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
 
   const doc = new JsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
+  // Verification QR (top-right) — encodes the report identity + a fingerprint of
+  // its content so a printed copy can be checked against the app. (QR stamp)
+  const generatedAt = format(new Date(), 'dd MMM yyyy HH:mm');
+  const ref = docFingerprint(
+    `report|${title}|${subtitle ?? ''}|${dateRange ? dateRange.from.toISOString() + dateRange.to.toISOString() : ''}|${data.length}|${generatedAt}`,
+  );
+  const qr = await qrPngDataUrl(
+    [
+      'VIBRND HR BUDDY - Report verification',
+      'Konnect 2 Hospitality',
+      title,
+      subtitle || '',
+      dateRange ? `Period: ${format(dateRange.from, 'dd MMM yyyy')} - ${format(dateRange.to, 'dd MMM yyyy')}` : '',
+      `Rows: ${data.length}`,
+      `Generated: ${generatedAt}`,
+      `Ref: ${ref}`,
+    ].filter(Boolean).join('\n'),
+  );
+  const qrSize = 18;
+  doc.addImage(qr, 'PNG', pageWidth - 14 - qrSize, 8, qrSize, qrSize);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Scan to verify', pageWidth - 14 - qrSize / 2, 8 + qrSize + 2.5, { align: 'center' });
+
   // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
@@ -101,14 +126,10 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
     );
   }
   
-  // Generated date
+  // Generated date (below the verification QR)
   doc.setFontSize(9);
-  doc.text(
-    `Generated: ${format(new Date(), 'dd MMM yyyy HH:mm')}`,
-    pageWidth - 14,
-    20,
-    { align: 'right' }
-  );
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated: ${generatedAt}`, pageWidth - 14, 34, { align: 'right' });
   
   // Table
   const startY = dateRange ? (subtitle ? 58 : 52) : (subtitle ? 52 : 46);
