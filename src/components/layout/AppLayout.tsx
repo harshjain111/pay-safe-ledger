@@ -70,6 +70,7 @@ import {
   ShieldCheck,
   Users2,
   HandCoins,
+  RefreshCw,
 } from 'lucide-react';
 
 interface NavItem {
@@ -723,6 +724,16 @@ function AppHeader() {
       
       
       <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg"
+          onClick={() => window.location.reload()}
+          aria-label="Refresh page"
+          title="Refresh"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
         <NotificationBell />
         <ThemeToggle />
         <div className="hidden sm:flex items-center gap-3">
