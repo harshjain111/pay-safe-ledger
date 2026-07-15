@@ -1,4 +1,4 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 import { permissionForPath } from '@/lib/route-permissions';
 import { RequirePermission } from '@/components/auth/RequirePermission';
 import { ORGANIZATION } from '@/lib/brand';
+import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
+import { orgDisplayName } from '@/lib/organization';
+import { OrganizationOnboardingDialog } from '@/components/organization/OrganizationOnboardingDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -413,6 +416,11 @@ function NotificationBadge({ count }: { count: number }) {
 
 function AppSidebar() {
   const { userRole, staffData, signOut, isAccountant, accountingMode, setAccountingMode, user, can } = useAuth();
+  const { data: orgProfile } = useOrganizationProfile();
+  const orgName = orgDisplayName(orgProfile) || ORGANIZATION.name;
+  const orgLogo = orgProfile?.logo_url || ORGANIZATION.logo;
+  const orgShort =
+    orgName.split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase() || ORGANIZATION.shortCode;
   const location = useLocation();
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
@@ -463,18 +471,18 @@ function AppSidebar() {
             </div>
           )}
         </div>
-        {!isCollapsed && ORGANIZATION.name && (
+        {!isCollapsed && orgName && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 py-1.5">
-            <div className="h-5 w-5 rounded-md bg-white/90 flex items-center justify-center shrink-0 overflow-hidden">
-              {ORGANIZATION.logo ? (
-                <img src={ORGANIZATION.logo} alt={ORGANIZATION.name} className="h-full w-full object-contain" />
+            <div className="h-6 w-6 rounded-md bg-white/90 flex items-center justify-center shrink-0 overflow-hidden">
+              {orgLogo ? (
+                <img src={orgLogo} alt={orgName} className="h-full w-full object-contain" />
               ) : (
-                <span className="text-[9px] font-bold text-sidebar-background">{ORGANIZATION.shortCode}</span>
+                <span className="text-[9px] font-bold text-sidebar-background">{orgShort}</span>
               )}
             </div>
             <div className="min-w-0 leading-tight">
               <p className="text-[9px] uppercase tracking-wider text-sidebar-muted">Organization</p>
-              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{ORGANIZATION.name}</p>
+              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{orgName}</p>
             </div>
           </div>
         )}
@@ -806,6 +814,27 @@ function ContentSkeleton() {
   );
 }
 
+// Shows the org onboarding dialog on first owner login (until onboarded_at is set).
+function OrgOnboardingGate() {
+  const { isOwner } = useAuth();
+  const { data: profile, isLoading } = useOrganizationProfile();
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (isOwner && !isLoading && profile && !profile.onboarded_at && !dismissed) setOpen(true);
+  }, [isOwner, isLoading, profile, dismissed]);
+
+  if (!isOwner) return null;
+  return (
+    <OrganizationOnboardingDialog
+      open={open}
+      onOpenChange={(o) => { setOpen(o); if (!o) setDismissed(true); }}
+      profile={profile ?? null}
+    />
+  );
+}
+
 export function AppLayout() {
   // Re-mount the content fade only when the route changes — keyed on pathname
   // below — while the sidebar/header stay mounted across navigations.
@@ -813,6 +842,7 @@ export function AppLayout() {
 
   return (
     <SidebarProvider defaultOpen={true}>
+      <OrgOnboardingGate />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
