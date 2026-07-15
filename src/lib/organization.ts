@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateGstin } from './gstin';
 
 export interface OrgProfile {
   id: string;
@@ -28,12 +29,9 @@ export const organizationFormSchema = z
     email: z.string().trim().email('Enter a valid email').optional().or(z.literal('')),
     website: z.string().trim().url('Enter a valid URL (https://…)').optional().or(z.literal('')),
     phone: opt(20),
-    gstin: z
-      .string()
-      .trim()
-      .regex(/^$|^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/i, 'Enter a valid 15-character GSTIN')
-      .optional()
-      .or(z.literal('')),
+    // Format + checksum + state-code cross-check happen in the superRefine below
+    // (it needs the sibling `state` value, so it can't live on the field alone).
+    gstin: z.string().trim().max(15).optional().or(z.literal('')),
     pan: z
       .string()
       .trim()
@@ -48,6 +46,12 @@ export const organizationFormSchema = z
   .refine((d) => Boolean(d.trade_name?.trim()) || Boolean(d.legal_name?.trim()), {
     message: 'Enter at least the Trade name or the Legal name',
     path: ['trade_name'],
+  })
+  .superRefine((d, ctx) => {
+    const gstErr = validateGstin(d.gstin ?? '', d.state ?? null);
+    if (gstErr) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: gstErr, path: ['gstin'] });
+    }
   });
 
 export type OrganizationFormValues = z.infer<typeof organizationFormSchema>;

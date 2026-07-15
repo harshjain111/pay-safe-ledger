@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/anyClient';
@@ -15,6 +15,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Upload, Building2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -22,6 +29,7 @@ import {
   type OrganizationFormValues,
   type OrgProfile,
 } from '@/lib/organization';
+import { INDIAN_STATES } from '@/lib/gstin';
 import { ORG_PROFILE_QUERY_KEY } from '@/hooks/useOrganizationProfile';
 
 interface Props {
@@ -49,6 +57,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<OrganizationFormValues>({
     resolver: zodResolver(organizationFormSchema),
@@ -199,7 +208,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
               </Field>
             </div>
             <Field label="GSTIN" error={errors.gstin?.message}>
-              <Input {...register('gstin')} placeholder="15-character GSTIN" className="uppercase" />
+              <Input {...register('gstin')} placeholder="e.g. 27AAPFU0939F1ZV" className="uppercase" />
             </Field>
             <Field label="PAN" error={errors.pan?.message}>
               <Input {...register('pan')} placeholder="AAAAA9999A" className="uppercase" />
@@ -213,7 +222,24 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
               <Input {...register('city')} />
             </Field>
             <Field label="State" error={errors.state?.message}>
-              <Input {...register('state')} />
+              <Controller
+                control={control}
+                name="state"
+                render={({ field }) => (
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {INDIAN_STATES.map((s) => (
+                        <SelectItem key={s.code} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </Field>
             <Field label="Pincode" error={errors.pincode?.message}>
               <Input {...register('pincode')} placeholder="6 digits" />
