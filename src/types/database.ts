@@ -48,6 +48,7 @@ export interface Staff {
   status?: 'active' | 'inactive' | 'left' | 'terminated' | string;
   separation_reason?: string | null;
   attendance_tracked?: boolean;
+  remote_attendance_allowed?: boolean;
   weekly_off_day?: number | null;
   ot_standard_minutes_override?: number | null;
   ot_multiplier_override?: number | null;

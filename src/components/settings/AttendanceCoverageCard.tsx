@@ -13,6 +13,7 @@ interface Row {
   designation: string | null;
   department: string | null;
   attendance_tracked: boolean;
+  remote_attendance_allowed: boolean;
 }
 
 export function AttendanceCoverageCard() {
@@ -31,7 +32,7 @@ export function AttendanceCoverageCard() {
     setLoading(true);
     const { data, error } = await supabase
       .from('staff')
-      .select('id, full_name, designation, department, attendance_tracked' as never)
+      .select('id, full_name, designation, department, attendance_tracked, remote_attendance_allowed' as never)
       .eq('is_active', true)
       .order('full_name');
     if (error) {
@@ -57,6 +58,21 @@ export function AttendanceCoverageCard() {
     }
   };
 
+  const toggleRemote = async (id: string, value: boolean) => {
+    const prev = rows;
+    setRows(rows.map((r) => (r.id === id ? { ...r, remote_attendance_allowed: value } : r)));
+    const { error } = await supabase
+      .from('staff')
+      .update({ remote_attendance_allowed: value } as never)
+      .eq('id', id);
+    if (error) {
+      toast.error('Update failed');
+      setRows(prev);
+    } else {
+      toast.success(value ? 'Remote check-in allowed' : 'Remote check-in disabled');
+    }
+  };
+
   if (!canManage) return null;
 
   const filtered = rows.filter((r) =>
@@ -71,9 +87,12 @@ export function AttendanceCoverageCard() {
           Attendance Coverage
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Choose which staff use this app for attendance. Turn OFF for staff who use a
-          different app (e.g. outsourced staff) — they won't see the check-in widget and
-          won't be fined here.
+          <span className="font-medium text-foreground">Tracked</span> — staff use this app for
+          attendance (turn OFF for outsourced staff on a different app; they won't see the
+          check-in widget or be fined here).{' '}
+          <span className="font-medium text-foreground">Remote</span> — field / work-from-home
+          staff may check in from outside the branch geofence; their off-site selfie punch is
+          flagged for review instead of blocked.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -100,11 +119,25 @@ export function AttendanceCoverageCard() {
                     {[r.designation, r.department].filter(Boolean).join(' • ') || '—'}
                   </p>
                 </div>
-                <Switch
-                  aria-label={`Track attendance for ${r.full_name}`}
-                  checked={r.attendance_tracked}
-                  onCheckedChange={(v) => toggle(r.id, v)}
-                />
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-medium text-muted-foreground">Tracked</span>
+                    <Switch
+                      aria-label={`Track attendance for ${r.full_name}`}
+                      checked={r.attendance_tracked}
+                      onCheckedChange={(v) => toggle(r.id, v)}
+                    />
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-medium text-muted-foreground">Remote</span>
+                    <Switch
+                      aria-label={`Allow remote check-in for ${r.full_name}`}
+                      checked={r.remote_attendance_allowed}
+                      disabled={!r.attendance_tracked}
+                      onCheckedChange={(v) => toggleRemote(r.id, v)}
+                    />
+                  </div>
+                </div>
               </div>
             ))}
             {filtered.length === 0 && (

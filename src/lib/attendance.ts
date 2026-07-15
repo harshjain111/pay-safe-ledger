@@ -117,10 +117,12 @@ export async function checkIn(
   if (staffId) {
     const { data: st } = await supabase
       .from('staff')
-      .select('outlet_id')
+      .select('outlet_id, remote_attendance_allowed')
       .eq('id', staffId)
       .maybeSingle();
-    const outletId = (st as { outlet_id?: string | null } | null)?.outlet_id ?? null;
+    const stRow = st as { outlet_id?: string | null; remote_attendance_allowed?: boolean } | null;
+    const outletId = stRow?.outlet_id ?? null;
+    const remoteAllowed = stRow?.remote_attendance_allowed === true;
     if (outletId) {
       const { data: outlet } = await supabase
         .from('outlets')
@@ -131,9 +133,15 @@ export async function checkIn(
         const o = outlet as { name?: string } & BranchGeofence;
         const geo = evaluateGeofence({ lat: payload.lat, lng: payload.lng }, o, o.name);
         if (geo.action === 'block') {
-          throw new Error(geo.message ?? 'You are outside the allowed check-in area for your branch.');
+          // Field / work-from-home staff may check in from anywhere; their
+          // off-site punch is flagged for manager review instead of hard-blocked.
+          if (!remoteAllowed) {
+            throw new Error(geo.message ?? 'You are outside the allowed check-in area for your branch.');
+          }
+          geoFlagged = true;
+        } else {
+          geoFlagged = geo.action === 'flag';
         }
-        geoFlagged = geo.action === 'flag';
         geoDistanceM = geo.distanceM;
       }
     }
