@@ -463,7 +463,7 @@ function AppSidebar() {
             </div>
           )}
         </div>
-        {!isCollapsed && (
+        {!isCollapsed && ORGANIZATION.name && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 py-1.5">
             <div className="h-5 w-5 rounded-md bg-white/90 flex items-center justify-center shrink-0 overflow-hidden">
               {ORGANIZATION.logo ? (
@@ -721,10 +721,12 @@ function AppHeader() {
             )}
           </h1>
         </div>
-        <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          <span className="text-[11px] font-medium text-muted-foreground">{ORGANIZATION.name}</span>
-        </div>
+        {ORGANIZATION.name && (
+          <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="text-[11px] font-medium text-muted-foreground">{ORGANIZATION.name}</span>
+          </div>
+        )}
       </div>
       
       

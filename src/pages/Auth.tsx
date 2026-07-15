@@ -221,9 +221,11 @@ export default function Auth() {
             <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND HR BUDDY</span>
           </div>
           <p className="text-muted-foreground">HR & Payroll Suite</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            for <span className="font-medium text-foreground">{ORGANIZATION.name}</span>
-          </p>
+          {ORGANIZATION.name && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              for <span className="font-medium text-foreground">{ORGANIZATION.name}</span>
+            </p>
+          )}
         </div>
 
         {/* Network error banner */}
