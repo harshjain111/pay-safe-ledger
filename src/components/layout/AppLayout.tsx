@@ -6,6 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { permissionForPath } from '@/lib/route-permissions';
 import { RequirePermission } from '@/components/auth/RequirePermission';
+import { ORGANIZATION } from '@/lib/brand';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -464,12 +465,16 @@ function AppSidebar() {
         </div>
         {!isCollapsed && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 py-1.5">
-            <div className="h-5 w-5 rounded-md bg-white/90 flex items-center justify-center shrink-0">
-              <span className="text-[9px] font-bold text-sidebar-background">K2</span>
+            <div className="h-5 w-5 rounded-md bg-white/90 flex items-center justify-center shrink-0 overflow-hidden">
+              {ORGANIZATION.logo ? (
+                <img src={ORGANIZATION.logo} alt={ORGANIZATION.name} className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-[9px] font-bold text-sidebar-background">{ORGANIZATION.shortCode}</span>
+              )}
             </div>
             <div className="min-w-0 leading-tight">
               <p className="text-[9px] uppercase tracking-wider text-sidebar-muted">Organization</p>
-              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">Konnect 2 Hospitality</p>
+              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{ORGANIZATION.name}</p>
             </div>
           </div>
         )}
@@ -718,7 +723,7 @@ function AppHeader() {
         </div>
         <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          <span className="text-[11px] font-medium text-muted-foreground">Konnect 2 Hospitality</span>
+          <span className="text-[11px] font-medium text-muted-foreground">{ORGANIZATION.name}</span>
         </div>
       </div>
       

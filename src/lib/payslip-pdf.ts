@@ -1,6 +1,7 @@
 import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { qrPngDataUrl, docFingerprint } from './qr';
+import { ORGANIZATION } from './brand';
 
 export interface PayslipStaff {
   full_name: string;
@@ -59,7 +60,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   doc.text('PAYSLIP', pageWidth / 2, startY, { align: 'center' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Konnect 2 Hospitality', pageWidth / 2, startY + 6, { align: 'center' });
+  doc.text(ORGANIZATION.name, pageWidth / 2, startY + 6, { align: 'center' });
   // (Employer name — kept on payslip; product footer below)
   doc.setFontSize(9);
   doc.text(`Pay Period: ${monthLabel}`, pageWidth / 2, startY + 11, { align: 'center' });
@@ -77,7 +78,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   const qr = await qrPngDataUrl(
     [
       'VIBRND HR BUDDY - Payslip verification',
-      'Konnect 2 Hospitality',
+      ORGANIZATION.name,
       `Emp: ${staff.full_name} (${staff.employee_id})`,
       `Period: ${monthLabel}`,
       `Net Payable: ${inr(s.balance_payable)}`,

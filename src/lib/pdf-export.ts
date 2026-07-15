@@ -1,6 +1,7 @@
 import type jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { qrPngDataUrl, docFingerprint } from './qr';
+import { ORGANIZATION } from './brand';
 
 interface PDFExportOptions {
   title: string;
@@ -80,7 +81,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   const qr = await qrPngDataUrl(
     [
       'VIBRND HR BUDDY - Report verification',
-      'Konnect 2 Hospitality',
+      ORGANIZATION.name,
       title,
       subtitle || '',
       dateRange ? `Period: ${format(dateRange.from, 'dd MMM yyyy')} - ${format(dateRange.to, 'dd MMM yyyy')}` : '',
@@ -98,7 +99,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Konnect 2 Hospitality', 14, 20);
+  doc.text(ORGANIZATION.name, 14, 20);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -175,7 +176,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
       );
       
       doc.text(
-        'Konnect 2 Hospitality — Powered by VIBRND HR BUDDY (Confidential)',
+        `${ORGANIZATION.name} — Powered by VIBRND HR BUDDY (Confidential)`,
         14,
         doc.internal.pageSize.getHeight() - 10
       );

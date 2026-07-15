@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Wallet, Eye, EyeOff, Loader2, Phone, WifiOff, RefreshCw } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { phoneToEmail } from '@/lib/auth-email';
+import { ORGANIZATION, BRAND } from '@/lib/brand';
 import { z } from 'zod';
 
 const phoneSchema = z.string().min(10, 'Please enter a valid phone number').max(15, 'Phone number too long');
@@ -215,13 +216,13 @@ export default function Auth() {
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center justify-center gap-3 mb-4">
             <div className="rounded-2xl bg-white p-3 shadow-lg">
-              <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-20 w-auto" />
+              <img src={ORGANIZATION.logo ?? BRAND.logoPath} alt={ORGANIZATION.name} className="h-20 w-auto" />
             </div>
             <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND HR BUDDY</span>
           </div>
           <p className="text-muted-foreground">HR & Payroll Suite</p>
           <p className="mt-2 text-xs text-muted-foreground">
-            for <span className="font-medium text-foreground">Konnect 2 Hospitality</span>
+            for <span className="font-medium text-foreground">{ORGANIZATION.name}</span>
           </p>
         </div>
 
