@@ -130,6 +130,11 @@ CREATE POLICY "Owners/admins manage saved_reports" ON public.saved_reports FOR A
 CREATE TRIGGER update_saved_reports_updated_at BEFORE UPDATE ON public.saved_reports FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ========== helper functions referenced by the app ==========
+-- Fresh-apply fix: 20260614150000 already defines get_my_permissions() RETURNS
+-- SETOF text, and CREATE OR REPLACE cannot change a function's return type, so a
+-- clean `supabase db push` would error here. Drop it first. (20260619090000
+-- restores the correct SETOF-text version as the final word.)
+DROP FUNCTION IF EXISTS public.get_my_permissions();
 CREATE OR REPLACE FUNCTION public.get_my_permissions()
 RETURNS JSONB
 LANGUAGE plpgsql
