@@ -150,8 +150,8 @@ export function OwnerDashboard() {
         </Link>
       </PageHeader>
 
-      {/* Band 1 — KPI strip */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+      {/* Band 1 — KPI strip (max 3 across so 6 cards wrap to 2 rows and titles fit) */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
         <DashboardCard
           icon={Users}
           label="Active Staff"
