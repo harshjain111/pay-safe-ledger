@@ -1,9 +1,16 @@
 // ============================================================================
 // Permission catalog + pure resolution (no IO; mirrors the SQL has_permission).
 //
-// Permissions are grouped by module for the rights-template editor. Built-in
-// templates map 1:1 to the legacy roles so existing users keep their rights
-// (no lockout). The Owner template is special-cased to ALL permissions.
+// Permissions are grouped by module for the rights-template editor. Most data
+// modules expose the standard View / Add / Edit / Delete set; some carry extra
+// "special" actions (approve, run settlements, manage). Built-in templates map
+// each legacy role to a sensible default set so existing users keep working
+// (no lockout); owners are ALL (handled separately), and any permission can also
+// be granted/revoked per-user on top of the template.
+//
+// NOTE: expanding this catalog is additive — it makes new permissions ASSIGNABLE
+// in the Rights Templates screen. ENFORCEMENT (gating actions on the new keys, in
+// the client and in server RLS) is wired separately; see docs/RBAC_PLAN.md.
 // ============================================================================
 
 export interface PermissionDef {
@@ -26,6 +33,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'staff.view', label: 'View staff' },
       { key: 'staff.create', label: 'Add staff' },
       { key: 'staff.edit', label: 'Edit staff' },
+      { key: 'staff.delete', label: 'Delete staff' },
       { key: 'users.view', label: 'View users' },
       { key: 'users.manage', label: 'Manage users & rights' },
     ],
@@ -34,7 +42,10 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     module: 'Attendance',
     permissions: [
       { key: 'attendance.view', label: 'View attendance' },
-      { key: 'attendance.manage', label: 'Manage attendance' },
+      { key: 'attendance.create', label: 'Mark attendance' },
+      { key: 'attendance.edit', label: 'Edit attendance' },
+      { key: 'attendance.delete', label: 'Delete attendance' },
+      { key: 'attendance.manage', label: 'Bulk attendance & corrections' },
       { key: 'roster.manage', label: 'Manage duty roster' },
       { key: 'holidays.manage', label: 'Manage holidays' },
     ],
@@ -44,7 +55,18 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     permissions: [
       { key: 'leave.view', label: 'View leave' },
       { key: 'leave.record', label: 'Record leave' },
+      { key: 'leave.edit', label: 'Edit leave' },
+      { key: 'leave.delete', label: 'Delete leave' },
       { key: 'leave.approve', label: 'Approve leave' },
+    ],
+  },
+  {
+    module: 'Advances & Requests',
+    permissions: [
+      { key: 'advances.view', label: 'View advance requests' },
+      { key: 'advances.create', label: 'Raise advance request' },
+      { key: 'advances.edit', label: 'Edit advance request' },
+      { key: 'advances.delete', label: 'Delete advance request' },
     ],
   },
   {
@@ -63,9 +85,12 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     module: 'Finance',
     permissions: [
       { key: 'ledger.view', label: 'View ledger' },
+      { key: 'pettycash.view', label: 'View petty cash' },
       { key: 'pettycash.manage', label: 'Manage petty cash' },
       { key: 'expenses.view', label: 'View expenses' },
       { key: 'expenses.create', label: 'Create expenses' },
+      { key: 'expenses.edit', label: 'Edit expenses' },
+      { key: 'expenses.delete', label: 'Delete expenses' },
     ],
   },
   {
@@ -96,21 +121,27 @@ export function permissionLabel(key: string): string {
 }
 
 /**
- * Built-in role -> permission set, mirroring each legacy role's current
- * capabilities. Owner is ALL (handled separately). These seed the built-in
- * templates and back the no-lockout fallback for un-assigned users.
+ * Built-in role -> permission set. Each role's set is a SUPERSET of its current
+ * capabilities so nothing regresses, extended with the natural View/Add/Edit/
+ * Delete for the modules that role manages (these become meaningful once
+ * enforcement is switched to permission-based — see docs/RBAC_PLAN.md). Owner is
+ * ALL (handled separately). Owner-only confidentials (salaries.view,
+ * settings.payroll.edit, settings.data.manage) are never granted to a role here.
  */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   owner: [...ALL_PERMISSIONS],
   admin: [
     'dashboard.view',
-    'staff.view', 'staff.create', 'staff.edit',
+    'staff.view', 'staff.create', 'staff.edit', 'staff.delete',
     'users.view', 'users.manage',
-    'attendance.view', 'attendance.manage', 'roster.manage', 'holidays.manage',
-    'leave.view', 'leave.record', 'leave.approve',
+    'attendance.view', 'attendance.create', 'attendance.edit', 'attendance.delete', 'attendance.manage',
+    'roster.manage', 'holidays.manage',
+    'leave.view', 'leave.record', 'leave.edit', 'leave.delete', 'leave.approve',
+    'advances.view', 'advances.create', 'advances.edit', 'advances.delete',
     'approvals.approve',
     'payouts.execute',
-    'ledger.view', 'pettycash.manage', 'expenses.view', 'expenses.create',
+    'ledger.view', 'pettycash.view', 'pettycash.manage',
+    'expenses.view', 'expenses.create', 'expenses.edit', 'expenses.delete',
     'reports.view', 'audit.view',
     'settings.attendance.edit',
   ],
@@ -119,14 +150,16 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'staff.view',
     'attendance.view',
     'leave.view', 'leave.record',
+    'advances.view', 'advances.create',
     'payouts.execute',
-    'ledger.view', 'expenses.view', 'expenses.create',
+    'ledger.view', 'pettycash.view', 'expenses.view', 'expenses.create',
     'reports.view',
   ],
   staff: [
     'dashboard.view',
     'attendance.view',
     'leave.view', 'leave.record',
+    'advances.view', 'advances.create',
     'expenses.view', 'expenses.create',
   ],
   ca: [
