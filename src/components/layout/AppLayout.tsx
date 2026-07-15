@@ -814,23 +814,26 @@ function ContentSkeleton() {
   );
 }
 
-// Shows the org onboarding dialog on first owner login (until onboarded_at is set).
+// Mandatory org onboarding: forces a blocking dialog on owner login and keeps it
+// open until onboarded_at is set (i.e. the owner saved the required details).
 function OrgOnboardingGate() {
-  const { isOwner } = useAuth();
+  const { isOwner, signOut } = useAuth();
+  const navigate = useNavigate();
   const { data: profile, isLoading } = useOrganizationProfile();
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (isOwner && !isLoading && profile && !profile.onboarded_at && !dismissed) setOpen(true);
-  }, [isOwner, isLoading, profile, dismissed]);
+    if (isOwner && !isLoading && profile) setOpen(!profile.onboarded_at);
+  }, [isOwner, isLoading, profile]);
 
   if (!isOwner) return null;
   return (
     <OrganizationOnboardingDialog
       open={open}
-      onOpenChange={(o) => { setOpen(o); if (!o) setDismissed(true); }}
+      onOpenChange={setOpen}
       profile={profile ?? null}
+      mode="onboarding"
+      onSignOut={async () => { await signOut(); navigate('/auth'); }}
     />
   );
 }

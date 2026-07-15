@@ -28,8 +28,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   profile: OrgProfile | null;
-  /** First-run onboarding is lightly mandatory; an edit from Settings is not. */
+  /** onboarding = blocking first-run (cannot dismiss); edit = from Settings. */
   mode?: 'onboarding' | 'edit';
+  /** "Sign out" escape hatch shown in blocking onboarding mode. */
+  onSignOut?: () => void;
 }
 
 const nullify = (v?: string) => {
@@ -37,7 +39,7 @@ const nullify = (v?: string) => {
   return t === '' ? null : t;
 };
 
-export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode = 'onboarding' }: Props) {
+export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode = 'onboarding', onSignOut }: Props) {
   const queryClient = useQueryClient();
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -139,7 +141,11 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
 
   return (
     <Dialog open={open} onOpenChange={(o) => !isSubmitting && onOpenChange(o)}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={`max-w-2xl max-h-[90vh] overflow-y-auto ${mode === 'onboarding' ? '[&>button]:hidden' : ''}`}
+        onEscapeKeyDown={(e) => { if (mode === 'onboarding') e.preventDefault(); }}
+        onInteractOutside={(e) => { if (mode === 'onboarding') e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
@@ -147,7 +153,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
           </DialogTitle>
           <DialogDescription>
             {mode === 'onboarding'
-              ? 'Welcome! Add your company details — these appear on payslips, reports, and the sidebar. You can edit them later in Settings.'
+              ? 'Add your organization details to continue — at least the Trade name or Legal name is required. These appear on payslips, reports, and the sidebar, and can be edited later in Settings.'
               : 'These appear on payslips, reports, and in the sidebar.'}
           </DialogDescription>
         </DialogHeader>
@@ -176,7 +182,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Trade name *" error={errors.trade_name?.message}>
-              <Input {...register('trade_name')} placeholder="e.g. Konnect 2 Hospitality" />
+              <Input {...register('trade_name')} placeholder="e.g. Acme Solutions Pvt Ltd" />
             </Field>
             <Field label="Legal name" error={errors.legal_name?.message}>
               <Input {...register('legal_name')} placeholder="Registered legal entity name" />
@@ -214,10 +220,14 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
             </Field>
           </div>
 
-          <DialogFooter className="gap-2">
-            {mode === 'onboarding' && (
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                Later
+          <DialogFooter className="gap-2 sm:justify-between">
+            {mode === 'onboarding' ? (
+              <Button type="button" variant="ghost" onClick={onSignOut} disabled={isSubmitting} className="text-muted-foreground">
+                Sign out
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancel
               </Button>
             )}
             <Button type="submit" disabled={isSubmitting}>
