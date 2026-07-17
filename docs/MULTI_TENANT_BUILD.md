@@ -8,6 +8,36 @@ tests in Phase 6, and only then migrate real data.** Do NOT retrofit this blind 
 the live Konnect DB — its effective policies span 94 migrations + Lovable's managed
 layer, and one missed rule leaks salaries between companies.
 
+---
+
+## Build status — IN-PLACE on the live Supabase (`ziepeuavhklnjdixxjkv`)
+
+Decision (2026-07-16): the user chose to build **in-place on the live DB** (not a
+staging project). Mitigation: build **additively** so the app keeps working after
+every phase, backfill current data as **Org #1**, and run the Phase-6 leak tests
+with a **disposable test org** before any real 2nd company is invited in.
+
+Key facts for later phases:
+- **Org #1 sentinel id:** `00000000-0000-0000-0000-000000000001` (backfill target).
+- **No `profiles` table** in this schema — org membership is `organization_members`
+  (user_id → org_id), resolved by `current_org_id()` (SECURITY DEFINER).
+- **Feature entitlements are a DENYLIST** (`org_features`): a feature is enabled
+  unless a row disables it; catalog of keys is in `src/lib/features.ts`.
+
+Progress:
+- [x] **Phase 1 — Foundation** (`20260716140000_mt_phase1_foundation.sql`, applied):
+      organizations + organization_members + current_org_id() + org_features + RLS
+      on those 3 tables; Org #1 seeded; all existing users backfilled into Org #1.
+      App: `src/lib/features.ts`, `src/hooks/useCurrentOrg.ts` (useFeature).
+- [ ] **Phase 2 — Stamp org_id** on the 57 tenant tables (dynamic DO block; add
+      nullable → backfill to Org #1 → NOT NULL → index → DEFAULT current_org_id()).
+- [ ] **Phase 3 — RLS rewrite** per module (org_id = current_org_id() AND permission),
+      default-deny, run leak tests after each module group.
+- [ ] **Phase 4 — Audit** SECURITY DEFINER fns / views / storage buckets for org filter.
+- [ ] **Phase 5 — Provisioning** panel (create org + assign owner + toggle features)
+      + org signup + org switcher; wire `useFeature` gates into nav/routes/settings.
+- [ ] **Phase 6 — Leak tests** (disposable 2nd org) → then allow real 2nd company.
+
 ## The isolation invariants (non-negotiable)
 
 1. Every tenant table has `org_id uuid NOT NULL` (FK → `organizations`).
