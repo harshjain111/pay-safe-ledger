@@ -1,4 +1,4 @@
-project_id = "tvjcyntqgbipennzbxgt"
+project_id = "lwjcunzlxwziokhfmyds"
 
 # Device/agent calls carry an `x-device-key`, not a Supabase user JWT, so the
 # ingest endpoint must not require JWT verification. It authenticates the device
