@@ -59,6 +59,7 @@ import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
 import { HolidaysCard } from '@/components/settings/HolidaysCard';
 import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
+import { OrganizationProfileCard } from '@/components/settings/OrganizationProfileCard';
 import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
 
 type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'data';
@@ -410,7 +411,8 @@ export default function Settings() {
           )}
 
           {active.id === 'organisation' && (
-            <SettingsPanel title="Organisation" description="Outlets, departments and expense categories.">
+            <SettingsPanel title="Organisation" description="Company profile, outlets, departments and expense categories.">
+              <OrganizationProfileCard />
               <ManageOutletsDepartmentsCard />
               <ManageCategoriesCard />
             </SettingsPanel>
