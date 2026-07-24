@@ -10,3 +10,8 @@ verify_jwt = false
 # submitter identity ever reaches the server. JWT verification off by design.
 [functions.submit-grievance]
 verify_jwt = false
+
+# Scheduled eTimeTrackLite connector: called by pg_cron (no user JWT); it guards
+# itself with the x-cron-secret header instead.
+[functions.pull-etimetracklite]
+verify_jwt = false
