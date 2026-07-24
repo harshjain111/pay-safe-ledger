@@ -21,6 +21,7 @@ const UsersList = lazy(() => import("./pages/UsersList"));
 const UserForm = lazy(() => import("./pages/UserForm"));
 const Ledger = lazy(() => import("./pages/Ledger"));
 const Requests = lazy(() => import("./pages/Requests"));
+const Grievance = lazy(() => import("./pages/Grievance"));
 const Approvals = lazy(() => import("./pages/Approvals"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Expenses = lazy(() => import("./pages/Expenses"));
@@ -155,6 +156,7 @@ function AppRoutes() {
         <Route path="/petty-cash" element={<PettyCash />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-attendance" element={<MyAttendance />} />
+        <Route path="/grievance" element={<Grievance />} />
         <Route path="/shifts" element={<Shifts />} />
         <Route path="/shift-assignment" element={<ShiftAssignment />} />
         <Route path="/week-off" element={<WeekOff />} />

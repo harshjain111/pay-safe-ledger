@@ -5,3 +5,8 @@ project_id = "lwjcunzlxwziokhfmyds"
 # itself by matching the key's SHA-256 hash against biometric_devices.
 [functions.ingest-punches]
 verify_jwt = false
+
+# Anonymous grievance box: called with the ANON key (never a user token) so no
+# submitter identity ever reaches the server. JWT verification off by design.
+[functions.submit-grievance]
+verify_jwt = false
