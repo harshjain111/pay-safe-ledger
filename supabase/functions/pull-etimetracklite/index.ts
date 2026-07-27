@@ -277,6 +277,17 @@ serve(async (req) => {
       return json(200, { ok: true, staff: st, sessionsTotal: totalR.count ?? 0, sessionsNullUser: nullR.count ?? 0, sessionsMatchingStaffUser: byUserR.count ?? 0, recent: sample });
     }
 
+    // One-time: load this connector's CRON_SECRET into Vault so the pg_cron job
+    // (scheduled by migration) can authenticate. Secret comes from the function's
+    // own env — never from git or the request body. Returns the current job status.
+    if (body?.bootstrapCron) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { error: setErr } = await admin.rpc("set_etl_cron_secret", { p_secret: CRON_SECRET });
+      const { data: status, error: stErr } = await admin.rpc("etl_cron_status");
+      return json(200, { ok: !setErr, secretLoaded: !setErr, setError: setErr?.message ?? null, statusError: stErr?.message ?? null, status });
+    }
+
     const jar = new Jar();
     const diag = await login(jar);
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
