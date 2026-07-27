@@ -16,6 +16,7 @@ export interface OrgProfile {
   pincode: string | null;
   logo_url: string | null;
   onboarded_at: string | null;
+  breaks_enabled?: boolean;
 }
 
 // Every field is optional at the field level; the refine enforces "trade name OR

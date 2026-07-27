@@ -314,6 +314,18 @@ serve(async (req) => {
       return json(200, { ok: true, total, biometric, open, completed, noCheckout, staleOpen, zeroMinutes, over16h, staffWithManyOpens: worst.length, worst: worst.slice(0, 15) });
     }
 
+    // Probe which tables exist (multi-tenant foundation applied or not?).
+    if (body?.probeTables) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const out: Record<string, unknown> = {};
+      for (const t of ["organizations", "org_features", "organization_profile"]) {
+        const { data, error } = await admin.from(t).select("*").limit(3);
+        out[t] = error ? { exists: false, error: error.message } : { exists: true, rows: (data as unknown[])?.length ?? 0, sample: data };
+      }
+      return json(200, { ok: true, tables: out });
+    }
+
     // Repair: rebuild biometric attendance as one session per (staff, day),
     // first punch -> last punch. Fixes the ~47% unclosed / cross-midnight mess.
     if (body?.consolidateAttendance) {

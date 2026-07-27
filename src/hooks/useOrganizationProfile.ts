@@ -20,3 +20,13 @@ export function useOrganizationProfile() {
     staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * Whether the break-time concept (start/end break, break timer, break minutes)
+ * is enabled for this org. Default-ON: true while loading or if the flag is
+ * absent, so a transient miss never wrongly hides it.
+ */
+export function useBreaksEnabled(): boolean {
+  const { data } = useOrganizationProfile();
+  return (data as (OrgProfile & { breaks_enabled?: boolean }) | null)?.breaks_enabled !== false;
+}

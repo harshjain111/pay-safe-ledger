@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, LogIn, LogOut, Coffee, Play, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
 import { useCurrentAttendanceSession } from '@/hooks/useCurrentAttendanceSession';
 import { CaptureDialog } from './CaptureDialog';
 import {
@@ -39,6 +40,7 @@ function formatElapsed(fromIso: string, now: number): string {
 
 export function AttendanceWidget() {
   const { user, staffData } = useAuth();
+  const breaksEnabled = useBreaksEnabled();
   const { session, todayCompleted, isLoading, refresh } = useCurrentAttendanceSession(user?.id);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showCheckOut, setShowCheckOut] = useState(false);
@@ -163,7 +165,7 @@ export function AttendanceWidget() {
                   <p className="font-medium">{formatMinutes(todayCompleted.worked_minutes)}</p>
                 </div>
               </div>
-              {todayCompleted.total_break_minutes > 0 && (
+              {breaksEnabled && todayCompleted.total_break_minutes > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Break time: {formatMinutes(todayCompleted.total_break_minutes)}
                 </p>
@@ -259,13 +261,13 @@ export function AttendanceWidget() {
             </div>
             <div className="mt-3 flex items-baseline gap-3">
               <p className="font-mono text-3xl font-bold tabular-nums">{elapsed}</p>
-              {onBreak && breakElapsed && (
+              {breaksEnabled && onBreak && breakElapsed && (
                 <p className="text-sm text-amber-600">
                   Break: <span className="font-mono font-semibold">{breakElapsed}</span>
                 </p>
               )}
             </div>
-            {session.total_break_minutes > 0 && (
+            {breaksEnabled && session.total_break_minutes > 0 && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Total break so far: {formatMinutes(session.total_break_minutes)}
               </p>
@@ -274,7 +276,7 @@ export function AttendanceWidget() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {!onBreak ? (
+          {breaksEnabled && (!onBreak ? (
             <Button
               variant="outline"
               onClick={handleStartBreak}
@@ -302,7 +304,7 @@ export function AttendanceWidget() {
               )}
               End Break
             </Button>
-          )}
+          ))}
           <Button
             onClick={() => setShowCheckOut(true)}
             variant="destructive"
