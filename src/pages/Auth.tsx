@@ -6,14 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Wallet, Eye, EyeOff, Loader2, Phone, WifiOff, RefreshCw } from 'lucide-react';
+import { Wallet, Eye, EyeOff, Loader2, Phone, Mail, ArrowLeft, WifiOff, RefreshCw } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { phoneToEmail } from '@/lib/auth-email';
 import { ORGANIZATION, BRAND } from '@/lib/brand';
 import { z } from 'zod';
 
 const phoneSchema = z.string().min(10, 'Please enter a valid phone number').max(15, 'Phone number too long');
+const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+
+const looksLikeEmail = (v: string) => v.includes('@');
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SIGN_IN_TIMEOUT_MS = 12000;
@@ -64,10 +67,15 @@ export default function Auth() {
     return localStorage.getItem('rememberMe') === 'true';
   });
 
-  const [loginPhone, setLoginPhone] = useState(() => {
-    return rememberMe ? localStorage.getItem('savedPhone') || '' : '';
+  // Two-step sign-in: 'identifier' (phone or email) then 'password'.
+  const [step, setStep] = useState<'identifier' | 'password'>('identifier');
+  const [identifier, setIdentifier] = useState(() => {
+    return rememberMe ? localStorage.getItem('savedIdentifier') || localStorage.getItem('savedPhone') || '' : '';
   });
   const [loginPassword, setLoginPassword] = useState('');
+
+  const identifierIsEmail = looksLikeEmail(identifier);
+  const cleanIdentifier = identifierIsEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '');
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -117,6 +125,21 @@ export default function Auth() {
     }
   };
 
+  // Step 1 → Step 2: validate the identifier, then reveal the password field.
+  const handleContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (identifierIsEmail) emailSchema.parse(cleanIdentifier);
+      else phoneSchema.parse(cleanIdentifier);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+        return;
+      }
+    }
+    setStep('password');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setNetworkError(false);
@@ -127,10 +150,9 @@ export default function Auth() {
       return;
     }
 
-    const cleanPhone = formatPhoneInput(loginPhone);
-
     try {
-      phoneSchema.parse(cleanPhone);
+      if (identifierIsEmail) emailSchema.parse(cleanIdentifier);
+      else phoneSchema.parse(cleanIdentifier);
       passwordSchema.parse(loginPassword);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -140,7 +162,7 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const pseudoEmail = phoneToEmail(cleanPhone);
+    const pseudoEmail = identifierIsEmail ? cleanIdentifier : phoneToEmail(cleanIdentifier);
     let isAuthenticated = false;
 
     try {
@@ -156,9 +178,10 @@ export default function Auth() {
           // Success
           if (rememberMe) {
             localStorage.setItem('rememberMe', 'true');
-            localStorage.setItem('savedPhone', cleanPhone);
+            localStorage.setItem('savedIdentifier', cleanIdentifier);
           } else {
             localStorage.removeItem('rememberMe');
+            localStorage.removeItem('savedIdentifier');
             localStorage.removeItem('savedPhone');
           }
           isAuthenticated = true;
@@ -265,78 +288,104 @@ export default function Auth() {
         <Card className="shadow-xl border-border/50">
           <CardHeader className="pb-4 text-center">
             <h2 className="text-xl font-semibold">Welcome Back</h2>
-            <p className="text-sm text-muted-foreground">Sign in with your phone number</p>
+            <p className="text-sm text-muted-foreground">
+              {step === 'identifier' ? 'Sign in with your phone number or email' : 'Enter your password to continue'}
+            </p>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="login-phone">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-phone"
-                    type="tel"
-                    placeholder="9876543210"
-                    value={loginPhone}
-                    onChange={e => setLoginPhone(formatPhoneInput(e.target.value))}
-                    required
-                    autoComplete="tel"
-                    className="pl-10"
-                    maxLength={15}
-                  />
+            {step === 'identifier' ? (
+              <form onSubmit={handleContinue} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-id">Phone number or email</Label>
+                  <div className="relative">
+                    {identifierIsEmail
+                      ? <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      : <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                    <Input
+                      id="login-id"
+                      type="text"
+                      inputMode="email"
+                      placeholder="9876543210 or you@email.com"
+                      value={identifier}
+                      onChange={e => setIdentifier(e.target.value)}
+                      required
+                      autoFocus
+                      autoComplete="username"
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Use the phone number registered by your organization.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Enter your registered phone number</p>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={e => setLoginPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
+                <Button type="submit" className="w-full">Continue</Button>
+
+                <p className="text-xs text-center text-muted-foreground pt-2">
+                  Contact your administrator if you don't have an account
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                {/* Chosen identifier + change */}
+                <button
+                  type="button"
+                  onClick={() => { setStep('identifier'); setLoginPassword(''); }}
+                  className="flex w-full items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {identifierIsEmail ? <Mail className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
+                    {cleanIdentifier}
+                  </span>
+                  <span className="ml-auto text-xs text-primary">Change</span>
+                </button>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={e => setLoginPassword(e.target.value)}
+                      required
+                      autoFocus
+                      autoComplete="current-password"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember-me"
-                  checked={rememberMe}
-                  onCheckedChange={checked => setRememberMe(checked === true)}
-                />
-                <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer select-none">
-                  Remember me
-                </Label>
-              </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={checked => setRememberMe(checked === true)}
+                  />
+                  <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer select-none">
+                    Remember me
+                  </Label>
+                </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-
-              <p className="text-xs text-center text-muted-foreground pt-2">
-                Contact your administrator if you don't have an account
-              </p>
-            </form>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</>
+                  ) : (
+                    'Sign In'
+                  )}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
 
