@@ -205,20 +205,76 @@ serve(async (req) => {
         await admin.from("user_permissions").delete().eq("user_id", user.id);
       }
       await admin.from("user_roles").upsert({ user_id: user.id, role }, { onConflict: "user_id,role", ignoreDuplicates: true });
+      // Extra individual permission grants layered on top of the template (e.g.
+      // salaries.view so an Administrator also sees confidential salary data).
+      const extraGrants = Array.isArray(body?.grant)
+        ? [...new Set(body.grant.map((s: unknown) => String(s).trim()).filter(Boolean))]
+        : [];
       let templateFound = false;
-      if (templateName && role !== "owner") {
-        const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", templateName).maybeSingle();
-        if (tmpl) { await admin.from("user_permissions").upsert({ user_id: user.id, template_id: (tmpl as { id: string }).id }, { onConflict: "user_id" }); templateFound = true; }
+      if ((templateName || extraGrants.length) && role !== "owner") {
+        const row: Record<string, unknown> = { user_id: user.id };
+        if (templateName) {
+          const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", templateName).maybeSingle();
+          if (tmpl) { row.template_id = (tmpl as { id: string }).id; templateFound = true; }
+        }
+        if (extraGrants.length) row.granted = extraGrants;
+        await admin.from("user_permissions").upsert(row, { onConflict: "user_id" });
       }
       // Optionally link this login to a staff record (by device/employee code) so
       // their "My Account" view shows their own attendance/advances.
-      let linkedStaff: string | null = null;
+      let linkedStaff: string | null = null; let sessionsRelinked = 0; let sessionsRelinkError: string | null = null; let staleOpenSkipped = 0;
       const linkCode = String(body.linkStaffCode || "").trim();
       if (linkCode) {
         const { data: st } = await admin.from("staff").select("id, full_name").eq("employee_id", linkCode).maybeSingle();
-        if (st) { await admin.from("staff").update({ user_id: user.id }).eq("id", (st as { id: string }).id); linkedStaff = (st as { full_name?: string }).full_name || linkCode; }
+        if (st) {
+          const sid = (st as { id: string }).id;
+          await admin.from("staff").update({ user_id: user.id }).eq("id", sid);
+          // Sessions backfilled before this login existed carry user_id=NULL; relink
+          // them so "My Account" shows the person's own history. The partial unique
+          // index attendance_sessions_one_open_per_user allows only ONE open
+          // (active/on_break) session per user_id, so: bulk-relink every CLOSED
+          // session, then relink only the single most-recent open one. Older stale
+          // opens (missed check-outs) are left unlinked.
+          const { error: e1 } = await admin.from("attendance_sessions")
+            .update({ user_id: user.id }).eq("staff_id", sid).is("user_id", null)
+            .not("status", "in", "(active,on_break)");
+          if (e1) sessionsRelinkError = e1.message;
+          const { data: opens } = await admin.from("attendance_sessions")
+            .select("id").eq("staff_id", sid).is("user_id", null).in("status", ["active", "on_break"])
+            .order("check_in_at", { ascending: false }).limit(1);
+          if (opens && opens.length) {
+            const { error: e2 } = await admin.from("attendance_sessions").update({ user_id: user.id }).eq("id", (opens[0] as { id: string }).id);
+            if (e2 && !sessionsRelinkError) sessionsRelinkError = e2.message;
+          }
+          const { count } = await admin.from("attendance_sessions").select("id", { count: "exact", head: true }).eq("staff_id", sid).eq("user_id", user.id);
+          const { count: stale } = await admin.from("attendance_sessions").select("id", { count: "exact", head: true }).eq("staff_id", sid).is("user_id", null).in("status", ["active", "on_break"]);
+          sessionsRelinked = count ?? 0;
+          staleOpenSkipped = stale ?? 0;
+          linkedStaff = (st as { full_name?: string }).full_name || linkCode;
+        }
       }
-      return json(200, { ok: true, email, userId: user.id, role, replaced: replace, template: role === "owner" ? null : templateName, templateFound, linkedStaff });
+      return json(200, { ok: true, email, userId: user.id, role, replaced: replace, template: role === "owner" ? null : templateName, templateFound, grants: extraGrants, linkedStaff, sessionsRelinked, staleOpenSkipped, sessionsRelinkError });
+    }
+
+    // Diagnostic: does this staff code have attendance, and is it linked to a login?
+    if (body?.staffAudit) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const code = String(body.linkStaffCode || body.code || "").trim();
+      const { data: st } = await admin.from("staff")
+        .select("id, full_name, employee_id, user_id, outlet_id, attendance_tracked").eq("employee_id", code).maybeSingle();
+      if (!st) return json(200, { ok: false, reason: "staff not found", code });
+      const sid = (st as { id: string }).id;
+      const uid = (st as { user_id?: string }).user_id ?? null;
+      const totalR = await admin.from("attendance_sessions").select("id", { count: "exact", head: true }).eq("staff_id", sid);
+      const nullR = await admin.from("attendance_sessions").select("id", { count: "exact", head: true }).eq("staff_id", sid).is("user_id", null);
+      const byUserR = uid
+        ? await admin.from("attendance_sessions").select("id", { count: "exact", head: true }).eq("staff_id", sid).eq("user_id", uid)
+        : { count: 0 };
+      const { data: sample } = await admin.from("attendance_sessions")
+        .select("work_date, check_in_at, check_out_at, user_id, status").eq("staff_id", sid)
+        .order("check_in_at", { ascending: false }).limit(5);
+      return json(200, { ok: true, staff: st, sessionsTotal: totalR.count ?? 0, sessionsNullUser: nullR.count ?? 0, sessionsMatchingStaffUser: byUserR.count ?? 0, recent: sample });
     }
 
     const jar = new Jar();
