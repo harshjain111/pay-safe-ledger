@@ -33,9 +33,12 @@ export interface StatutorySettings {
   pf_employee_rate: number;
   pf_employer_rate: number;
   pf_base_cap: number;
+  /** Wage the PF/ESI rate applies to: 'basic' component or 'gross' salary. */
+  pf_calc_base?: 'basic' | 'gross';
   esi_enabled: boolean;
   esi_employer_rate: number;
   esi_eligibility_ceiling: number;
+  esi_calc_base?: 'basic' | 'gross';
   pt_enabled: boolean;
   pt_monthly_amount: number;
   pt_min_gross: number;
@@ -196,12 +199,14 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
   const pfActive = !!(s?.pf_enabled && pfEnrolled);
   const pfRateEmployee = pfActive ? toAmount((cs as { pf_employee_rate_override?: number | null }).pf_employee_rate_override ?? s?.pf_employee_rate) : 0;
   const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
-  const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
+  // PF wage = basic component or gross salary, per the statutory setting (capped).
+  const pfWage = s?.pf_calc_base === 'basic' ? prorated.basic : proRataSalary;
+  const pfBase = pfActive ? Math.min(pfWage, s?.pf_base_cap ?? pfWage) : 0;
   const pfEmployee = pfActive ? round2((pfBase * pfRateEmployee) / 100) : 0;
   const pfEmployer = pfActive ? round2((pfBase * pfRateEmployer) / 100) : 0;
 
   const esiOn = !!(s?.esi_enabled && esiEnrolled);
-  const esiBase = proRataSalary;
+  const esiBase = s?.esi_calc_base === 'basic' ? prorated.basic : proRataSalary;
   // Eligibility is decided on the contractual MONTHLY wage vs the statutory
   // ceiling — NOT the pro-rated amount — so a mid-month joiner/leaver whose
   // monthly wage exceeds the ceiling stays ineligible. The deduction base

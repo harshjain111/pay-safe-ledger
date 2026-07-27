@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +22,11 @@ interface StatutoryRow {
   pf_employee_rate: number;
   pf_employer_rate: number;
   pf_base_cap: number;
+  pf_calc_base: 'basic' | 'gross';
   esi_enabled: boolean;
   esi_employer_rate: number;
   esi_eligibility_ceiling: number;
+  esi_calc_base: 'basic' | 'gross';
   pt_enabled: boolean;
   pt_monthly_amount: number;
   pt_min_gross: number;
@@ -39,9 +42,11 @@ const DEFAULTS: StatutoryRow = {
   pf_employee_rate: 12,
   pf_employer_rate: 12,
   pf_base_cap: 15000,
+  pf_calc_base: 'gross',
   esi_enabled: false,
   esi_employer_rate: 3.25,
   esi_eligibility_ceiling: 21000,
+  esi_calc_base: 'gross',
   pt_enabled: false,
   pt_monthly_amount: 200,
   pt_min_gross: 15000,
@@ -162,6 +167,17 @@ export function StatutorySettingsCard() {
                       onChange={(e) => set('pf_base_cap', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Statutory ceiling — usually ₹15,000</p>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Calculated on</Label>
+                    <Select value={row.pf_calc_base} onValueChange={(v) => set('pf_calc_base', v as 'basic' | 'gross')}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gross">Gross salary</SelectItem>
+                        <SelectItem value="basic">Basic component</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Wage the rate applies to (before the cap)</p>
+                  </div>
                   <div className="space-y-1.5 flex flex-col">
                     <Label className="text-xs">Auto-enroll new staff</Label>
                     <div className="flex items-center h-10 gap-2">
@@ -198,6 +214,17 @@ export function StatutorySettingsCard() {
                     <Input type="number" value={row.esi_eligibility_ceiling}
                       onChange={(e) => set('esi_eligibility_ceiling', toAmount(e.target.value))} />
                     <p className="text-[10px] text-muted-foreground">Default ₹21,000 gross/month</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Calculated on</Label>
+                    <Select value={row.esi_calc_base} onValueChange={(v) => set('esi_calc_base', v as 'basic' | 'gross')}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gross">Gross salary</SelectItem>
+                        <SelectItem value="basic">Basic component</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Wage the rate applies to</p>
                   </div>
                 </div>
               )}
