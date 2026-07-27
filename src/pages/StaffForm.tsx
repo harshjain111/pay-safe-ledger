@@ -72,6 +72,7 @@ export default function StaffForm() {
   const [panNumber, setPanNumber] = useState('');
   const [bankProofFile, setBankProofFile] = useState<File | null>(null);
   const [reportingManagerId, setReportingManagerId] = useState<string>('');
+  const [isManager, setIsManager] = useState(false);
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -117,14 +118,17 @@ export default function StaffForm() {
   // Outlet, department & designation master lists for the enrollment dropdowns.
   useEffect(() => {
     (async () => {
-      const [{ data: outletRows }, { data: deptRows }, { data: desigRows }] = await Promise.all([
+      const [{ data: outletRows }, { data: deptRows }, { data: desigRows }, { data: mgrRows }] = await Promise.all([
         supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
         supabase.from('departments').select('id, name').eq('is_active', true).order('name'),
         supabase.from('designations').select('id, name').eq('is_active', true).order('name'),
+        // Only staff explicitly designated as managers appear in the picker.
+        supabase.from('staff').select('id, full_name').eq('is_active', true).eq('is_manager' as never, true).order('full_name'),
       ]);
       setOutlets(outletRows || []);
       setDepartments(deptRows || []);
       setDesignations(desigRows || []);
+      setManagers((mgrRows as { id: string; full_name: string }[]) || []);
     })();
   }, []);
 
@@ -163,6 +167,7 @@ export default function StaffForm() {
         // HR profile
         setPhotoUrl(data.photo_url || null);
         setReportingManagerId(data.reporting_manager_id || '');
+        setIsManager(!!(data as { is_manager?: boolean }).is_manager);
         setLocation(data.location || '');
         setAddress(data.address || '');
         setDateOfBirth(data.date_of_birth || '');
@@ -201,14 +206,6 @@ export default function StaffForm() {
           }
         }
 
-        // Load potential managers (other active staff)
-        const { data: mgrs } = await supabase
-          .from('staff')
-          .select('id, full_name')
-          .eq('is_active', true)
-          .neq('id', id!)
-          .order('full_name');
-        setManagers(mgrs || []);
       }
     } catch (error) {
       console.error('Error fetching staff:', error);
@@ -357,6 +354,7 @@ export default function StaffForm() {
         // HR profile fields (anyone with edit access)
         updateData.photo_url = newPhotoUrl;
         updateData.reporting_manager_id = reportingManagerId || null;
+        updateData.is_manager = isManager;
         updateData.location = location.trim() || null;
         updateData.address = address.trim() || null;
         updateData.date_of_birth = dateOfBirth || null;
@@ -972,6 +970,14 @@ export default function StaffForm() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border p-3 flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="isManager" className="text-base font-medium">Is a manager</Label>
+                    <p className="text-xs text-muted-foreground">Managers can be assigned as a reporting manager for other staff.</p>
+                  </div>
+                  <Switch id="isManager" checked={isManager} onCheckedChange={setIsManager} />
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Reporting Manager</Label>
@@ -979,7 +985,7 @@ export default function StaffForm() {
                       <SelectTrigger className="bg-background"><SelectValue placeholder="None" /></SelectTrigger>
                       <SelectContent className="bg-popover">
                         <SelectItem value="none">— None —</SelectItem>
-                        {managers.map((m) => (
+                        {managers.filter((m) => m.id !== id).map((m) => (
                           <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
                         ))}
                       </SelectContent>

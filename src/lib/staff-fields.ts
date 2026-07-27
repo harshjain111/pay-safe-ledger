@@ -46,6 +46,7 @@ export const STAFF_SAFE_COLUMNS = [
   'attendance_tracked',
   'weekly_off_day',
   'reporting_manager_id',
+  'is_manager',
   'photo_url',
   'location',
   'address',
