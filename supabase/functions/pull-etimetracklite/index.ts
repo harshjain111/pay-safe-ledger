@@ -30,7 +30,7 @@ const DEVICE_KEY = Deno.env.get("ETIMETRACK_DEVICE_KEY") ?? "";
 
 const LOGIN_PATH = "/iclock/Default.aspx";
 const HOME_PATH = "/iclock/Main.aspx";
-const REPORT_PATH = "/iclock/Reports/CustomReport.aspx?Id=2";
+const REPORT_PATH = "/iclock/Manage/DeviceLogList.aspx";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-cron-secret" };
 const json = (s: number, b: unknown) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json", ...cors } });
@@ -153,28 +153,31 @@ async function login(jar: Jar) {
 
 // ---- dates -----------------------------------------------------------------
 function istNow(): Date { return new Date(Date.now() + 5.5 * 3600_000); }
-function fmtDate(d: Date, sample: string): string {
-  const dd = String(d.getUTCDate()).padStart(2, "0"), mm = String(d.getUTCMonth() + 1).padStart(2, "0"), yyyy = d.getUTCFullYear();
-  if (/^\d{4}-\d{2}-\d{2}/.test(sample)) return `${yyyy}-${mm}-${dd}`;
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(sample)) return `${mm}/${dd}/${yyyy}`;
-  return `${dd}-${mm}-${yyyy}`; // default dd-MM-yyyy (eSSL India)
-}
-/** eSSL LogDate (IST local) -> UTC ISO instant. Handles dd-MM-yyyy / yyyy-MM-dd / MM/dd/yyyy + HH:mm(:ss). */
+const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+/** eSSL Log Date (IST local) -> UTC ISO instant. Handles "25 Jul 2026 00:02:41"
+ *  and numeric dd-MM-yyyy / yyyy-MM-dd / MM/dd/yyyy + HH:mm(:ss). */
 function logDateToIso(s: string): string | null {
-  const m = s.trim().match(/^(\d{1,4})[-/](\d{1,2})[-/](\d{1,4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!m) return null;
-  let y: number, mo: number, d: number;
-  if (m[1].length === 4) { y = +m[1]; mo = +m[2]; d = +m[3]; }
-  else if (+m[1] > 12) { d = +m[1]; mo = +m[2]; y = +m[3]; }
-  else { d = +m[1]; mo = +m[2]; y = +m[3]; } // dd-MM-yyyy assumed for ambiguous
-  const utc = Date.UTC(y, mo - 1, d, +m[4], +m[5], +(m[6] || 0)) - 5.5 * 3600_000; // IST -> UTC
-  return new Date(utc).toISOString();
+  s = (s || "").trim();
+  let m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const mo = MONTHS[m[2].slice(0, 3).toLowerCase()];
+    if (mo) return new Date(Date.UTC(+m[3], mo - 1, +m[1], +m[4], +m[5], +(m[6] || 0)) - 5.5 * 3600_000).toISOString();
+  }
+  m = s.match(/^(\d{1,4})[-/](\d{1,2})[-/](\d{1,4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    let y: number, mo: number, d: number;
+    if (m[1].length === 4) { y = +m[1]; mo = +m[2]; d = +m[3]; } else { d = +m[1]; mo = +m[2]; y = +m[3]; }
+    return new Date(Date.UTC(y, mo - 1, d, +m[4], +m[5], +(m[6] || 0)) - 5.5 * 3600_000).toISOString();
+  }
+  return null;
 }
 
 function parseCsv(text: string): Record<string, string>[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
   if (lines.length < 2) return [];
-  const split = (l: string) => { const o: string[] = []; let c = "", q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === "," && !q) { o.push(c); c = ""; } else c += ch; } o.push(c); return o.map((x) => x.trim()); };
+  // Detect delimiter (eSSL "Excel" exports are often tab-separated).
+  const delim = (lines[0].match(/\t/g)?.length || 0) > (lines[0].match(/,/g)?.length || 0) ? "\t" : ",";
+  const split = (l: string) => { const o: string[] = []; let c = "", q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === delim && !q) { o.push(c); c = ""; } else c += ch; } o.push(c); return o.map((x) => x.trim()); };
   const headers = split(lines[0]);
   return lines.slice(1).map((l) => { const v = split(l); const r: Record<string, string> = {}; headers.forEach((h, i) => (r[h] = v[i] ?? "")); return r; });
 }
@@ -188,6 +191,31 @@ serve(async (req) => {
     const jar = new Jar();
     const diag = await login(jar);
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
+
+    if (body?.menu) {
+      const html = await (await get(`${BASE}${HOME_PATH}`, { method: "GET", headers: { Referer: `${BASE}${LOGIN_PATH}` } }, jar)).res.text();
+      const links = [...html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/gi)].map((a) => {
+        const href = (/\bhref\s*=\s*"([^"]*)"/i.exec(a[0]) || [])[1] || "";
+        const onclick = (/\bonclick\s*=\s*"([^"]*)"/i.exec(a[0]) || [])[1] || "";
+        const text = a[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        return { text, nav: (href && href !== "#" ? href : onclick).slice(0, 100) };
+      }).filter((l) => l.text && /report|log|record|export|matrix/i.test(l.text + l.nav)).slice(0, 50);
+      const reportUrls = [...new Set([...html.matchAll(/[A-Za-z0-9_./]*(?:Report|Log|Record|Export)[A-Za-z0-9_]*\.aspx(?:\?[A-Za-z0-9=&]+)?/gi)].map((m) => m[0]))].slice(0, 40);
+      return json(200, { ok: true, links, reportUrls });
+    }
+
+    if (body?.probeUrl) {
+      const path = String(body.probeUrl).replace(/^https?:\/\/[^/]+/, "").replace(/^\/?(iclock\/)?/, "");
+      const { res, finalUrl } = await get(`${BASE}/iclock/${path}`, { method: "GET", headers: { Referer: `${BASE}${HOME_PATH}` } }, jar);
+      const html = await res.text();
+      const inputs = parseInputs(html).filter((f) => !/VIEWSTATE|EVENTVALIDATION/.test(f.name)).map((f) => ({ name: f.name, type: f.type, value: f.value.slice(0, 25) }));
+      const selOpts: Record<string, { value: string; text: string }[]> = {};
+      for (const m of html.matchAll(/<select\b[^>]*\bname\s*=\s*"([^"]*)"[^>]*>([\s\S]*?)<\/select>/gi)) {
+        selOpts[m[1]] = [...m[2].matchAll(/<option\b[^>]*\bvalue\s*=\s*"([^"]*)"[^>]*>([^<]*)</gi)].map((o) => ({ value: o[1], text: o[2].trim() })).slice(0, 5);
+      }
+      const submits = [...html.matchAll(/<input\b[^>]*type\s*=\s*"(?:submit|button)"[^>]*>/gi)].map((m) => ({ name: (/\bname="([^"]*)"/i.exec(m[0]) || [])[1], value: (/\bvalue="([^"]*)"/i.exec(m[0]) || [])[1] }));
+      return json(200, { ok: true, finalUrl, onLogin: /Txt_Password/i.test(html), selOpts, submits: submits.slice(0, 15) });
+    }
 
     // ---- fetch the report form + submit it for the CSV ----------------------
     const { res: gres, finalUrl } = await get(`${BASE}${REPORT_PATH}`, { method: "GET", headers: { Referer: `${BASE}${HOME_PATH}` } }, jar);
@@ -207,28 +235,32 @@ serve(async (req) => {
       return json(200, { ok: true, finalUrl, submits, selectOptions: sel, hdn });
     }
 
-    // Date range = last 2 days -> today (IST). eSSL uses separate DD/MM/YYYY
-    // dropdowns whose option values are plain numbers (no leading zeros; MM 1-12).
-    const to = istNow(), from = new Date(to.getTime() - 2 * 86400_000);
-    const setDate = (p: string, d: Date) => {
-      params.set(`ReportProtoType$${p}DD`, String(d.getUTCDate()));
-      params.set(`ReportProtoType$${p}MM`, String(d.getUTCMonth() + 1));
-      params.set(`ReportProtoType$${p}YYYY`, String(d.getUTCFullYear()));
-    };
-    setDate("Drp_FromDate", from);
-    setDate("Drp_ToDate", to);
-    params.set("ReportProtoType$chk_IncludeHeader", "on"); // include the header row (column names)
-    params.set("ReportProtoType$btn_GenerateReport", "Generate Report");
+    // DeviceLogList filters within one month: from-day..to-day of month/year.
+    // Pull the current month, (today-2) -> today (IST), zero-padded values.
+    const now = istNow();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    params.set("ddlYear", String(now.getUTCFullYear()));
+    params.set("ddlMonth", pad(now.getUTCMonth() + 1));
+    params.set("ddlFromDate", pad(Math.max(1, now.getUTCDate() - 2)));
+    params.set("ddlToDate", pad(now.getUTCDate()));
+    params.set("drp_Devices", "0");     // all devices
+    params.set("drp_VerifyMode", "0");  // all verify modes
+    params.set("ddlSortBy", "LogDate");
+    params.set("ddlSortOrder", "Asc");
+    params.set("txtPageSize", "50000"); // don't let paging cap the export
+    params.set("btnExport", "Export");
 
     const csvRes = await get(`${BASE}${REPORT_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${REPORT_PATH}` }, body: params.toString() }, jar);
     const csvText = await csvRes.res.text();
     const ct = csvRes.res.headers.get("content-type") || "";
-    const looksCsv = /Employee Code/i.test(csvText.slice(0, 300)) || /text\/csv|octet-stream|application\/vnd/i.test(ct);
+    const looksCsv = /UserId|Log ?Date|Download Date|Employee Code/i.test(csvText.slice(0, 500)) || /excel|csv|octet-stream|vnd\./i.test(ct);
     if (!looksCsv) {
-      return json(200, { ok: false, stage: "report-post", reason: "response was not the CSV", contentType: ct, dateFields, clickedButton: btn?.name, head: csvText.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/\s+/g, " ").slice(0, 500) });
+      return json(200, { ok: false, stage: "report-post", reason: "response was not the CSV", contentType: ct, csvLen: csvText.length, head: csvText.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/\s+/g, " ").slice(0, 500) });
     }
 
-    // ---- map rows -> events -------------------------------------------------
+    // ---- map DeviceLogList rows -> events -----------------------------------
+    // Columns: Download Date | UserId | User Name | Log Date | Device Name |
+    //          Serial Number | Att State (Check-In/Check-Out) | Verify Mode | GPS
     const rows = parseCsv(csvText);
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
     const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -236,23 +268,32 @@ serve(async (req) => {
     const byCode = new Map<string, string>();
     for (const s of staff ?? []) if (s.employee_id) byCode.set(String(s.employee_id).trim(), s.id);
 
+    const col = (r: Record<string, string>, ...names: string[]) => {
+      for (const n of names) { const k = Object.keys(r).find((h) => h.trim().toLowerCase() === n.toLowerCase()); if (k && r[k]?.trim()) return r[k].trim(); }
+      return "";
+    };
+
     type Ev = { staff_id: string; ts: string; work_date: string; raw_ref: string };
-    const perStaffDay = new Map<string, Ev[]>();
+    const events: (Ev & { direction: "in" | "out" })[] = [];
+    const undirected = new Map<string, Ev[]>();
     let unmatched = 0, badDate = 0;
     for (const r of rows) {
-      const staffId = byCode.get((r["Employee Code In Device"] || "").trim()) || byCode.get((r["Employee Code"] || "").trim());
-      if (!staffId) { unmatched++; continue; }
-      const iso = logDateToIso(r["LogDate"] || "");
+      const code = col(r, "UserId", "Employee Code In Device", "User Id", "Employee Code");
+      const staffId = code ? byCode.get(code) : undefined;
+      if (!staffId) { if (code) unmatched++; continue; }
+      const rawDate = col(r, "Log Date", "LogDate");
+      const iso = logDateToIso(rawDate);
       if (!iso) { badDate++; continue; }
       const ist = new Date(new Date(iso).getTime() + 5.5 * 3600_000);
       const wd = `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, "0")}-${String(ist.getUTCDate()).padStart(2, "0")}`;
-      const key = `${staffId}|${wd}`;
-      (perStaffDay.get(key) ?? perStaffDay.set(key, []).get(key)!).push({ staff_id: staffId, ts: iso, work_date: wd, raw_ref: `etl:${r["Employee Code In Device"]}:${r["LogDate"]}` });
+      const raw_ref = `etl:${code}:${rawDate}`;
+      const att = col(r, "Att State", "AttState", "Status", "Direction").toLowerCase();
+      if (att.includes("out")) events.push({ staff_id: staffId, direction: "out", ts: iso, work_date: wd, raw_ref });
+      else if (att.includes("in")) events.push({ staff_id: staffId, direction: "in", ts: iso, work_date: wd, raw_ref });
+      else { const key = `${staffId}|${wd}`; (undirected.get(key) ?? undirected.set(key, []).get(key)!).push({ staff_id: staffId, ts: iso, work_date: wd, raw_ref }); }
     }
-
-    // derive in/out by per-staff per-day alternation (1st=in, 2nd=out, ...)
-    const events: (Ev & { direction: "in" | "out" })[] = [];
-    for (const list of perStaffDay.values()) {
+    // Rows with no Att State fall back to per-day in/out alternation.
+    for (const list of undirected.values()) {
       list.sort((a, b) => a.ts.localeCompare(b.ts));
       list.forEach((e, i) => events.push({ ...e, direction: i % 2 === 0 ? "in" : "out" }));
     }
