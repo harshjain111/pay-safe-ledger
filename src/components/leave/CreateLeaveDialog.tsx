@@ -26,6 +26,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { NotificationEvents } from '@/lib/notifications';
 import { fetchLeaveTypes, computeLeaveBalancesForStaff, type LeaveTypeRow } from '@/lib/leave';
 
 interface CreateLeaveDialogProps {
@@ -47,7 +48,7 @@ export function CreateLeaveDialog({
   onSuccess,
   staffId,
 }: CreateLeaveDialogProps) {
-  const { user, userRole } = useAuth();
+  const { user, userRole, isAccountant, accountingMode, staffData } = useAuth();
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState(staffId || '');
   const [leaveDate, setLeaveDate] = useState<Date>();
@@ -59,9 +60,13 @@ export function CreateLeaveDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isStaff = userRole === 'staff';
-  const canSetDeduction = userRole === 'owner' || userRole === 'admin' || userRole === 'accountant';
+  // Personal self-request context: a staff member, or an accountant/admin who has
+  // switched to "My Account". These are submitted to the owner as PENDING (never
+  // self-approved), and the person requests only for themselves.
+  const isPersonalRequest = isStaff || (isAccountant && !accountingMode);
+  const canSetDeduction = !isPersonalRequest && (userRole === 'owner' || userRole === 'admin' || userRole === 'accountant');
 
-  const targetStaffId = isStaff ? staffId : selectedStaffId;
+  const targetStaffId = isPersonalRequest ? staffId : selectedStaffId;
   const selectedType = leaveTypes.find((t) => t.id === selectedTypeId) ?? null;
 
   const fetchStaff = useCallback(async () => {
@@ -129,7 +134,7 @@ export function CreateLeaveDialog({
       toast({ title: 'Validation Error', description: 'Please select a leave type.', variant: 'destructive' });
       return;
     }
-    if (isStaff && !remarks.trim()) {
+    if (isPersonalRequest && !remarks.trim()) {
       toast({ title: 'Validation Error', description: 'Please provide a reason for your leave request.', variant: 'destructive' });
       return;
     }
@@ -145,11 +150,11 @@ export function CreateLeaveDialog({
         // Keep the legacy enum in sync for back-compat (paid vs salary-impacting).
         leave_type: (selectedType.is_paid ? 'paid' : 'unpaid') as 'paid' | 'unpaid',
         deduction_days: deduction,
-        status: isStaff ? ('pending' as const) : ('approved' as const),
+        status: isPersonalRequest ? ('pending' as const) : ('approved' as const),
         remarks: remarks || undefined,
         created_by: user?.id,
-        approved_by: !isStaff ? user?.id : undefined,
-        approved_at: !isStaff ? new Date().toISOString() : undefined,
+        approved_by: !isPersonalRequest ? user?.id : undefined,
+        approved_at: !isPersonalRequest ? new Date().toISOString() : undefined,
       };
 
       const { error } = await supabase.from('leave_records').insert([insertData]);
@@ -158,10 +163,18 @@ export function CreateLeaveDialog({
         throw error;
       }
 
+      // Personal self-requests go to the owner for approval — notify them.
+      if (isPersonalRequest) {
+        await NotificationEvents.leaveRequested(
+          staffData?.full_name || 'A team member',
+          format(leaveDate, 'dd MMM yyyy'),
+        );
+      }
+
       toast({
-        title: isStaff ? 'Leave Request Submitted' : 'Leave Recorded',
-        description: isStaff
-          ? 'Your leave request has been submitted for approval.'
+        title: isPersonalRequest ? 'Leave Request Submitted' : 'Leave Recorded',
+        description: isPersonalRequest
+          ? 'Your leave request has been submitted to the owner for approval.'
           : 'Leave record has been created and approved.',
       });
 

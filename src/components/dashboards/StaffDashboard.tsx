@@ -7,6 +7,7 @@ import { useStaffBalance } from '@/hooks/useStaffBalance';
 import { MyLeaveBalanceCard } from './MyLeaveBalanceCard';
 import { LanguageToggle } from '@/components/staff/LanguageToggle';
 import { QuickAdvanceForm } from '@/components/staff/QuickAdvanceForm';
+import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
 import { AttendanceWidget } from '@/components/attendance/AttendanceWidget';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import {
   Wallet,
   TrendingUp,
   Receipt,
+  CalendarPlus,
   Clock,
   CheckCircle2,
   XCircle,
@@ -49,6 +51,7 @@ export function StaffDashboard() {
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   
   const [showAdvanceForm, setShowAdvanceForm] = useState(false);
+  const [showLeaveForm, setShowLeaveForm] = useState(false);
 
   const fetchRecentItems = useCallback(async () => {
     if (!staffData?.id) return;
@@ -293,6 +296,16 @@ export function StaffDashboard() {
             <Receipt className="mr-3 h-6 w-6" />
             {t('request_expense')}
           </Button>
+
+          <Button
+            onClick={() => setShowLeaveForm(true)}
+            variant="secondary"
+            className="w-full h-16 text-lg font-semibold shadow-lg"
+            size="lg"
+          >
+            <CalendarPlus className="mr-3 h-6 w-6" />
+            {t('request_leave')}
+          </Button>
         </div>
 
         {/* Recent Requests */}
@@ -350,6 +363,15 @@ export function StaffDashboard() {
         onOpenChange={setShowAdvanceForm}
         onSuccess={handleFormSuccess}
       />
+
+      {staffData?.id && (
+        <CreateLeaveDialog
+          open={showLeaveForm}
+          onOpenChange={setShowLeaveForm}
+          staffId={staffData.id}
+          onSuccess={handleFormSuccess}
+        />
+      )}
     </div>
   );
 }

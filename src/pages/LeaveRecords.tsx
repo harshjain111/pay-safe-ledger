@@ -39,7 +39,7 @@ interface StaffOption {
 }
 
 export default function LeaveRecords() {
-  const { userRole, staffData } = useAuth();
+  const { userRole, staffData, user } = useAuth();
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [leaveTypeNames, setLeaveTypeNames] = useState<Record<string, string>>({});
@@ -83,7 +83,7 @@ export default function LeaveRecords() {
 
       let query = supabase
         .from('leave_records')
-        .select(`*, staff:staff_id ( id, full_name, employee_id )`)
+        .select(`*, staff:staff_id ( id, full_name, employee_id, user_id )`)
         .gte('leave_date', format(monthStart, 'yyyy-MM-dd'))
         .lte('leave_date', format(monthEnd, 'yyyy-MM-dd'))
         .order('leave_date', { ascending: false });
@@ -422,8 +422,10 @@ export default function LeaveRecords() {
                       )}
 
                       <TableCell className="text-right">
-                        {canApprove && record.status === 'pending' ? (
+                        {canApprove && record.status === 'pending' && record.staff?.user_id !== user?.id ? (
                           <Button size="sm" onClick={() => handleReviewClick(record)}>Review</Button>
+                        ) : canApprove && record.status === 'pending' ? (
+                          <span className="text-xs text-muted-foreground" title="You can't approve your own leave">Awaiting owner</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}

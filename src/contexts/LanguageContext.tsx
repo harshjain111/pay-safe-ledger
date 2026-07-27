@@ -21,6 +21,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Action buttons
     'request_advance': 'Request Advance',
     'request_expense': 'Request Expense',
+    'request_leave': 'Request Leave',
     
     // Recent requests
     'recent_requests': 'Recent Requests',
@@ -95,6 +96,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Action buttons
     'request_advance': 'एडवांस मांगें',
     'request_expense': 'खर्चा भरें',
+    'request_leave': 'छुट्टी मांगें',
     
     // Recent requests
     'recent_requests': 'हाल की रिक्वेस्ट',
@@ -169,6 +171,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Action buttons
     'request_advance': 'এডভান্স বিচাৰক',
     'request_expense': 'খৰচ দাখিল কৰক',
+    'request_leave': 'ছুটী বিচাৰক',
     
     // Recent requests
     'recent_requests': 'শেহতীয়া অনুৰোধ',
