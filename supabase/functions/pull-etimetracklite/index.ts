@@ -196,16 +196,21 @@ serve(async (req) => {
       const email = String(body.email || "").trim().toLowerCase();
       const role = String(body.role || "accountant");
       const templateName = String(body.template || "");
+      const replace = body?.replace === true || role === "owner"; // owner = sole role, no custom template
       const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
       const user = (list?.users || []).find((u) => (u.email || "").toLowerCase() === email);
       if (!user) return json(200, { ok: false, reason: "auth user not found — create the login first", email });
+      if (replace) {
+        await admin.from("user_roles").delete().eq("user_id", user.id);
+        await admin.from("user_permissions").delete().eq("user_id", user.id);
+      }
       await admin.from("user_roles").upsert({ user_id: user.id, role }, { onConflict: "user_id,role", ignoreDuplicates: true });
       let templateFound = false;
-      if (templateName) {
+      if (templateName && role !== "owner") {
         const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", templateName).maybeSingle();
         if (tmpl) { await admin.from("user_permissions").upsert({ user_id: user.id, template_id: (tmpl as { id: string }).id }, { onConflict: "user_id" }); templateFound = true; }
       }
-      return json(200, { ok: true, email, userId: user.id, role, template: templateName, templateFound });
+      return json(200, { ok: true, email, userId: user.id, role, replaced: replace, template: role === "owner" ? null : templateName, templateFound });
     }
 
     const jar = new Jar();
