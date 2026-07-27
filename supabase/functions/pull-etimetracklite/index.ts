@@ -11,6 +11,13 @@
 // ============================================================================
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import CryptoJS from "https://esm.sh/crypto-js@4.2.0";
+
+/** Replicates the login page's Encrypt(): AES-128-ECB(password, key=UTF8(txtKey)) -> base64. */
+function encPassword(plain: string, txtKey: string): string {
+  const key = CryptoJS.enc.Utf8.parse(txtKey);
+  return CryptoJS.AES.encrypt(plain, key, { mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7 }).toString();
+}
 
 const BASE = (Deno.env.get("ETIMETRACK_BASE_URL") ?? "").replace(/\/+$/, "");
 const USER = Deno.env.get("ETIMETRACK_USER") ?? "";
@@ -32,8 +39,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 class Jar {
   private c = new Map<string, string>();
   header() { return [...this.c].map(([k, v]) => `${k}=${v}`).join("; "); }
+  names() { return [...this.c.keys()]; }
+  value(k: string) { return this.c.get(k); }
   absorb(res: Response) {
-    const list = (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [];
+    // Prefer getSetCookie() (proper multi-cookie API); fall back to a raw parse.
+    let list = (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [];
+    if (list.length === 0) {
+      const raw = res.headers.get("set-cookie");
+      if (raw) list = raw.split(/,(?=[^;]+?=)/); // split on comma before a new name=
+    }
     for (const sc of list) {
       const f = sc.split(";")[0], i = f.indexOf("=");
       if (i > 0) this.c.set(f.slice(0, i).trim(), f.slice(i + 1).trim());
@@ -108,20 +122,31 @@ async function get(url: string, init: RequestInit, jar: Jar): Promise<{ res: Res
   throw new Error("too many redirects");
 }
 
-async function login(jar: Jar): Promise<void> {
+async function login(jar: Jar) {
   const page = await (await get(`${BASE}${LOGIN_PATH}`, { method: "GET" }, jar)).res.text();
+  const inputs = parseInputs(page);
+  const txtKey = inputs.find((f) => f.name === "StaffloginDialog$txtKey")?.value || "";
   const form = new URLSearchParams();
-  for (const f of parseInputs(page)) {
+  for (const f of inputs) {
     if (/^(__EVENTTARGET|__EVENTARGUMENT|__VIEWSTATE|__VIEWSTATEGENERATOR)$/.test(f.name) || f.name === "StaffloginDialog$txtKey") form.set(f.name, f.value);
   }
   form.set("StaffloginDialog$txt_LoginName", USER);
-  form.set("StaffloginDialog$Txt_Password", PASS);
+  // Password is AES-encrypted with the per-load txtKey nonce, exactly as the page's Encrypt() does.
+  form.set("StaffloginDialog$Txt_Password", txtKey ? encPassword(PASS, txtKey) : PASS);
   form.set("StaffloginDialog$Btn_Ok", "Login");
-  const { res } = await get(`${BASE}${LOGIN_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() }, jar);
-  const body = res.status === 200 ? await res.text() : "";
-  if (res.status === 200 && /Txt_Password/i.test(body)) throw new Error("Login failed (still on login page)");
+  const p = await get(`${BASE}${LOGIN_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${LOGIN_PATH}` }, body: form.toString() }, jar);
+  const pText = await p.res.text();
+  const authBefore = jar.value("AuthToken");
   // Establish the session on the home page (some eSSL builds gate reports otherwise).
-  await get(`${BASE}${HOME_PATH}`, { method: "GET" }, jar).catch(() => {});
+  const m = await get(`${BASE}${HOME_PATH}`, { method: "GET", headers: { Referer: `${BASE}${LOGIN_PATH}` } }, jar).catch(() => null);
+  const mText = m ? await m.res.text() : "";
+  return {
+    loginFinalUrl: p.finalUrl,
+    stillOnLogin: /Txt_Password/i.test(pText),
+    mainFinalUrl: m?.finalUrl ?? "(err)",
+    mainOk: m ? !/LogOut/i.test(m.finalUrl) && !/Txt_Password/i.test(mText) : false,
+    authToken: (authBefore || "").slice(0, 8),
+  };
 }
 
 // ---- dates -----------------------------------------------------------------
@@ -159,13 +184,14 @@ serve(async (req) => {
     if (!BASE || !USER || !PASS) return json(500, { error: "Missing ETIMETRACK_* secrets" });
     const body = await req.json().catch(() => ({}));
     const jar = new Jar();
-    await login(jar);
+    const diag = await login(jar);
+    if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
 
     // ---- fetch the report form + submit it for the CSV ----------------------
     const { res: gres, finalUrl } = await get(`${BASE}${REPORT_PATH}`, { method: "GET" }, jar);
     const formHtml = await gres.text();
     if (/Txt_Password/i.test(formHtml) || /LogOut\.aspx/i.test(finalUrl)) {
-      return json(200, { ok: false, stage: "report-page", reason: "session bounced to login/logout", finalUrl, hint: "eval server single-session — ensure no human is logged in as this eSSL user, or use a dedicated connector user." });
+      return json(200, { ok: false, stage: "report-page", reason: "session bounced to login/logout", finalUrl, cookies: jar.names(), hint: "AuthToken cookie likely not captured/valid at login." });
     }
 
     const { params, dateFields, submits } = serializeForm(formHtml);
