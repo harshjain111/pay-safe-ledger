@@ -108,12 +108,13 @@ async function once(url: string, init: RequestInit, jar: Jar, tries = 3): Promis
   throw new Error("unreachable");
 }
 
-async function get(url: string, init: RequestInit, jar: Jar): Promise<{ res: Response; finalUrl: string }> {
+async function get(url: string, init: RequestInit, jar: Jar, trace?: { status: number; url: string; loc?: string }[]): Promise<{ res: Response; finalUrl: string }> {
   let target = url, cur = init;
   for (let hop = 0; hop < 6; hop++) {
     const res = await once(target, cur, jar);
+    const loc = res.headers.get("location") || undefined;
+    trace?.push({ status: res.status, url: target.replace(BASE, ""), loc: loc?.replace(BASE, "") });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
-      const loc = res.headers.get("location");
       if (!loc) return { res, finalUrl: target };
       target = new URL(loc, target).toString(); cur = { method: "GET" }; continue;
     }
@@ -134,18 +135,19 @@ async function login(jar: Jar) {
   // Password is AES-encrypted with the per-load txtKey nonce, exactly as the page's Encrypt() does.
   form.set("StaffloginDialog$Txt_Password", txtKey ? encPassword(PASS, txtKey) : PASS);
   form.set("StaffloginDialog$Btn_Ok", "Login");
-  const p = await get(`${BASE}${LOGIN_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${LOGIN_PATH}` }, body: form.toString() }, jar);
-  const pText = await p.res.text();
-  const authBefore = jar.value("AuthToken");
-  // Establish the session on the home page (some eSSL builds gate reports otherwise).
+  // POST WITHOUT following, so we can read the AuthToken the login sets before anything clears it.
+  const pRes = await once(`${BASE}${LOGIN_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${LOGIN_PATH}` }, body: form.toString() }, jar);
+  const postStatus = pRes.status;
+  const postLoc = (pRes.headers.get("location") || "").replace(BASE, "");
+  const authAfterPost = jar.value("AuthToken") || "";
+  // Visit the home page to establish/verify the session.
   const m = await get(`${BASE}${HOME_PATH}`, { method: "GET", headers: { Referer: `${BASE}${LOGIN_PATH}` } }, jar).catch(() => null);
   const mText = m ? await m.res.text() : "";
   return {
-    loginFinalUrl: p.finalUrl,
-    stillOnLogin: /Txt_Password/i.test(pText),
+    postStatus, postLoc,
+    authAfterPost: authAfterPost.slice(0, 10), authLen: authAfterPost.length,
     mainFinalUrl: m?.finalUrl ?? "(err)",
     mainOk: m ? !/LogOut/i.test(m.finalUrl) && !/Txt_Password/i.test(mText) : false,
-    authToken: (authBefore || "").slice(0, 8),
   };
 }
 
@@ -188,26 +190,37 @@ serve(async (req) => {
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
 
     // ---- fetch the report form + submit it for the CSV ----------------------
-    const { res: gres, finalUrl } = await get(`${BASE}${REPORT_PATH}`, { method: "GET" }, jar);
+    const { res: gres, finalUrl } = await get(`${BASE}${REPORT_PATH}`, { method: "GET", headers: { Referer: `${BASE}${HOME_PATH}` } }, jar);
     const formHtml = await gres.text();
     if (/Txt_Password/i.test(formHtml) || /LogOut\.aspx/i.test(finalUrl)) {
       return json(200, { ok: false, stage: "report-page", reason: "session bounced to login/logout", finalUrl, cookies: jar.names(), hint: "AuthToken cookie likely not captured/valid at login." });
     }
 
-    const { params, dateFields, submits } = serializeForm(formHtml);
+    const { params, submits } = serializeForm(formHtml);
     if (body?.discover) {
-      return json(200, { ok: true, finalUrl, dateFields, submits, htmlLen: formHtml.length, sampleFields: [...params.keys()].slice(0, 40) });
+      const sel: Record<string, { value: string; text: string }[]> = {};
+      for (const m of formHtml.matchAll(/<select\b[^>]*\bname\s*=\s*"([^"]*)"[^>]*>([\s\S]*?)<\/select>/gi)) {
+        if (!/exportToCsv|Drp_(From|To)Date|Format|export/i.test(m[1])) continue;
+        sel[m[1]] = [...m[2].matchAll(/<option\b[^>]*\bvalue\s*=\s*"([^"]*)"[^>]*>([^<]*)</gi)].map((o) => ({ value: o[1], text: o[2].trim() })).slice(0, 8);
+      }
+      const hdn = Object.fromEntries([...params].filter(([k]) => /Hdn_|Export|IncludeHeader|lst_export/i.test(k)).map(([k, v]) => [k, (v || "").slice(0, 100)]));
+      return json(200, { ok: true, finalUrl, submits, selectOptions: sel, hdn });
     }
 
-    // date range: last 2 days -> today (IST), matching the field's own format
+    // Date range = last 2 days -> today (IST). eSSL uses separate DD/MM/YYYY
+    // dropdowns whose option values are plain numbers (no leading zeros; MM 1-12).
     const to = istNow(), from = new Date(to.getTime() - 2 * 86400_000);
-    const sample = dateFields.length ? (params.get(dateFields[0]) || "") : "";
-    for (const f of dateFields) params.set(f, /to|end/i.test(f) ? fmtDate(to, sample) : fmtDate(from, sample));
-    // click the export/download button (prefer CSV/export over view)
-    const btn = submits.find((b) => b.name && /export|csv|excel|download/i.test(b.value + b.name)) || submits.find((b) => b.name && /view|show|generate|report|search|go|ok/i.test(b.value + b.name)) || submits.find((b) => b.name);
-    if (btn?.name) params.set(btn.name, btn.value || "");
+    const setDate = (p: string, d: Date) => {
+      params.set(`ReportProtoType$${p}DD`, String(d.getUTCDate()));
+      params.set(`ReportProtoType$${p}MM`, String(d.getUTCMonth() + 1));
+      params.set(`ReportProtoType$${p}YYYY`, String(d.getUTCFullYear()));
+    };
+    setDate("Drp_FromDate", from);
+    setDate("Drp_ToDate", to);
+    params.set("ReportProtoType$chk_IncludeHeader", "on"); // include the header row (column names)
+    params.set("ReportProtoType$btn_GenerateReport", "Generate Report");
 
-    const csvRes = await get(`${BASE}${REPORT_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() }, jar);
+    const csvRes = await get(`${BASE}${REPORT_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${REPORT_PATH}` }, body: params.toString() }, jar);
     const csvText = await csvRes.res.text();
     const ct = csvRes.res.headers.get("content-type") || "";
     const looksCsv = /Employee Code/i.test(csvText.slice(0, 300)) || /text\/csv|octet-stream|application\/vnd/i.test(ct);
@@ -244,7 +257,7 @@ serve(async (req) => {
       list.forEach((e, i) => events.push({ ...e, direction: i % 2 === 0 ? "in" : "out" }));
     }
 
-    if (body?.debug) return json(200, { ok: true, stage: "debug", rows: rows.length, matched: events.length, unmatched, badDate, sampleEvent: events[0] ?? null, sampleRow: rows[0] ?? null });
+    if (body?.debug) return json(200, { ok: true, stage: "debug", ct, csvLen: csvText.length, nonBlank: csvText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 12), headers: rows.length ? Object.keys(rows[0]) : [], rows: rows.length, matched: events.length, unmatched, badDate, sampleRow: rows[0] ?? null, sampleEvent: events[0] ?? null });
 
     // ---- feed ingest-punches ------------------------------------------------
     let ingest: unknown = null;
