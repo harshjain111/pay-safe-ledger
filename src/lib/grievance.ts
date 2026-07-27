@@ -5,6 +5,8 @@
 // carries no identity. We never attach the user, never call the authenticated
 // supabase client here. That is what makes it anonymous end-to-end.
 
+import { supabase } from '@/integrations/supabase/client';
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
@@ -23,6 +25,8 @@ export interface GrievanceInput {
   message?: string;
   photo?: Blob | null;
   voice?: Blob | null;
+  /** When false, the submitter is recorded (resolved server-side from their JWT). Default true. */
+  anonymous?: boolean;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -35,9 +39,11 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 export async function submitGrievance(input: GrievanceInput): Promise<void> {
+  const anonymous = input.anonymous !== false; // default anonymous
   const payload: Record<string, unknown> = {
     category: input.category,
     message: input.message ?? '',
+    anonymous,
   };
   if (input.photo) {
     payload.photoBase64 = await blobToDataUrl(input.photo);
@@ -48,12 +54,19 @@ export async function submitGrievance(input: GrievanceInput): Promise<void> {
     payload.voiceType = input.voice.type || 'audio/webm';
   }
 
+  // Anonymous → anon key only (no identity). Not anonymous → send the user's
+  // session token so the server can resolve WHO submitted (verified, not spoofable).
+  let authToken = ANON_KEY;
+  if (!anonymous) {
+    const { data } = await supabase.auth.getSession();
+    authToken = data.session?.access_token ?? ANON_KEY;
+  }
+
   const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-grievance`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // Anon key only — NOT the user's session. No identity is sent.
-      Authorization: `Bearer ${ANON_KEY}`,
+      Authorization: `Bearer ${authToken}`,
       apikey: ANON_KEY,
     },
     body: JSON.stringify(payload),

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -10,6 +11,7 @@ import {
   ShieldCheck, Mic, Square, Trash2, ImagePlus, Loader2, CheckCircle2, Send,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { GRIEVANCE_CATEGORIES, submitGrievance } from '@/lib/grievance';
 
 const MAX_ATTACH = 8 * 1024 * 1024; // 8 MB
@@ -19,6 +21,7 @@ export default function Grievance() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [anonymous, setAnonymous] = useState(true);
 
   // photo
   const [photo, setPhoto] = useState<File | null>(null);
@@ -69,7 +72,7 @@ export default function Grievance() {
     }
     setSubmitting(true);
     try {
-      await submitGrievance({ category, message: message.trim(), photo, voice });
+      await submitGrievance({ category, message: message.trim(), photo, voice, anonymous });
       setDone(true);
     } catch (e) {
       toast({ title: 'Could not submit', description: e instanceof Error ? e.message : 'Please try again.', variant: 'destructive' });
@@ -84,10 +87,13 @@ export default function Grievance() {
         <Card className="text-center">
           <CardContent className="py-12 space-y-4">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-            <h2 className="text-xl font-semibold">Submitted anonymously</h2>
+            <h2 className="text-xl font-semibold">{anonymous ? 'Submitted anonymously' : 'Concern submitted'}</h2>
             <p className="text-sm text-muted-foreground">
-              Thank you. Your concern has been recorded with <strong>no link to your identity</strong>.
-              The management team will review it.
+              {anonymous ? (
+                <>Thank you. Your concern has been recorded with <strong>no link to your identity</strong>. The management team will review it.</>
+              ) : (
+                <>Thank you. Your concern has been submitted <strong>with your name</strong> so management can follow up with you.</>
+              )}
             </p>
             <Button variant="outline" onClick={() => { setDone(false); setMessage(''); setPhoto(null); setPhotoPreview(null); clearVoice(); }}>
               Raise another
@@ -111,14 +117,32 @@ export default function Grievance() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Anonymity assurance */}
-          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-            <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">This is fully anonymous.</span> We do not record who you
-              are — no name, no account, nothing. Even the exact time isn't stored.
-            </p>
-          </div>
+          {/* Anonymous toggle — prominent by design */}
+          <label
+            htmlFor="grievance-anon"
+            className={cn(
+              'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors',
+              anonymous ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-amber-500/50 bg-amber-500/10',
+            )}
+          >
+            <Checkbox
+              id="grievance-anon"
+              checked={anonymous}
+              onCheckedChange={(v) => setAnonymous(v === true)}
+              className="mt-0.5 h-6 w-6"
+            />
+            <div className="space-y-0.5">
+              <span className="flex items-center gap-2 text-base font-semibold">
+                <ShieldCheck className={cn('h-5 w-5', anonymous ? 'text-emerald-600' : 'text-amber-600')} />
+                Submit anonymously
+              </span>
+              <p className="text-sm text-muted-foreground">
+                {anonymous
+                  ? 'Your identity is NOT recorded — no name, no account. Uncheck if you want management to know it’s you.'
+                  : 'Your name WILL be shared with management for this concern so they can follow up with you.'}
+              </p>
+            </div>
+          </label>
 
           <div className="space-y-1.5">
             <Label>Category</Label>
@@ -178,7 +202,7 @@ export default function Grievance() {
           </div>
 
           <Button onClick={onSubmit} disabled={submitting} className="w-full gap-2">
-            {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</> : <><Send className="h-4 w-4" /> Submit anonymously</>}
+            {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</> : <><Send className="h-4 w-4" /> {anonymous ? 'Submit anonymously' : 'Submit concern'}</>}
           </Button>
         </CardContent>
       </Card>

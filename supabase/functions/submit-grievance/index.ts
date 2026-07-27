@@ -43,6 +43,8 @@ serve(async (req) => {
     const body = await req.json();
     const category = typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : "other";
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 5000) : "";
+    // Anonymous unless the submitter EXPLICITLY opted out (anonymous === false).
+    const anonymous = body.anonymous !== false;
 
     // Service-role client — writes with no user context.
     const admin = createClient(
@@ -50,6 +52,23 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
+
+    // Identity is recorded ONLY for a non-anonymous submission, and only as
+    // resolved from the caller's own JWT — never from a client-supplied name, so
+    // one worker cannot file a grievance under another's identity.
+    let submitted_by: string | null = null;
+    let submitted_by_name: string | null = null;
+    if (!anonymous) {
+      const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+      if (token) {
+        const { data: u } = await admin.auth.getUser(token);
+        if (u?.user) {
+          submitted_by = u.user.id;
+          const { data: st } = await admin.from("staff").select("full_name").eq("user_id", u.user.id).maybeSingle();
+          submitted_by_name = (st as { full_name?: string } | null)?.full_name ?? u.user.email ?? null;
+        }
+      }
+    }
 
     async function uploadMaybe(b64?: string, mime?: string): Promise<string | null> {
       if (!b64 || typeof b64 !== "string") return null;
@@ -78,6 +97,8 @@ serve(async (req) => {
       message: message || null,
       photo_path,
       voice_path,
+      submitted_by,
+      submitted_by_name,
     });
     if (insErr) throw insErr;
 
