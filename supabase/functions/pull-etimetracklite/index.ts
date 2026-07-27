@@ -188,6 +188,26 @@ serve(async (req) => {
     if (!CRON_SECRET || (req.headers.get("x-cron-secret") ?? "") !== CRON_SECRET) return json(401, { error: "Unauthorized" });
     if (!BASE || !USER || !PASS) return json(500, { error: "Missing ETIMETRACK_* secrets" });
     const body = await req.json().catch(() => ({}));
+
+    // Assign a role + rights template to an EXISTING login (no eSSL needed).
+    if (body?.grantAccess) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const email = String(body.email || "").trim().toLowerCase();
+      const role = String(body.role || "accountant");
+      const templateName = String(body.template || "");
+      const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const user = (list?.users || []).find((u) => (u.email || "").toLowerCase() === email);
+      if (!user) return json(200, { ok: false, reason: "auth user not found — create the login first", email });
+      await admin.from("user_roles").upsert({ user_id: user.id, role }, { onConflict: "user_id,role", ignoreDuplicates: true });
+      let templateFound = false;
+      if (templateName) {
+        const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", templateName).maybeSingle();
+        if (tmpl) { await admin.from("user_permissions").upsert({ user_id: user.id, template_id: (tmpl as { id: string }).id }, { onConflict: "user_id" }); templateFound = true; }
+      }
+      return json(200, { ok: true, email, userId: user.id, role, template: templateName, templateFound });
+    }
+
     const jar = new Jar();
     const diag = await login(jar);
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
