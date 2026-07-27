@@ -281,4 +281,24 @@ export const NotificationEvents = {
   // Payout events
   payoutMade: async (staffName: string, amount: number, payoutType: string) => {
   },
+
+  // Salary revision events
+  salaryBulkUpdated: async (
+    summary: { updated: number; increments: number; decrements: number; net_delta: number },
+    actorName: string,
+  ) => {
+    const rupees = (n: number) =>
+      `${n < 0 ? '-' : '+'}₹${Math.abs(Math.round(n)).toLocaleString('en-IN')}`;
+    const parts: string[] = [];
+    if (summary.increments) parts.push(`${summary.increments} increment${summary.increments > 1 ? 's' : ''}`);
+    if (summary.decrements) parts.push(`${summary.decrements} reduction${summary.decrements > 1 ? 's' : ''}`);
+    const detail = parts.length ? ` (${parts.join(', ')})` : '';
+    await sendNotificationsByRole(
+      { owners: true },
+      'Salaries Updated',
+      `${actorName} updated ${summary.updated} salar${summary.updated === 1 ? 'y' : 'ies'}${detail}. Net change: ${rupees(summary.net_delta)}/month.`,
+      summary.increments === 0 && summary.decrements > 0 ? 'warning' : 'success',
+      'salary',
+    );
+  },
 };

@@ -40,6 +40,7 @@ import { toast } from '@/hooks/use-toast';
 import { downloadBulkPayslipsPDF } from '@/lib/payslip-pdf';
 import type { Staff, SalarySettlement } from '@/types/database';
 import { staffSelect } from '@/lib/staff-fields';
+import { BulkSalaryDialog } from '@/components/salary/BulkSalaryDialog';
 
 interface StaffWithFinancials extends Staff {
   totalAdvanceOutstanding: number;
@@ -51,7 +52,8 @@ interface StaffWithFinancials extends Staff {
 
 export default function SalariesAdvances() {
   const navigate = useNavigate();
-  const { isOwner, canViewSalaries } = useAuth();
+  const { isOwner, canViewSalaries, canEditSalaries } = useAuth();
+  const [bulkSalaryOpen, setBulkSalaryOpen] = useState(false);
   
   const [staff, setStaff] = useState<StaffWithFinancials[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -275,31 +277,44 @@ export default function SalariesAdvances() {
           </Select>
       </div>
 
-      {isOwner && (
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={async () => {
-              const { data, error } = await supabase
-                .from('salary_settlements')
-                .select('*, staff:staff_id(full_name, employee_id, designation, department, date_of_joining, bank_account_number, bank_name, bank_ifsc)')
-                .eq('settlement_month', selectedMonth)
-                .eq('status', 'settled');
-              if (error || !data?.length) {
-                toast({ title: 'No payslips', description: 'No settled salaries found for this month.', variant: 'destructive' });
-                return;
-              }
-              await downloadBulkPayslipsPDF(
-                selectedMonth,
-                data.map((s: any) => ({ staff: s.staff, settlement: s })),
-              );
-            }}
-          >
-            <Download className="h-4 w-4" />
-            Download All Payslips
-          </Button>
+      {(isOwner || canEditSalaries) && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {canEditSalaries && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setBulkSalaryOpen(true)}
+            >
+              <TrendingUp className="h-4 w-4" />
+              Bulk Salary Update
+            </Button>
+          )}
+          {isOwner && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={async () => {
+                const { data, error } = await supabase
+                  .from('salary_settlements')
+                  .select('*, staff:staff_id(full_name, employee_id, designation, department, date_of_joining, bank_account_number, bank_name, bank_ifsc)')
+                  .eq('settlement_month', selectedMonth)
+                  .eq('status', 'settled');
+                if (error || !data?.length) {
+                  toast({ title: 'No payslips', description: 'No settled salaries found for this month.', variant: 'destructive' });
+                  return;
+                }
+                await downloadBulkPayslipsPDF(
+                  selectedMonth,
+                  data.map((s: any) => ({ staff: s.staff, settlement: s })),
+                );
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Download All Payslips
+            </Button>
+          )}
         </div>
       )}
       </div>
@@ -328,6 +343,22 @@ export default function SalariesAdvances() {
             />
           ))}
         </div>
+      )}
+
+      {canEditSalaries && (
+        <BulkSalaryDialog
+          open={bulkSalaryOpen}
+          onOpenChange={setBulkSalaryOpen}
+          staff={staff.map((s) => ({
+            id: s.id,
+            full_name: s.full_name,
+            employee_id: s.employee_id,
+            monthly_salary: s.monthly_salary,
+            designation: s.designation,
+            department: s.department,
+          }))}
+          onApplied={fetchStaffWithFinancials}
+        />
       )}
     </div>
   );

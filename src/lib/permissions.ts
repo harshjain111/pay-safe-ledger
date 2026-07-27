@@ -77,6 +77,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     module: 'Payroll',
     permissions: [
       { key: 'salaries.view', label: 'View salaries (confidential)' },
+      { key: 'salaries.edit', label: 'Assign / change salaries' },
       { key: 'settlements.run', label: 'Run salary settlements' },
       { key: 'payouts.execute', label: 'Execute payouts' },
     ],

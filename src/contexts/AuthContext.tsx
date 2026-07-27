@@ -24,6 +24,7 @@ interface AuthContextType {
   canAddStaff: boolean;
   canEditStaff: boolean;
   canViewSalaries: boolean;
+  canEditSalaries: boolean;
   canMakePayments: boolean;
   canApproveExpenses: boolean;
   canApproveRequests: boolean;
@@ -224,7 +225,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // CRITICAL: Only Owner can view salary data
   // Staff can only view their OWN salary (handled at component level)
   // Admin, Accountant, CA cannot view ANY salary data
-  const canViewSalaries = isOwner;
+  // Salary access is permission-based (owners always pass). Admins/others gain it
+  // when their rights template grants salaries.view / salaries.edit.
+  const canViewSalaries = isOwner || permissions.has('salaries.view');
+  const canEditSalaries = isOwner || permissions.has('salaries.edit');
   
   // Payment permissions - differentiated by type
   // Owner: full access
@@ -268,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     canAddStaff,
     canEditStaff,
     canViewSalaries,
+    canEditSalaries,
     canMakePayments,
     canApproveExpenses,
     canApproveRequests,
