@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ExportButton } from '@/components/common/ExportButton';
+import type { ExportColumn } from '@/lib/table-export';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
@@ -166,18 +168,34 @@ export default function StaffList() {
     );
   };
 
+  const exportColumns: ExportColumn<typeof filteredStaff[number]>[] = [
+    { header: 'Code', value: (s) => s.employee_id },
+    { header: 'Name', value: (s) => s.full_name },
+    { header: 'Department', value: (s) => s.department ?? '' },
+    { header: 'Designation', value: (s) => s.designation ?? '' },
+    { header: 'Phone', value: (s) => s.phone ?? '' },
+    { header: 'Status', value: (s) => getStatus(s) },
+    { header: 'Date of Joining', value: (s) => s.date_of_joining ?? '' },
+    ...(canViewSalaries
+      ? [{ header: 'Monthly Salary', value: (s: typeof filteredStaff[number]) => s.monthly_salary ?? 0 }]
+      : []),
+  ];
+
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
       <PageHeader title="Staff Management" description="Manage your team members">
-        {canAddStaff && (
-          <Link to="/staff/new">
-            <Button className="text-sm sm:text-base px-3 sm:px-4">
-              <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Add Staff</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportButton filename="staff" sheetName="Staff" rows={filteredStaff} columns={exportColumns} />
+          {canAddStaff && (
+            <Link to="/staff/new">
+              <Button className="text-sm sm:text-base px-3 sm:px-4">
+                <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Add Staff</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </Link>
+          )}
+        </div>
       </PageHeader>
 
       <Tabs value={view} onValueChange={(v) => setView(v as ViewKey)}>

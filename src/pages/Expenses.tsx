@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ExportButton } from '@/components/common/ExportButton';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
@@ -227,7 +228,21 @@ export default function Expenses() {
       <PageHeader
         title="Expenses"
         description="Submit and review expense claims"
-      />
+      >
+        <ExportButton
+          filename="expenses"
+          sheetName="Expenses"
+          rows={filteredExpenses}
+          columns={[
+            { header: 'Staff', value: (e) => e.staff?.full_name ?? '' },
+            { header: 'Amount', value: (e) => e.amount },
+            { header: 'Category', value: (e) => EXPENSE_CATEGORY_LABELS[e.category] ?? e.category },
+            { header: 'Description', value: (e) => e.description ?? '' },
+            { header: 'Status', value: (e) => e.status },
+            { header: 'Date', value: (e) => (e.created_at ? e.created_at.slice(0, 10) : '') },
+          ]}
+        />
+      </PageHeader>
 
       <FilterBar
         searchValue={searchQuery}

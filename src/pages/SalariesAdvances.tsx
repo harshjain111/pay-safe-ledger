@@ -41,6 +41,7 @@ import { downloadBulkPayslipsPDF } from '@/lib/payslip-pdf';
 import type { Staff, SalarySettlement } from '@/types/database';
 import { staffSelect } from '@/lib/staff-fields';
 import { BulkSalaryDialog } from '@/components/salary/BulkSalaryDialog';
+import { ExportButton } from '@/components/common/ExportButton';
 
 interface StaffWithFinancials extends Staff {
   totalAdvanceOutstanding: number;
@@ -277,8 +278,22 @@ export default function SalariesAdvances() {
           </Select>
       </div>
 
-      {(isOwner || canEditSalaries) && (
+      {(isOwner || canViewSalaries || canEditSalaries) && (
         <div className="flex flex-wrap justify-end gap-2">
+          <ExportButton
+            filename={`salaries-${selectedMonth}`}
+            sheetName="Salaries"
+            rows={filteredStaff}
+            columns={[
+              { header: 'Name', value: (s) => s.full_name },
+              { header: 'Code', value: (s) => s.employee_id ?? '' },
+              ...(canViewSalaries ? [{ header: 'Monthly Salary', value: (s: StaffWithFinancials) => s.monthly_salary ?? 0 }] : []),
+              { header: 'Advance Outstanding', value: (s) => s.totalAdvanceOutstanding ?? 0 },
+              { header: 'Last Settlement Month', value: (s) => s.lastSettlementMonth ?? '' },
+              { header: 'Last Settlement Amount', value: (s) => s.lastSettlementAmount ?? 0 },
+              { header: 'Payout Status', value: (s) => s.salaryPayoutStatus },
+            ]}
+          />
           {canEditSalaries && (
             <Button
               variant="outline"

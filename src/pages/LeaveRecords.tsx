@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ExportButton } from '@/components/common/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -193,10 +194,26 @@ export default function LeaveRecords() {
         title={isStaff ? 'My Leaves' : 'Leave Records'}
         description={isStaff ? 'Track your leave requests and approvals' : 'Manage staff leave and salary deductions'}
       >
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isStaff ? 'Request Leave' : 'Record Leave'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            filename={`leave-${selectedMonth}`}
+            sheetName="Leave"
+            rows={filteredRecords}
+            columns={[
+              { header: 'Staff', value: (r) => r.staff?.full_name ?? '' },
+              { header: 'Code', value: (r) => r.staff?.employee_id ?? '' },
+              { header: 'Date', value: (r) => r.leave_date },
+              { header: 'Type', value: (r) => typeLabel(r) },
+              { header: 'Deduction (days)', value: (r) => r.deduction_days },
+              { header: 'Status', value: (r) => r.status },
+              { header: 'Remarks', value: (r) => r.remarks ?? '' },
+            ]}
+          />
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {isStaff ? 'Request Leave' : 'Record Leave'}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* Summary tiles */}
