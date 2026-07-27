@@ -210,7 +210,15 @@ serve(async (req) => {
         const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", templateName).maybeSingle();
         if (tmpl) { await admin.from("user_permissions").upsert({ user_id: user.id, template_id: (tmpl as { id: string }).id }, { onConflict: "user_id" }); templateFound = true; }
       }
-      return json(200, { ok: true, email, userId: user.id, role, replaced: replace, template: role === "owner" ? null : templateName, templateFound });
+      // Optionally link this login to a staff record (by device/employee code) so
+      // their "My Account" view shows their own attendance/advances.
+      let linkedStaff: string | null = null;
+      const linkCode = String(body.linkStaffCode || "").trim();
+      if (linkCode) {
+        const { data: st } = await admin.from("staff").select("id, full_name").eq("employee_id", linkCode).maybeSingle();
+        if (st) { await admin.from("staff").update({ user_id: user.id }).eq("id", (st as { id: string }).id); linkedStaff = (st as { full_name?: string }).full_name || linkCode; }
+      }
+      return json(200, { ok: true, email, userId: user.id, role, replaced: replace, template: role === "owner" ? null : templateName, templateFound, linkedStaff });
     }
 
     const jar = new Jar();
@@ -266,7 +274,7 @@ serve(async (req) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     const yr = Number(body?.year) || now.getUTCFullYear();
     const mo = Number(body?.month) || (now.getUTCMonth() + 1);
-    const wholeMonth = !!(body?.backfill || body?.employees || body?.importStaff) || yr !== now.getUTCFullYear() || mo !== now.getUTCMonth() + 1;
+    const wholeMonth = !!(body?.backfill || body?.employees || body?.importStaff || body?.importBiometric) || yr !== now.getUTCFullYear() || mo !== now.getUTCMonth() + 1;
     params.set("ddlYear", String(yr));
     params.set("ddlMonth", pad(mo));
     const backDays = Number(body?.days) || 0; // e.g. cron: last few days of the current month
@@ -399,6 +407,46 @@ serve(async (req) => {
         if (error) { if (errB.length < 3) errB.push(error.message); } else up += Math.min(500, sessions.length - i);
       }
       return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaff.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB });
+    }
+
+    // Populate biometric hardware + enrolments from the connector (so the Devices +
+    // Enrolment screens show the real devices and everyone as enrolled — no manual work).
+    if (body?.importBiometric) {
+      const devInfo = new Map<string, string>(); // device name -> serial
+      // ALL devices from the DeviceLogList device filter (not only ones active this month)
+      const devSel = (/<select\b[^>]*\bname\s*=\s*"[^"]*drp_Devices"[^>]*>([\s\S]*?)<\/select>/i.exec(formHtml) || [])[1] || "";
+      for (const m of devSel.matchAll(/<option\b[^>]*\bvalue\s*=\s*"([^"]*)"[^>]*>([^<]*)</gi)) { const n = m[2].trim(); if (n && !/^all$/i.test(n)) devInfo.set(n, ""); }
+      // fill serials from the punch data where available
+      for (const r of rows) { const d = col(r, "Device Name"); const ser = col(r, "Serial Number"); if (d && ser && !devInfo.get(d)) devInfo.set(d, ser); }
+      const { data: outletsD } = await db.from("outlets").select("id, name");
+      const outletByName = new Map((outletsD ?? []).map((o) => [(o as { name: string }).name, (o as { id: string }).id]));
+      const { data: exDev } = await db.from("biometric_devices").select("id, label");
+      const devIdByLabel = new Map((exDev ?? []).map((d) => [(d as { label: string }).label, (d as { id: string }).id]));
+      let devicesCreated = 0;
+      for (const [name, serial] of devInfo) {
+        if (devIdByLabel.has(name)) continue;
+        const { data } = await db.from("biometric_devices").insert({ label: name, serial: serial || null, outlet_id: outletByName.get(name) ?? null, type: "fingerprint", is_active: true, status: "online" }).select("id").maybeSingle();
+        if (data) { devIdByLabel.set(name, (data as { id: string }).id); devicesCreated++; }
+      }
+
+      const { data: staffRows } = await db.from("staff").select("id, employee_id");
+      const codeToId = new Map((staffRows ?? []).filter((s) => (s as { employee_id?: string }).employee_id).map((s) => [String((s as { employee_id: string }).employee_id).trim(), (s as { id: string }).id]));
+      const devCount = new Map<string, Map<string, number>>();
+      for (const r of rows) { const sid = codeToId.get(col(r, "UserId")); const d = col(r, "Device Name"); if (!sid || !d) continue; const m = devCount.get(sid) ?? new Map<string, number>(); m.set(d, (m.get(d) || 0) + 1); devCount.set(sid, m); }
+      const { data: exEnr } = await db.from("biometric_enrolments").select("staff_id");
+      const enrolled = new Set((exEnr ?? []).map((e) => (e as { staff_id: string }).staff_id));
+      const toInsert: Record<string, unknown>[] = [];
+      for (const [sid, m] of devCount) {
+        if (enrolled.has(sid)) continue;
+        const primary = [...m].sort((a, b) => b[1] - a[1])[0][0];
+        toInsert.push({ staff_id: sid, device_id: devIdByLabel.get(primary) ?? null, kind: "fingerprint", status: "enrolled", enrolled_at: new Date().toISOString() });
+      }
+      let enrCreated = 0; const errBio: string[] = [];
+      for (let i = 0; i < toInsert.length; i += 500) {
+        const { error } = await db.from("biometric_enrolments").insert(toInsert.slice(i, i + 500));
+        if (error) { if (errBio.length < 3) errBio.push(error.message); } else enrCreated += Math.min(500, toInsert.length - i);
+      }
+      return json(200, { ok: true, devices: [...devInfo.keys()], devicesCreated, enrolmentsCreated: enrCreated, staffWithPunches: devCount.size, errs: errBio });
     }
 
     type Ev = { staff_id: string; ts: string; work_date: string; raw_ref: string };
