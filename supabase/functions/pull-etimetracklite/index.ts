@@ -239,10 +239,14 @@ serve(async (req) => {
     // Pull the current month, (today-2) -> today (IST), zero-padded values.
     const now = istNow();
     const pad = (n: number) => String(n).padStart(2, "0");
-    params.set("ddlYear", String(now.getUTCFullYear()));
-    params.set("ddlMonth", pad(now.getUTCMonth() + 1));
-    params.set("ddlFromDate", pad(Math.max(1, now.getUTCDate() - 2)));
-    params.set("ddlToDate", pad(now.getUTCDate()));
+    const yr = Number(body?.year) || now.getUTCFullYear();
+    const mo = Number(body?.month) || (now.getUTCMonth() + 1);
+    const wholeMonth = !!(body?.backfill || body?.employees || body?.importStaff) || yr !== now.getUTCFullYear() || mo !== now.getUTCMonth() + 1;
+    params.set("ddlYear", String(yr));
+    params.set("ddlMonth", pad(mo));
+    const backDays = Number(body?.days) || 0; // e.g. cron: last few days of the current month
+    params.set("ddlFromDate", backDays > 0 ? pad(Math.max(1, now.getUTCDate() - backDays)) : (wholeMonth ? "01" : pad(Math.max(1, now.getUTCDate() - 2))));
+    params.set("ddlToDate", wholeMonth ? pad(new Date(Date.UTC(yr, mo, 0)).getUTCDate()) : pad(now.getUTCDate()));
     params.set("drp_Devices", "0");     // all devices
     params.set("drp_VerifyMode", "0");  // all verify modes
     params.set("ddlSortBy", "LogDate");
@@ -273,6 +277,105 @@ serve(async (req) => {
       return "";
     };
 
+    // Unique employees (code, name, devices seen) derived from the logs.
+    if (body?.employees) {
+      const emps = new Map<string, { name: string; devices: Set<string>; count: number }>();
+      for (const r of rows) {
+        const code = col(r, "UserId", "Employee Code In Device", "Employee Code");
+        if (!code) continue;
+        const e = emps.get(code) ?? { name: col(r, "User Name", "Employee Name"), devices: new Set<string>(), count: 0 };
+        e.count++;
+        const dev = col(r, "Device Name");
+        if (dev) e.devices.add(dev);
+        if (!e.name) e.name = col(r, "User Name", "Employee Name");
+        emps.set(code, e);
+      }
+      return json(200, { ok: true, total: emps.size, employees: [...emps].map(([code, e]) => ({ code, name: e.name, devices: [...e.devices], punches: e.count })) });
+    }
+
+    // Bootstrap the HR DB: org "Konnect 2 Hospitality" + outlets (device names) + staff.
+    if (body?.importStaff) {
+      const devSel = (/<select\b[^>]*\bname\s*=\s*"[^"]*drp_Devices"[^>]*>([\s\S]*?)<\/select>/i.exec(formHtml) || [])[1] || "";
+      const deviceNames = [...devSel.matchAll(/<option\b[^>]*\bvalue\s*=\s*"([^"]*)"[^>]*>([^<]*)</gi)]
+        .map((m) => m[2].trim()).filter((n) => n && !/^all$/i.test(n));
+
+      const emps = new Map<string, { name: string; dev: Map<string, number> }>();
+      for (const r of rows) {
+        const code = col(r, "UserId", "Employee Code In Device"); if (!code) continue;
+        const e = emps.get(code) ?? { name: col(r, "User Name"), dev: new Map<string, number>() };
+        if (!e.name) e.name = col(r, "User Name");
+        const d = col(r, "Device Name"); if (d) e.dev.set(d, (e.dev.get(d) || 0) + 1);
+        emps.set(code, e);
+      }
+      for (const e of emps.values()) for (const d of e.dev.keys()) if (!deviceNames.includes(d)) deviceNames.push(d);
+
+      // 1. Organisation profile
+      await db.from("organization_profile").update({ trade_name: "Konnect 2 Hospitality", onboarded_at: new Date().toISOString() }).eq("singleton", true);
+
+      // 2. Outlets (one per device name), name -> id
+      const outletId = new Map<string, string>();
+      for (const name of [...new Set(deviceNames)]) {
+        const { data } = await db.from("outlets").upsert({ name }, { onConflict: "name" }).select("id, name").single();
+        if (data) outletId.set(name, data.id);
+      }
+
+      // 3. Staff (upsert by employee_id), mapped to their most-used device's outlet
+      let upserted = 0, failed = 0; const errs: string[] = [];
+      for (const [code, e] of emps) {
+        const primary = [...e.dev].sort((a, b) => b[1] - a[1])[0]?.[0];
+        const { error } = await db.from("staff").upsert(
+          { employee_id: code, full_name: e.name || code, email: "", monthly_salary: 0, is_active: true, outlet_id: (primary && outletId.get(primary)) || null },
+          { onConflict: "employee_id" },
+        );
+        if (error) { failed++; if (errs.length < 3) errs.push(error.message); } else upserted++;
+      }
+      return json(200, { ok: true, org: "Konnect 2 Hospitality", outlets: [...outletId.keys()], employees: emps.size, staffUpserted: upserted, failed, errs });
+    }
+
+    // Direct session builder: pair Check-In/Check-Out into attendance_sessions
+    // (idempotent upsert on staff_id + check_in_at). Right tool for bulk history.
+    if (body?.backfill) {
+      const { data: staffRows } = await db.from("staff").select("id, employee_id, user_id");
+      const codeToId = new Map<string, string>(); const idToUser = new Map<string, string | null>();
+      for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
+
+      type P = { ts: string; dir: "in" | "out"; wd: string };
+      const byStaff = new Map<string, P[]>();
+      let unmatchedB = 0;
+      for (const r of rows) {
+        const sid = codeToId.get(col(r, "UserId", "Employee Code In Device")); if (!sid) { unmatchedB++; continue; }
+        const iso = logDateToIso(col(r, "Log Date")); if (!iso) continue;
+        const ist = new Date(new Date(iso).getTime() + 5.5 * 3600_000);
+        const wd = `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}`;
+        const dir: "in" | "out" = col(r, "Att State").toLowerCase().includes("out") ? "out" : "in";
+        (byStaff.get(sid) ?? byStaff.set(sid, []).get(sid)!).push({ ts: iso, dir, wd });
+      }
+
+      const mk = (sid: string, i: P, o: P | null) => ({
+        staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: i.wd, check_in_at: i.ts,
+        check_out_at: o?.ts ?? null,
+        worked_minutes: o ? Math.max(0, Math.round((new Date(o.ts).getTime() - new Date(i.ts).getTime()) / 60000)) : null,
+        status: o ? "completed" : "active", source: "biometric", check_in_photo_url: "biometric",
+      });
+      const sessions: ReturnType<typeof mk>[] = [];
+      for (const [sid, list] of byStaff) {
+        list.sort((a, b) => a.ts.localeCompare(b.ts));
+        let open: P | null = null;
+        for (const p of list) {
+          if (p.dir === "in") { if (open) sessions.push(mk(sid, open, null)); open = p; }
+          else if (open) { sessions.push(mk(sid, open, p)); open = null; }
+        }
+        if (open) sessions.push(mk(sid, open, null));
+      }
+
+      let up = 0; const errB: string[] = [];
+      for (let i = 0; i < sessions.length; i += 500) {
+        const { error } = await db.from("attendance_sessions").upsert(sessions.slice(i, i + 500), { onConflict: "staff_id,check_in_at", ignoreDuplicates: false });
+        if (error) { if (errB.length < 3) errB.push(error.message); } else up += Math.min(500, sessions.length - i);
+      }
+      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaff.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB });
+    }
+
     type Ev = { staff_id: string; ts: string; work_date: string; raw_ref: string };
     const events: (Ev & { direction: "in" | "out" })[] = [];
     const undirected = new Map<string, Ev[]>();
@@ -300,17 +403,38 @@ serve(async (req) => {
 
     if (body?.debug) return json(200, { ok: true, stage: "debug", ct, csvLen: csvText.length, nonBlank: csvText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 12), headers: rows.length ? Object.keys(rows[0]) : [], rows: rows.length, matched: events.length, unmatched, badDate, sampleRow: rows[0] ?? null, sampleEvent: events[0] ?? null });
 
-    // ---- feed ingest-punches ------------------------------------------------
-    let ingest: unknown = null;
-    if (events.length) {
+    // ---- connector-level dedup: skip punches already ingested (by raw_ref) so
+    //      ongoing runs are cheap and big backfills make progress each call ----
+    const allRefs = events.map((e) => e.raw_ref);
+    const existing = new Set<string>();
+    for (let i = 0; i < allRefs.length; i += 500) {
+      const { data } = await db.from("punch_events").select("raw_ref").in("raw_ref", allRefs.slice(i, i + 500));
+      for (const row of data ?? []) { const rr = (row as { raw_ref?: string }).raw_ref; if (rr) existing.add(rr); }
+    }
+    let fresh = events.filter((e) => !existing.has(e.raw_ref)).sort((a, b) => a.ts.localeCompare(b.ts));
+    const totalNew = fresh.length;
+    const CAP = Number(body?.cap) || 400; // keep one call under the edge-function timeout
+    fresh = fresh.slice(0, CAP);
+
+    // ---- feed ingest-punches (batched; chronological for cross-batch pairing) ----
+    let accepted = 0, deduped = 0, opened = 0, closed = 0;
+    const ingestErrs: unknown[] = [];
+    const BATCH = Number(body?.batch) || 150;
+    for (let i = 0; i < fresh.length; i += BATCH) {
+      const chunk = fresh.slice(i, i + BATCH).map((e) => ({ staff_id: e.staff_id, direction: e.direction, ts: e.ts, work_date: e.work_date, raw_ref: e.raw_ref }));
       const r = await fetch(`${SUPABASE_URL}/functions/v1/ingest-punches`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, "x-device-key": DEVICE_KEY },
-        body: JSON.stringify({ events: events.map((e) => ({ staff_id: e.staff_id, direction: e.direction, ts: e.ts, work_date: e.work_date, raw_ref: e.raw_ref })) }),
+        body: JSON.stringify({ events: chunk }),
       });
-      ingest = await r.json().catch(() => ({ status: r.status }));
+      const j = await r.json().catch(() => ({ error: `http ${r.status}` }));
+      accepted += (j.accepted as number) || 0; deduped += (j.deduped as number) || 0;
+      opened += (j.sessions_opened as number) || 0; closed += (j.sessions_closed as number) || 0;
+      const je = (j as { errors?: { error?: string }[] }).errors;
+      if (je?.length && ingestErrs.length < 3) ingestErrs.push(je[0]?.error);
+      if ((j as { error?: unknown }).error && ingestErrs.length < 3) ingestErrs.push((j as { error?: unknown }).error);
     }
-    return json(200, { ok: true, rows: rows.length, events: events.length, unmatched, badDate, ingest });
+    return json(200, { ok: true, rows: rows.length, events: events.length, newEvents: totalNew, ingestedNow: fresh.length, remaining: Math.max(0, totalNew - fresh.length), ingest: { accepted, deduped, sessions_opened: opened, sessions_closed: closed, errs: ingestErrs } });
   } catch (e) {
     return json(500, { error: e instanceof Error ? e.message : "unexpected" });
   }
