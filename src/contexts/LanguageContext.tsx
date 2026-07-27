@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type Language = 'en' | 'hi' | 'as';
+export type Language = 'en' | 'hi' | 'as' | 'bn';
 
 interface LanguageContextType {
   language: Language;
@@ -8,7 +8,9 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const translations: Record<Language, Record<string, string>> = {
+// Bengali (bn) and any not-yet-translated language fall back to English via the
+// optional chaining in t(); no full translation map is required to offer them.
+const translations: Partial<Record<Language, Record<string, string>>> = {
   en: {
     // Dashboard
     'welcome': 'Welcome',
@@ -243,7 +245,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('app_language') as Language;
-    if (saved && ['en', 'hi', 'as'].includes(saved)) {
+    if (saved && ['en', 'hi', 'as', 'bn'].includes(saved)) {
       setLanguageState(saved);
     }
   }, []);
@@ -254,7 +256,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   const t = (key: string): string => {
-    return translations[language][key] || translations['en'][key] || key;
+    return translations[language]?.[key] || translations['en']?.[key] || key;
   };
 
   return (

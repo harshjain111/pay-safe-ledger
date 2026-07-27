@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { startTour } from '@/components/tour/TourHost';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -258,17 +259,26 @@ export default function Settings() {
                 <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
                   <div className="space-y-2">
                     <Label className="text-xs sm:text-sm">Display Language</Label>
-                    <Select value={language} onValueChange={(value: 'en' | 'hi' | 'as') => setLanguage(value)}>
+                    <Select value={language} onValueChange={(value: 'en' | 'hi' | 'as' | 'bn') => setLanguage(value)}>
                       <SelectTrigger className="h-10 sm:h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="en">🇬🇧 English</SelectItem>
                         <SelectItem value="hi">🇮🇳 हिंदी (Hindi)</SelectItem>
+                        <SelectItem value="bn">🇮🇳 বাংলা (Bengali)</SelectItem>
                         <SelectItem value="as">🇮🇳 অসমীয়া (Assamese)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Language preference is saved automatically</p>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <div>
+                      <p className="text-xs sm:text-sm font-medium">App tour</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Replay the guided walkthrough of the app.</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={startTour}>Take the tour</Button>
                   </div>
                 </CardContent>
               </Card>

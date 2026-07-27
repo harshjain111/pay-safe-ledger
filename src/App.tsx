@@ -13,6 +13,7 @@ import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 // Pages (lazy-loaded so each route is a separate chunk)
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const StaffList = lazy(() => import("./pages/StaffList"));
 const StaffForm = lazy(() => import("./pages/StaffForm"));
@@ -67,7 +68,7 @@ const queryClient = new QueryClient({
 // AppLayout (sidebar + header). Child routes render into the layout's <Outlet>,
 // so navigating between them never remounts the sidebar.
 function ProtectedLayout() {
-  const { user, isLoading } = useAuth();
+  const { user, staffData, isLoading } = useAuth();
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
   useEffect(() => {
@@ -101,6 +102,12 @@ function ProtectedLayout() {
     return <Navigate to="/auth" replace />;
   }
 
+  // First login: a staff member who hasn't finished onboarding is sent through it
+  // before reaching the app. (Users with no staff row — e.g. the owner — skip it.)
+  if (staffData && staffData.onboarding_completed === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return <AppLayout />;
 }
 
@@ -120,6 +127,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/onboarding" element={<Onboarding />} />
 
       {/* Protected Routes — one persistent layout; pages swap inside its <Outlet> */}
       <Route element={<ProtectedLayout />}>

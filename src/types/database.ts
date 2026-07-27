@@ -56,6 +56,10 @@ export interface Staff {
   photo_url?: string | null;
   reporting_manager_id?: string | null;
   is_manager?: boolean;
+  onboarding_completed?: boolean;
+  preferred_language?: string | null;
+  pan_number?: string | null;
+  aadhaar_number?: string | null;
   location?: string | null;
   address?: string | null;
   date_of_birth?: string | null;

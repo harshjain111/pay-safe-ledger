@@ -188,7 +188,7 @@ export function StaffDashboard() {
           <p className="text-sm text-muted-foreground">{t('welcome')}</p>
           <h1 className="text-xl font-bold truncate">{staffData.full_name.split(' ')[0]}</h1>
         </div>
-        <LanguageToggle />
+        <span data-tour="language"><LanguageToggle /></span>
       </div>
     </div>
   );
@@ -216,7 +216,7 @@ export function StaffDashboard() {
 
       <div className="p-4 space-y-4 pb-8">
         {/* Attendance widget */}
-        <AttendanceWidget />
+        <div data-tour="attendance"><AttendanceWidget /></div>
 
         {/* My pending leave balance */}
         <MyLeaveBalanceCard staffId={staffData?.id} />
@@ -281,7 +281,7 @@ export function StaffDashboard() {
         {isManager && <TeamLeaveApprovals />}
 
         {/* Big Action Buttons */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour="quick-actions">
           <Button
             onClick={() => setShowAdvanceForm(true)}
             className="w-full h-16 text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg"

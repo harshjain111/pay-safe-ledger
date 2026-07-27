@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { TourHost } from '@/components/tour/TourHost';
 import { ThemeToggle } from './ThemeToggle';
 import {
   DropdownMenu,
@@ -752,7 +753,7 @@ function AppHeader() {
         >
           <RefreshCw className="h-4 w-4" />
         </Button>
-        <NotificationBell />
+        <span data-tour="notifications"><NotificationBell /></span>
         <ThemeToggle />
         <div className="hidden sm:flex items-center gap-3">
           <div className="h-6 w-px bg-border" />
@@ -874,6 +875,7 @@ export function AppLayout() {
           </div>
         </SidebarInset>
       </div>
+      <TourHost />
     </SidebarProvider>
   );
 }
