@@ -288,6 +288,41 @@ serve(async (req) => {
       return json(200, { ok: !setErr, secretLoaded: !setErr, setError: setErr?.message ?? null, statusError: stErr?.message ?? null, status });
     }
 
+    // Diagnostic: overall attendance data quality (how "wrong" is the backfill?).
+    if (body?.attendanceQuality) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const cnt = async (b: (q: any) => any) => (await b(admin.from("attendance_sessions").select("id", { count: "exact", head: true }))).count ?? 0;
+      const staleCutoff = new Date(Date.now() - 20 * 3600_000).toISOString();
+      const total       = await cnt((q: any) => q);
+      const biometric   = await cnt((q: any) => q.eq("source", "biometric"));
+      const open        = await cnt((q: any) => q.in("status", ["active", "on_break"]));
+      const completed   = await cnt((q: any) => q.eq("status", "completed"));
+      const noCheckout  = await cnt((q: any) => q.is("check_out_at", null));
+      const staleOpen   = await cnt((q: any) => q.in("status", ["active", "on_break"]).lt("check_in_at", staleCutoff));
+      const zeroMinutes = await cnt((q: any) => q.eq("status", "completed").eq("worked_minutes", 0));
+      const over16h     = await cnt((q: any) => q.gt("worked_minutes", 16 * 60));
+      // worst offenders: staff with the most open sessions (sample via per-staff counts)
+      const { data: staffRows } = await admin.from("staff").select("id, full_name, employee_id").eq("is_active", true);
+      const worst: { code: string; name: string; open: number; total: number }[] = [];
+      for (const s of (staffRows ?? []).slice(0, 400)) {
+        const sr = s as { id: string; full_name?: string; employee_id?: string };
+        const o = await cnt((q: any) => q.eq("staff_id", sr.id).in("status", ["active", "on_break"]));
+        if (o >= 5) { const t = await cnt((q: any) => q.eq("staff_id", sr.id)); worst.push({ code: sr.employee_id ?? "", name: sr.full_name ?? "", open: o, total: t }); }
+      }
+      worst.sort((a, b) => b.open - a.open);
+      return json(200, { ok: true, total, biometric, open, completed, noCheckout, staleOpen, zeroMinutes, over16h, staffWithManyOpens: worst.length, worst: worst.slice(0, 15) });
+    }
+
+    // Repair: rebuild biometric attendance as one session per (staff, day),
+    // first punch -> last punch. Fixes the ~47% unclosed / cross-midnight mess.
+    if (body?.consolidateAttendance) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { data, error } = await admin.rpc("consolidate_biometric_attendance");
+      return json(200, { ok: !error, error: error?.message ?? null, result: data });
+    }
+
     const jar = new Jar();
     const diag = await login(jar);
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
@@ -439,33 +474,37 @@ serve(async (req) => {
       const codeToId = new Map<string, string>(); const idToUser = new Map<string, string | null>();
       for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
 
-      type P = { ts: string; dir: "in" | "out"; wd: string };
-      const byStaff = new Map<string, P[]>();
+      // ONE session per (staff, day): first punch = check-in, last punch = check-out.
+      // The eSSL "Att State" in/out flag is unreliable (often blank), so direction-
+      // based pairing left ~half of days unclosed. Bucketing punches by their own
+      // IST day and taking first→last is robust to missing direction and never
+      // spans midnight. A day with a single punch is present-but-checkout-unknown
+      // (open only if it is today). Matches consolidate_biometric_attendance().
+      const byStaffDay = new Map<string, Map<string, string[]>>();
       let unmatchedB = 0;
       for (const r of rows) {
         const sid = codeToId.get(col(r, "UserId", "Employee Code In Device")); if (!sid) { unmatchedB++; continue; }
         const iso = logDateToIso(col(r, "Log Date")); if (!iso) continue;
         const ist = new Date(new Date(iso).getTime() + 5.5 * 3600_000);
         const wd = `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}`;
-        const dir: "in" | "out" = col(r, "Att State").toLowerCase().includes("out") ? "out" : "in";
-        (byStaff.get(sid) ?? byStaff.set(sid, []).get(sid)!).push({ ts: iso, dir, wd });
+        const days = byStaffDay.get(sid) ?? byStaffDay.set(sid, new Map()).get(sid)!;
+        (days.get(wd) ?? days.set(wd, []).get(wd)!).push(iso);
       }
-
-      const mk = (sid: string, i: P, o: P | null) => ({
-        staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: i.wd, check_in_at: i.ts,
-        check_out_at: o?.ts ?? null,
-        worked_minutes: o ? Math.max(0, Math.round((new Date(o.ts).getTime() - new Date(i.ts).getTime()) / 60000)) : null,
-        status: o ? "completed" : "active", source: "biometric", check_in_photo_url: "biometric",
-      });
-      const sessions: ReturnType<typeof mk>[] = [];
-      for (const [sid, list] of byStaff) {
-        list.sort((a, b) => a.ts.localeCompare(b.ts));
-        let open: P | null = null;
-        for (const p of list) {
-          if (p.dir === "in") { if (open) sessions.push(mk(sid, open, null)); open = p; }
-          else if (open) { sessions.push(mk(sid, open, p)); open = null; }
+      const todayWd = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+      const sessions: Array<Record<string, unknown>> = [];
+      for (const [sid, days] of byStaffDay) {
+        for (const [wd, punches] of days) {
+          punches.sort();
+          const first = punches[0]; const last = punches[punches.length - 1];
+          const closed = last > first;
+          sessions.push({
+            staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: wd, check_in_at: first,
+            check_out_at: closed ? last : null,
+            worked_minutes: closed ? Math.max(0, Math.round((new Date(last).getTime() - new Date(first).getTime()) / 60000)) : null,
+            status: (!closed && wd === todayWd) ? "active" : "completed",
+            source: "biometric", check_in_photo_url: "biometric",
+          });
         }
-        if (open) sessions.push(mk(sid, open, null));
       }
 
       let up = 0; const errB: string[] = [];
@@ -473,7 +512,7 @@ serve(async (req) => {
         const { error } = await db.from("attendance_sessions").upsert(sessions.slice(i, i + 500), { onConflict: "staff_id,check_in_at", ignoreDuplicates: false });
         if (error) { if (errB.length < 3) errB.push(error.message); } else up += Math.min(500, sessions.length - i);
       }
-      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaff.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB });
+      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaffDay.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB });
     }
 
     // Populate biometric hardware + enrolments from the connector (so the Devices +
