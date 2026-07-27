@@ -55,6 +55,7 @@ export interface Staff {
   // HR profile (all optional)
   photo_url?: string | null;
   reporting_manager_id?: string | null;
+  is_manager?: boolean;
   location?: string | null;
   address?: string | null;
   date_of_birth?: string | null;

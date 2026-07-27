@@ -8,6 +8,7 @@ import { MyLeaveBalanceCard } from './MyLeaveBalanceCard';
 import { LanguageToggle } from '@/components/staff/LanguageToggle';
 import { QuickAdvanceForm } from '@/components/staff/QuickAdvanceForm';
 import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
+import { TeamLeaveApprovals } from '@/components/leave/TeamLeaveApprovals';
 import { AttendanceWidget } from '@/components/attendance/AttendanceWidget';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,7 @@ type RecentItem = {
 
 export function StaffDashboard() {
   const navigate = useNavigate();
-  const { staffData } = useAuth();
+  const { staffData, isManager } = useAuth();
   const { t } = useLanguage();
   
   // CRITICAL: Use journal_lines as SINGLE SOURCE OF TRUTH for balance
@@ -275,6 +276,9 @@ export function StaffDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Manager inbox: pending leave from direct reports */}
+        {isManager && <TeamLeaveApprovals />}
 
         {/* Big Action Buttons */}
         <div className="space-y-3">

@@ -130,7 +130,9 @@ export function CreateLeaveDialog({
       toast({ title: 'Validation Error', description: 'Please select a staff member.', variant: 'destructive' });
       return;
     }
-    if (!selectedType) {
+    // Personal requests don't choose a type — the approver assigns it. Management
+    // recording (on someone's behalf) still requires a type up front.
+    if (!isPersonalRequest && !selectedType) {
       toast({ title: 'Validation Error', description: 'Please select a leave type.', variant: 'destructive' });
       return;
     }
@@ -142,20 +144,30 @@ export function CreateLeaveDialog({
     try {
       setIsSubmitting(true);
 
-      const deduction = canSetDeduction ? deductionDays : selectedType.default_deduction;
-      const insertData = {
-        staff_id: targetStaffId,
-        leave_date: format(leaveDate, 'yyyy-MM-dd'),
-        leave_type_id: selectedType.id,
-        // Keep the legacy enum in sync for back-compat (paid vs salary-impacting).
-        leave_type: (selectedType.is_paid ? 'paid' : 'unpaid') as 'paid' | 'unpaid',
-        deduction_days: deduction,
-        status: isPersonalRequest ? ('pending' as const) : ('approved' as const),
-        remarks: remarks || undefined,
-        created_by: user?.id,
-        approved_by: !isPersonalRequest ? user?.id : undefined,
-        approved_at: !isPersonalRequest ? new Date().toISOString() : undefined,
-      };
+      const insertData = isPersonalRequest
+        ? {
+            // Type + deduction are left for the approver (manager/admin/owner).
+            staff_id: targetStaffId,
+            leave_date: format(leaveDate, 'yyyy-MM-dd'),
+            leave_type_id: null,
+            deduction_days: 0,
+            status: 'pending' as const,
+            remarks: remarks || undefined,
+            created_by: user?.id,
+          }
+        : {
+            staff_id: targetStaffId,
+            leave_date: format(leaveDate, 'yyyy-MM-dd'),
+            leave_type_id: selectedType!.id,
+            // Keep the legacy enum in sync for back-compat (paid vs salary-impacting).
+            leave_type: (selectedType!.is_paid ? 'paid' : 'unpaid') as 'paid' | 'unpaid',
+            deduction_days: canSetDeduction ? deductionDays : selectedType!.default_deduction,
+            status: 'approved' as const,
+            remarks: remarks || undefined,
+            created_by: user?.id,
+            approved_by: user?.id,
+            approved_at: new Date().toISOString(),
+          };
 
       const { error } = await supabase.from('leave_records').insert([insertData]);
       if (error) {
@@ -205,9 +217,9 @@ export function CreateLeaveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isStaff ? 'Request Time Off' : 'Record Leave'}</DialogTitle>
+          <DialogTitle>{isPersonalRequest ? 'Request Time Off' : 'Record Leave'}</DialogTitle>
           <DialogDescription>
-            {isStaff ? 'Submit your leave request for manager approval.' : 'Record a leave entry for a staff member.'}
+            {isPersonalRequest ? 'Submit your leave request — your approver sets the type.' : 'Record a leave entry for a staff member.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -248,7 +260,9 @@ export function CreateLeaveDialog({
             </Popover>
           </div>
 
-          {/* Leave Type */}
+          {/* Leave Type — only when recording on someone's behalf. Personal
+              requests are typed by the approver (manager/admin/owner). */}
+          {!isPersonalRequest && (
           <div className="space-y-2">
             <Label>Leave Type *</Label>
             <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
@@ -276,6 +290,13 @@ export function CreateLeaveDialog({
               </p>
             )}
           </div>
+          )}
+
+          {isPersonalRequest && (
+            <p className="text-xs text-muted-foreground">
+              Your approver will set the leave type when reviewing this request.
+            </p>
+          )}
 
           {/* Deduction Days (admins/accountants/owners) */}
           {canSetDeduction && (

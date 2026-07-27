@@ -25,6 +25,8 @@
       full_name: string;
       employee_id: string;
       user_id: string | null;
+      reporting_manager_id?: string | null;
+      is_manager?: boolean;
     };
  }
  

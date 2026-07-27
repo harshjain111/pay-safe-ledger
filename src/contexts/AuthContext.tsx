@@ -25,6 +25,7 @@ interface AuthContextType {
   canEditStaff: boolean;
   canViewSalaries: boolean;
   canEditSalaries: boolean;
+  isManager: boolean;
   canMakePayments: boolean;
   canApproveExpenses: boolean;
   canApproveRequests: boolean;
@@ -229,6 +230,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // when their rights template grants salaries.view / salaries.edit.
   const canViewSalaries = isOwner || permissions.has('salaries.view');
   const canEditSalaries = isOwner || permissions.has('salaries.edit');
+  // A manager is any staff flagged is_manager — they can approve their reports' leave.
+  const isManager = !!(staffData as (typeof staffData & { is_manager?: boolean }) | null)?.is_manager;
   
   // Payment permissions - differentiated by type
   // Owner: full access
@@ -273,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     canEditStaff,
     canViewSalaries,
     canEditSalaries,
+    isManager,
     canMakePayments,
     canApproveExpenses,
     canApproveRequests,

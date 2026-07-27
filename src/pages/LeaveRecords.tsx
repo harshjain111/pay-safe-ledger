@@ -39,7 +39,7 @@ interface StaffOption {
 }
 
 export default function LeaveRecords() {
-  const { userRole, staffData, user } = useAuth();
+  const { userRole, staffData, user, isOwner, can } = useAuth();
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [leaveTypeNames, setLeaveTypeNames] = useState<Record<string, string>>({});
@@ -56,7 +56,9 @@ export default function LeaveRecords() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isStaff = userRole === 'staff';
-  const canApprove = userRole === 'owner' || userRole === 'admin' || userRole === 'accountant';
+  // On this management page, only owner + admins (leave.approve) approve. Managers
+  // approve their own reports from the "Team Leave Approvals" card on their dashboard.
+  const canApprove = isOwner || can('leave.approve');
   const year = new Date().getFullYear();
   // The staff member whose per-type balances we show (self, or the filtered one).
   const balanceStaffId = isStaff ? staffData?.id ?? null : selectedStaffId !== 'all' ? selectedStaffId : null;
@@ -170,10 +172,15 @@ export default function LeaveRecords() {
     }
   };
 
-  const typeLabel = (record: LeaveRecord) =>
-    (record.leave_type_id && leaveTypeNames[record.leave_type_id]) ||
-    LEAVE_TYPE_CONFIG[record.leave_type]?.label ||
-    record.leave_type;
+  const typeLabel = (record: LeaveRecord) => {
+    // Personal requests are untyped until the approver assigns a type.
+    if (record.status === 'pending' && !record.leave_type_id) return 'To be set';
+    return (
+      (record.leave_type_id && leaveTypeNames[record.leave_type_id]) ||
+      LEAVE_TYPE_CONFIG[record.leave_type]?.label ||
+      record.leave_type
+    );
+  };
 
   const handleReviewClick = (record: LeaveRecord) => {
     setSelectedLeave(record);
