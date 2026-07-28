@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, LogIn, LogOut, Coffee, Play, Loader2, CheckCircle2 } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, Play, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
 import { useCurrentAttendanceSession } from '@/hooks/useCurrentAttendanceSession';
+import { syncAttendanceNow } from '@/lib/attendance-sync';
 import { CaptureDialog } from './CaptureDialog';
 import {
   CapturePayload,
@@ -46,7 +47,38 @@ export function AttendanceWidget() {
   const [showCheckOut, setShowCheckOut] = useState(false);
   const [breakLoading, setBreakLoading] = useState(false);
   const [activeBreakStart, setActiveBreakStart] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const tick = useTick(1000);
+
+  // On login / mount, quietly pull the last few days from the device (throttled),
+  // then refresh from the DB if anything new came in. Never blocks the UI.
+  useEffect(() => {
+    let alive = true;
+    syncAttendanceNow().then((r) => { if (alive && r.ok && r.reason !== 'recent') refresh(); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    const r = await syncAttendanceNow({ force: true });
+    await refresh();
+    setSyncing(false);
+    toast({
+      title: r.ok ? 'Attendance refreshed' : 'Showing latest saved data',
+      description: r.ok ? undefined : r.reason,
+      variant: r.ok ? undefined : 'destructive',
+    });
+  };
+
+  const refreshBtn = (
+    <Button
+      variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+      onClick={handleSync} disabled={syncing} aria-label="Refresh attendance from the device"
+    >
+      <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+    </Button>
+  );
 
   // When status is on_break, fetch the open break to show timer
   useEffect(() => {
@@ -171,15 +203,17 @@ export function AttendanceWidget() {
                 </p>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCheckIn(true)}
-              className="shrink-0"
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              New shift
-            </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              {refreshBtn}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCheckIn(true)}
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                New shift
+              </Button>
+            </div>
           </div>
         </CardContent>
         <CaptureDialog
@@ -211,10 +245,13 @@ export function AttendanceWidget() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setShowCheckIn(true)} size="lg">
-              <LogIn className="mr-2 h-5 w-5" />
-              Check In
-            </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              {refreshBtn}
+              <Button onClick={() => setShowCheckIn(true)} size="lg">
+                <LogIn className="mr-2 h-5 w-5" />
+                Check In
+              </Button>
+            </div>
           </div>
         </CardContent>
         <CaptureDialog
@@ -273,6 +310,7 @@ export function AttendanceWidget() {
               </p>
             )}
           </div>
+          {refreshBtn}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
