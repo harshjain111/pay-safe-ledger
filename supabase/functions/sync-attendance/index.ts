@@ -1,11 +1,13 @@
-// On-demand attendance sync for logged-in users (login / refresh button).
+// On-demand attendance sync for logged-in users.
 //
-// Deployed with verify_jwt = true, so the Supabase gateway authenticates the
-// caller before we run — any signed-in user may trigger a sync, but the public
-// can't. This function holds NO secret in the client: it calls the
-// pull-etimetracklite connector server-to-server with the x-cron-secret from its
-// own env, and bounds that call with a short timeout so a slow or unreachable
-// device server never leaves the UI spinning.
+// - light (default): pulls the last 3 days (login / refresh button). Fast.
+// - full  (body { full: true }): "hard resync" — pulls a wide window (~5 weeks)
+//   then rebuilds every biometric day cleanly (consolidate). Slower; for the
+//   Hardware "Hard resync" button.
+//
+// verify_jwt = true — the gateway authenticates the caller. No secret in the
+// client: this calls pull-etimetracklite server-to-server with the x-cron-secret
+// from its own env, each call bounded by a timeout so a slow device never hangs.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const cors = {
@@ -13,8 +15,6 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const CONNECTOR_TIMEOUT_MS = 18000;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -26,27 +26,49 @@ serve(async (req) => {
   const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   if (!CRON_SECRET) return json({ ok: false, reason: "sync not configured" }, 200);
 
-  // Pull just the last few days (fast, idempotent). Bounded so a dead device
-  // server (e.g. "No route to host") returns quickly instead of hanging.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONNECTOR_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/pull-etimetracklite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-cron-secret": CRON_SECRET, apikey: ANON },
-      body: JSON.stringify({ backfill: true, days: 3 }),
-      signal: controller.signal,
-    });
-    const data = await res.json().catch(() => ({} as Record<string, unknown>));
-    if (data?.ok) {
-      return json({ ok: true, upserted: data.upserted ?? 0, sessionsBuilt: data.sessionsBuilt ?? 0, rows: data.rows ?? 0 });
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const full = body?.full === true;
+
+  const call = async (payload: Record<string, unknown>, timeoutMs: number) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/pull-etimetracklite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-cron-secret": CRON_SECRET, apikey: ANON },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      return await res.json().catch(() => ({} as Record<string, unknown>));
+    } finally {
+      clearTimeout(timer);
     }
-    // Connector reached but couldn't pull (device offline, login failed, etc.).
-    return json({ ok: false, reason: String(data?.error || data?.reason || "The attendance device is unreachable right now.") });
+  };
+
+  const unreachable = (aborted: boolean) =>
+    aborted ? "The attendance device is slow to respond — showing the latest saved data." : "The attendance device is unreachable right now.";
+
+  try {
+    if (full) {
+      // Wide re-pull (~5 weeks) then a clean rebuild of every biometric day.
+      const pull = await call({ backfill: true, days: 35 }, 90000);
+      if (!pull?.ok) return json({ ok: false, full: true, reason: String(pull?.error || pull?.reason || unreachable(false)) });
+      const cons = await call({ consolidateAttendance: true }, 120000);
+      return json({
+        ok: !!cons?.ok,
+        full: true,
+        upserted: (pull as { upserted?: number }).upserted ?? 0,
+        rebuilt: (cons as { result?: { after?: number } })?.result?.after ?? null,
+        removed: (cons as { result?: { removed?: number } })?.result?.removed ?? null,
+        reason: cons?.ok ? undefined : String((cons as { error?: string })?.error || "Rebuild did not finish"),
+      });
+    }
+
+    const data = await call({ backfill: true, days: 3 }, 18000);
+    if (data?.ok) return json({ ok: true, upserted: data.upserted ?? 0, sessionsBuilt: data.sessionsBuilt ?? 0, rows: data.rows ?? 0 });
+    return json({ ok: false, reason: String(data?.error || data?.reason || unreachable(false)) });
   } catch (e) {
     const aborted = e instanceof Error && e.name === "AbortError";
-    return json({ ok: false, reason: aborted ? "The attendance device is slow to respond — showing the latest saved data." : "Sync failed — showing the latest saved data." });
-  } finally {
-    clearTimeout(timer);
+    return json({ ok: false, full, reason: unreachable(aborted) });
   }
 });

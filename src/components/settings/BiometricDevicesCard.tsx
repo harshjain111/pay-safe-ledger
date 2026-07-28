@@ -52,7 +52,10 @@ import {
   KeyRound,
   Copy,
   Loader2,
+  RefreshCw,
+  DatabaseZap,
 } from 'lucide-react';
+import { syncAttendanceNow, hardResyncAttendance } from '@/lib/attendance-sync';
 
 const OUTLET_NONE = 'none';
 const INGEST_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ingest-punches`;
@@ -77,6 +80,20 @@ export function BiometricDevicesCard() {
   const { user, isOwner, isAdmin } = useAuth();
   const canManage = isOwner || isAdmin;
   const { devices, loading, error, reload } = useBiometricDevices(canManage);
+
+  const [syncing, setSyncing] = useState<false | 'light' | 'full'>(false);
+  const handleSync = async (full: boolean) => {
+    if (full && !window.confirm('Hard resync re-pulls ~5 weeks of punches and rebuilds all attendance from scratch. This can take a minute or two. Continue?')) return;
+    setSyncing(full ? 'full' : 'light');
+    const r = full ? await hardResyncAttendance() : await syncAttendanceNow({ force: true });
+    setSyncing(false);
+    reload();
+    if (r.ok) {
+      toast.success(full ? `Hard resync complete${r.rebuilt != null ? ` — ${r.rebuilt} sessions rebuilt` : ''}.` : 'Attendance synced from the device.');
+    } else {
+      toast.error(r.reason || 'Sync could not complete.');
+    }
+  };
 
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
@@ -335,7 +352,19 @@ export function BiometricDevicesCard() {
             rowActions={rowActions}
             actionsHeader="Actions"
             toolbar={
-              <div className="flex items-center justify-end">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {canManage && (
+                  <Button size="sm" variant="outline" className="gap-2" onClick={() => handleSync(false)} disabled={!!syncing}>
+                    <RefreshCw className={`h-4 w-4 ${syncing === 'light' ? 'animate-spin' : ''}`} />
+                    Sync now
+                  </Button>
+                )}
+                {canManage && (
+                  <Button size="sm" variant="outline" className="gap-2" onClick={() => handleSync(true)} disabled={!!syncing}>
+                    <DatabaseZap className={`h-4 w-4 ${syncing === 'full' ? 'animate-spin' : ''}`} />
+                    {syncing === 'full' ? 'Resyncing…' : 'Hard resync'}
+                  </Button>
+                )}
                 <Button size="sm" className="gap-2" onClick={openAdd}>
                   <Plus className="h-4 w-4" />
                   Add device

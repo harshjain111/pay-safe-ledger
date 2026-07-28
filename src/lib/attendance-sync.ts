@@ -8,6 +8,9 @@ export interface SyncResult {
   reason?: string;
   upserted?: number;
   sessionsBuilt?: number;
+  full?: boolean;
+  rebuilt?: number | null;
+  removed?: number | null;
 }
 
 /**
@@ -28,5 +31,20 @@ export async function syncAttendanceNow(opts?: { force?: boolean }): Promise<Syn
     return (data as SyncResult) ?? { ok: false, reason: 'No response' };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : 'Sync failed' };
+  }
+}
+
+/**
+ * Hard resync — pulls a wide window (~5 weeks) then rebuilds every biometric day
+ * cleanly. Slower (can take up to ~1–2 min). Never throws.
+ */
+export async function hardResyncAttendance(): Promise<SyncResult> {
+  localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+  try {
+    const { data, error } = await supabase.functions.invoke('sync-attendance', { body: { full: true } });
+    if (error) return { ok: false, reason: error.message };
+    return (data as SyncResult) ?? { ok: false, reason: 'No response' };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : 'Resync failed' };
   }
 }
