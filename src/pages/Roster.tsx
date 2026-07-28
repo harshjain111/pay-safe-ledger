@@ -12,7 +12,7 @@ import { FilterBar } from '@/components/layout/filter-bar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/lib/toast';
-import { listShifts, buildRosterGrid, saveRosterCells, type ShiftRow } from '@/lib/shift-roster-service';
+import { listShifts, buildRosterGrid, saveRosterCells, publishRoster, type ShiftRow } from '@/lib/shift-roster-service';
 import type { RosterStatus } from '@/lib/shift-roster';
 import { exportSheetsToExcel } from '@/lib/report-export';
 
@@ -123,6 +123,18 @@ export default function Roster() {
     finally { setSaving(false); }
   };
 
+  const [publishing, setPublishing] = useState(false);
+  const publish = async () => {
+    if (!filtered.length || !dates.length) return;
+    setPublishing(true);
+    try {
+      const n = await publishRoster(filtered.map((s) => s.id), dates[0], dates[dates.length - 1]);
+      toast.success(`Roster published — ${n} scheduled day(s) written. Payroll & attendance now use these shifts and week-offs.`);
+      await load();
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to publish'); }
+    finally { setPublishing(false); }
+  };
+
   const exportExcel = () => {
     const headers = ['Code', 'Name', 'Department', 'Designation', ...dates.map((d) => format(parseISO(d), 'dd MMM (EEE)'))];
     const rows = filtered.map((s) => [s.employee_id, s.full_name, s.department ?? '', s.designation ?? '', ...dates.map((d) => cellLabel(cellVal(s.id, d)))]);
@@ -134,8 +146,11 @@ export default function Roster() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Roster" description="Date-specific schedule. Only scheduled people are rostered — anyone not rostered is treated as off (a check-in auto-adds them).">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={exportExcel} disabled={!staff.length} className="gap-1.5"><FileSpreadsheet className="h-4 w-4" /> Excel</Button>
+          <Button variant="secondary" onClick={publish} disabled={publishing || !staff.length} className="gap-1.5" title="Write the weekly template into the roster so payroll & attendance use it">
+            {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />} Publish
+          </Button>
           <Button onClick={save} disabled={saving || dirty.size === 0} className="gap-1.5"><Save className="h-4 w-4" /> Save{dirty.size ? ` (${dirty.size})` : ''}</Button>
         </div>
       </PageHeader>

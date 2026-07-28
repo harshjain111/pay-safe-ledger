@@ -111,6 +111,24 @@ export async function saveShiftAssignments(rows: { staff_id: string; weekday: nu
   if (!rows.length) return;
   const { error } = await supabase.from('shift_assignment').upsert(rows, { onConflict: 'staff_id,weekday' });
   if (error) throw error;
+
+  // Dual-write the LEGACY per-staff shift that the discipline/penalty/report
+  // engines read (staff_shift_assignments, one row per staff). Use each touched
+  // staff's most-common weekday shift so their lateness/scoring actually works.
+  const touched = [...new Set(rows.map((r) => r.staff_id))];
+  const { data: full } = await supabase.from('shift_assignment').select('staff_id, shift_id').in('staff_id', touched);
+  const counts = new Map<string, Map<string, number>>();
+  for (const a of (full ?? []) as { staff_id: string; shift_id: string | null }[]) {
+    if (!a.shift_id) continue;
+    const m = counts.get(a.staff_id) ?? counts.set(a.staff_id, new Map()).get(a.staff_id)!;
+    m.set(a.shift_id, (m.get(a.shift_id) ?? 0) + 1);
+  }
+  for (const sid of touched) {
+    const m = counts.get(sid);
+    let best: string | null = null, bestN = 0;
+    if (m) for (const [sh, n] of m) if (n > bestN) { best = sh; bestN = n; }
+    if (best) await supabase.from('staff_shift_assignments').upsert({ staff_id: sid, shift_id: best }, { onConflict: 'staff_id' });
+  }
 }
 
 export async function listWeekOff(): Promise<{ staff_id: string; weekday: number; state: WeekOffState }[]> {
@@ -121,6 +139,19 @@ export async function saveWeekOff(rows: { staff_id: string; weekday: number; sta
   if (!rows.length) return;
   const { error } = await supabase.from('week_off').upsert(rows, { onConflict: 'staff_id,weekday' });
   if (error) throw error;
+
+  // Dual-write the LEGACY single weekly-off-day the pay engine reads
+  // (staff.weekly_off_day; getDay() 0=Sun..6=Sat — same convention). Use the
+  // first WEEK_OFF weekday per touched staff, or clear it if they have none.
+  const touched = [...new Set(rows.map((r) => r.staff_id))];
+  const { data: full } = await supabase.from('week_off').select('staff_id, weekday, state').in('staff_id', touched);
+  const offDay = new Map<string, number | null>(touched.map((s) => [s, null]));
+  for (const w of (full ?? []) as { staff_id: string; weekday: number; state: WeekOffState }[]) {
+    if (w.state === 'WEEK_OFF' && offDay.get(w.staff_id) == null) offDay.set(w.staff_id, w.weekday);
+  }
+  for (const [sid, day] of offDay) {
+    await supabase.from('staff').update({ weekly_off_day: day }).eq('id', sid);
+  }
 }
 
 // ---- Roster grid (date range) ----------------------------------------------
@@ -168,6 +199,29 @@ export async function saveRosterCells(cells: { staff_id: string; date: string; s
     if (error) throw error;
   }
   for (const c of toDelete) await supabase.from('staff_roster').delete().eq('staff_id', c.staff_id).eq('roster_date', c.date);
+}
+
+/** Materialize the weekly template (Assignment ⊕ Week Off) into staff_roster for
+ *  the date range, so the pay/attendance engine sees explicit SCHEDULED / OFF days
+ *  (and scores a no-show on a scheduled day as absent rather than a paid off).
+ *  Existing rows (manual edits, auto check-ins) are preserved — only missing days
+ *  are filled. Returns how many rows were written. */
+export async function publishRoster(staffIds: string[], fromISO: string, toISO: string): Promise<number> {
+  const grid = await buildRosterGrid(staffIds, fromISO, toISO);
+  const rows = [...grid.values()]
+    .filter((c) => c.status) // skip sparse/off-by-default cells
+    .map((c) => ({
+      staff_id: c.staff_id, roster_date: c.date, shift_id: c.shift_id,
+      status: c.status, is_off: c.status === 'OFF', source: 'TEMPLATE',
+    }));
+  let written = 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const batch = rows.slice(i, i + 500);
+    const { error } = await supabase.from('staff_roster').upsert(batch, { onConflict: 'staff_id,roster_date', ignoreDuplicates: true });
+    if (error) throw error;
+    written += batch.length;
+  }
+  return written;
 }
 
 // ---- §7 auto-promote / reversal --------------------------------------------
