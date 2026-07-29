@@ -288,6 +288,64 @@ serve(async (req) => {
       return json(200, { ok: !setErr, secretLoaded: !setErr, setError: setErr?.message ?? null, statusError: stErr?.message ?? null, status });
     }
 
+    // Apply an uploaded staff sheet (by employee code): update name / department /
+    // designation / date_of_joining / monthly_salary (+ email/phone if present).
+    if (body?.applyStaffFile) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      let updated = 0, inserted = 0; const errs: string[] = [];
+      for (const r of rows) {
+        const code = String(r?.employee_id ?? "").trim(); if (!code) continue;
+        const patch: Record<string, unknown> = {};
+        if (r.full_name) patch.full_name = String(r.full_name).trim();
+        if (r.department) patch.department = String(r.department).trim();
+        if (r.designation) patch.designation = String(r.designation).trim();
+        if (r.date_of_joining) patch.date_of_joining = String(r.date_of_joining).slice(0, 10);
+        if (r.monthly_salary !== null && r.monthly_salary !== undefined && r.monthly_salary !== "") patch.monthly_salary = Number(r.monthly_salary);
+        if (r.email) patch.email = String(r.email).trim();
+        if (r.phone) patch.phone = String(r.phone).replace(/\D/g, "");
+        const { data: ex } = await admin.from("staff").select("id").eq("employee_id", code).maybeSingle();
+        if (ex) { const { error } = await admin.from("staff").update(patch).eq("id", (ex as { id: string }).id); if (error) { if (errs.length < 3) errs.push(error.message); } else updated++; }
+        else { const { error } = await admin.from("staff").insert({ employee_id: code, email: "", ...patch }); if (error) { if (errs.length < 3) errs.push(error.message); } else inserted++; }
+      }
+      return json(200, { ok: true, updated, inserted, total: rows.length, errs });
+    }
+
+    // Provision a login for EVERY staff member, keyed on their employee code:
+    // email = <code>@<domain>, bootstrap password = the code (they set their own on
+    // first login), role 'staff' + Staff template, onboarding_completed=false.
+    // Idempotent + resumable — staff already linked to a login are skipped.
+    if (body?.provisionStaffLogins) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const domain = String(body.domain || Deno.env.get("PHONE_EMAIL_DOMAIN") || "hr-buddy-nine.vercel.app").trim();
+      const { data: staff } = await admin.from("staff").select("id, employee_id, user_id, is_active");
+      const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const byEmail = new Map<string, string>((list?.users || []).map((u) => [(u.email || "").toLowerCase(), u.id]));
+      const { data: tmpl } = await admin.from("rights_templates").select("id").eq("name", "Staff").maybeSingle();
+      const tmplId = (tmpl as { id: string } | null)?.id ?? null;
+      const limit = Number(body.limit) || 60; // bounded per call so the fn returns before its wall limit
+      let created = 0, linked = 0, skipped = 0, remaining = 0; const errs: string[] = [];
+      for (const s of (staff || []) as { id: string; employee_id?: string; user_id?: string | null }[]) {
+        const code = String(s.employee_id ?? "").trim(); if (!code) { skipped++; continue; }
+        if (s.user_id) { skipped++; continue; } // already has a login
+        if (linked >= limit) { remaining++; continue; }
+        const email = `${code.toLowerCase()}@${domain}`;
+        let uid = byEmail.get(email);
+        if (!uid) {
+          const { data: cu, error } = await admin.auth.admin.createUser({ email, password: code.toLowerCase(), email_confirm: true });
+          if (error || !cu?.user) { if (errs.length < 5) errs.push(`${code}: ${error?.message ?? "create failed"}`); continue; }
+          uid = cu.user.id; created++;
+        }
+        await admin.from("staff").update({ user_id: uid, onboarding_completed: false }).eq("id", s.id);
+        await admin.from("user_roles").upsert({ user_id: uid, role: "staff" }, { onConflict: "user_id,role", ignoreDuplicates: true });
+        if (tmplId) await admin.from("user_permissions").upsert({ user_id: uid, template_id: tmplId }, { onConflict: "user_id" });
+        linked++;
+      }
+      return json(200, { ok: true, created, linked, skipped, remaining, done: remaining === 0, domain, errs });
+    }
+
     // Diagnostic: overall attendance data quality (how "wrong" is the backfill?).
     if (body?.attendanceQuality) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
