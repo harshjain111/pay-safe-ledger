@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Wallet, Eye, EyeOff, Loader2, Phone, Mail, ArrowLeft, WifiOff, RefreshCw } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { phoneToEmail } from '@/lib/auth-email';
+import { phoneToEmail, PHONE_EMAIL_DOMAIN } from '@/lib/auth-email';
+import { supabase } from '@/integrations/supabase/client';
 import { ORGANIZATION, BRAND } from '@/lib/brand';
 import { z } from 'zod';
 
@@ -74,8 +75,12 @@ export default function Auth() {
   });
   const [loginPassword, setLoginPassword] = useState('');
 
-  const identifierIsEmail = looksLikeEmail(identifier);
-  const cleanIdentifier = identifierIsEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '');
+  // Identifier can be an employee code (e.g. K2H137), a phone number, or an email.
+  const identifierRaw = identifier.trim();
+  const identifierIsEmail = looksLikeEmail(identifierRaw);
+  const identifierDigits = identifierRaw.replace(/\D/g, '');
+  const identifierIsPhone = !identifierIsEmail && /^[\d\s+\-()]+$/.test(identifierRaw) && identifierDigits.length >= 10;
+  const cleanIdentifier = identifierIsEmail ? identifierRaw.toLowerCase() : (identifierIsPhone ? identifierDigits : identifierRaw);
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -125,12 +130,24 @@ export default function Auth() {
     }
   };
 
+  // Resolve an employee code / phone / email to the account's login email.
+  const resolveLoginEmail = async (): Promise<string> => {
+    try {
+      const { data } = await supabase.rpc('resolve_login_email' as never, { _id: identifierRaw } as never);
+      if (data) return String(data);
+    } catch { /* fall through to heuristics */ }
+    if (identifierIsEmail) return cleanIdentifier;
+    if (identifierIsPhone) return phoneToEmail(identifierDigits);
+    return `${identifierRaw.toLowerCase()}@${PHONE_EMAIL_DOMAIN}`; // employee code
+  };
+
   // Step 1 → Step 2: validate the identifier, then reveal the password field.
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (identifierIsEmail) emailSchema.parse(cleanIdentifier);
-      else phoneSchema.parse(cleanIdentifier);
+      else if (identifierIsPhone) phoneSchema.parse(identifierDigits);
+      else if (identifierRaw.length < 3) throw new z.ZodError([{ code: 'custom', message: 'Enter your employee code, phone, or email', path: [] }]);
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -152,7 +169,7 @@ export default function Auth() {
 
     try {
       if (identifierIsEmail) emailSchema.parse(cleanIdentifier);
-      else phoneSchema.parse(cleanIdentifier);
+      else if (identifierIsPhone) phoneSchema.parse(identifierDigits);
       passwordSchema.parse(loginPassword);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -162,7 +179,7 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const pseudoEmail = identifierIsEmail ? cleanIdentifier : phoneToEmail(cleanIdentifier);
+    const pseudoEmail = await resolveLoginEmail();
     let isAuthenticated = false;
 
     try {
@@ -289,7 +306,7 @@ export default function Auth() {
           <CardHeader className="pb-4 text-center">
             <h2 className="text-xl font-semibold">Welcome Back</h2>
             <p className="text-sm text-muted-foreground">
-              {step === 'identifier' ? 'Sign in with your phone number or email' : 'Enter your password to continue'}
+              {step === 'identifier' ? 'Sign in with your employee code, phone, or email' : 'Enter your password to continue'}
             </p>
           </CardHeader>
 
@@ -297,7 +314,7 @@ export default function Auth() {
             {step === 'identifier' ? (
               <form onSubmit={handleContinue} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-id">Phone number or email</Label>
+                  <Label htmlFor="login-id">Employee code, phone, or email</Label>
                   <div className="relative">
                     {identifierIsEmail
                       ? <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -306,7 +323,7 @@ export default function Auth() {
                       id="login-id"
                       type="text"
                       inputMode="email"
-                      placeholder="9876543210 or you@email.com"
+                      placeholder="e.g. K2H001, phone, or email"
                       value={identifier}
                       onChange={e => setIdentifier(e.target.value)}
                       required
@@ -315,7 +332,7 @@ export default function Auth() {
                       className="pl-10"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Use the phone number registered by your organization.</p>
+                  <p className="text-xs text-muted-foreground">First time? Sign in with your employee code — your initial password is the same code.</p>
                 </div>
 
                 <Button type="submit" className="w-full">Continue</Button>

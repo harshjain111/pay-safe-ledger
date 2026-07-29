@@ -32,6 +32,7 @@ export default function Onboarding() {
   const [email, setEmail] = useState(staffData?.email && staffData.email !== '' ? staffData.email : '');
   const [pan, setPan] = useState('');
   const [aadhaar, setAadhaar] = useState('');
+  const [phone, setPhone] = useState(staffData?.phone && staffData.phone !== '' ? staffData.phone : '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -44,21 +45,21 @@ export default function Onboarding() {
   const back = () => setStep((s) => Math.max(0, s - 1));
 
   const finish = async () => {
-    if (password || confirm) {
-      if (password.length < 6) return toast({ title: 'Password too short', description: 'Use at least 6 characters.', variant: 'destructive' });
-      if (password !== confirm) return toast({ title: 'Passwords do not match', variant: 'destructive' });
-    }
+    // Password is required on first login (bootstrap is the employee code).
+    if (password.length < 6) return toast({ title: 'Set a password', description: 'Use at least 6 characters.', variant: 'destructive' });
+    if (password !== confirm) return toast({ title: 'Passwords do not match', variant: 'destructive' });
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) return toast({ title: 'Phone required', description: 'Enter a valid 10-digit phone number.', variant: 'destructive' });
     const cleanAadhaar = aadhaar.replace(/\D/g, '');
     if (cleanAadhaar && cleanAadhaar.length !== 12) return toast({ title: 'Invalid Aadhaar', description: 'Aadhaar must be 12 digits.', variant: 'destructive' });
 
     setSaving(true);
     try {
-      if (password) {
-        const { error: pwErr } = await supabase.auth.updateUser({ password });
-        if (pwErr) throw pwErr;
-      }
+      const { error: pwErr } = await supabase.auth.updateUser({ password });
+      if (pwErr) throw pwErr;
       const { error } = await supabase.rpc('complete_staff_onboarding' as never, {
         _email: email.trim(),
+        _phone: cleanPhone,
         _pan: pan.trim().toUpperCase(),
         _aadhaar: cleanAadhaar,
         _lang: langCode,
@@ -191,28 +192,14 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold">Your details</h2>
-                  <p className="text-sm text-muted-foreground">Fill what you can — you can update it later.</p>
+                  <p className="text-sm text-muted-foreground">Set a password and your phone to finish. The rest is optional.</p>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ob-email">Email</Label>
-                  <Input id="ob-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ob-pan">PAN number</Label>
-                    <Input id="ob-pan" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ob-aadhaar">Aadhaar number</Label>
-                    <Input id="ob-aadhaar" inputMode="numeric" value={aadhaar} onChange={(e) => setAadhaar(e.target.value)} placeholder="12 digits" maxLength={14} />
-                  </div>
-                </div>
-
+                {/* 1. Password */}
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-                  <p className="text-sm font-medium">Set your password</p>
+                  <p className="text-sm font-medium">Set your password *</p>
                   <div className="relative">
                     <Input
                       type={showPw ? 'text' : 'password'}
@@ -233,6 +220,30 @@ export default function Onboarding() {
                     placeholder="Confirm password"
                     autoComplete="new-password"
                   />
+                </div>
+
+                {/* 2. Phone */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="ob-phone">Phone number *</Label>
+                  <Input id="ob-phone" type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" maxLength={15} />
+                </div>
+
+                {/* 3. Email (optional) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="ob-email">Email <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Input id="ob-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
+                </div>
+
+                {/* 4 & 5. Aadhaar + PAN */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ob-aadhaar">Aadhaar number</Label>
+                    <Input id="ob-aadhaar" inputMode="numeric" value={aadhaar} onChange={(e) => setAadhaar(e.target.value)} placeholder="12 digits" maxLength={14} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ob-pan">PAN number</Label>
+                    <Input id="ob-pan" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} />
+                  </div>
                 </div>
               </div>
 
