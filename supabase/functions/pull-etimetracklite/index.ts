@@ -420,6 +420,55 @@ serve(async (req) => {
       return json(200, { ok: true, totalStaff: rows.length, nightStaff, singlePunchStaff, checkinHist, checkoutHist, clusters: clusterOut, byDepartment: deptOut });
     }
 
+    // Create the 3 recommended shifts and assign each staff to their best-fit one
+    // from their own biometric pattern. Writes new + legacy tables + timings.
+    if (body?.assignShiftsByPattern) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const defs = [
+        { key: "A", name: "General (11 AM – 8 PM)", cin: "11:00", cout: "20:00" },
+        { key: "B", name: "Afternoon (2 PM – 11 PM)", cin: "14:00", cout: "23:00" },
+        { key: "C", name: "Evening / Closing (4 PM – 1 AM)", cin: "16:00", cout: "01:00" },
+      ];
+      const shiftId: Record<string, string> = {}; const week = [0, 1, 2, 3, 4, 5, 6];
+      for (const d of defs) {
+        let id: string | null = null;
+        const { data: ex } = await admin.from("shifts").select("id").eq("name", d.name).maybeSingle();
+        if (ex) { id = (ex as { id: string }).id; await admin.from("shifts").update({ check_in_time: d.cin, check_out_time: d.cout, is_active: true }).eq("id", id); }
+        else { const { data: ns, error } = await admin.from("shifts").insert({ name: d.name, check_in_time: d.cin, check_out_time: d.cout }).select("id").maybeSingle(); if (error) return json(200, { ok: false, stage: "shift " + d.key, error: error.message }); id = (ns as { id: string } | null)?.id ?? null; }
+        if (!id) return json(200, { ok: false, reason: "no shift id " + d.key });
+        shiftId[d.key] = id;
+        await admin.from("shift_day_timing").upsert(week.map((w) => ({ shift_id: id, weekday: w, start_time: d.cin, end_time: d.cout })), { onConflict: "shift_id,weekday" });
+      }
+      const { data: pat, error: perr } = await admin.rpc("shift_pattern_analysis");
+      if (perr) return json(200, { ok: false, error: perr.message });
+      const classify = (r: { median_in_hour: number | null; median_out_hour: number | null; cross_midnight_pct: number | null }): string => {
+        const mi = r.median_in_hour; if (mi == null) return "B";
+        const night = (r.median_out_hour != null && r.median_out_hour < mi - 1) || (r.cross_midnight_pct ?? 0) > 25;
+        if (night) return "C";
+        if (mi < 12.5) return "A";
+        if (mi < 15) return "B";
+        return "C";
+      };
+      const byCode = new Map<string, string>();
+      for (const r of (pat || []) as { employee_id: string; median_in_hour: number | null; median_out_hour: number | null; cross_midnight_pct: number | null }[]) byCode.set(String(r.employee_id).trim(), classify(r));
+      const { data: staff } = await admin.from("staff").select("id, employee_id").eq("is_active", true);
+      const asn: Record<string, unknown>[] = []; const legacy: Record<string, unknown>[] = [];
+      const assignCounts: Record<string, number> = { A: 0, B: 0, C: 0 }; let defaulted = 0;
+      for (const s of (staff || []) as { id: string; employee_id?: string }[]) {
+        let k = byCode.get(String(s.employee_id ?? "").trim());
+        if (!k) { k = "B"; defaulted++; }
+        assignCounts[k]++;
+        const sid = shiftId[k];
+        for (const w of week) asn.push({ staff_id: s.id, weekday: w, shift_id: sid });
+        legacy.push({ staff_id: s.id, shift_id: sid });
+      }
+      const errs: string[] = []; let asnUp = 0, legUp = 0;
+      for (let i = 0; i < asn.length; i += 500) { const { error } = await admin.from("shift_assignment").upsert(asn.slice(i, i + 500), { onConflict: "staff_id,weekday" }); if (error) { if (errs.length < 3) errs.push("asn: " + error.message); } else asnUp += Math.min(500, asn.length - i); }
+      for (let i = 0; i < legacy.length; i += 500) { const { error } = await admin.from("staff_shift_assignments").upsert(legacy.slice(i, i + 500), { onConflict: "staff_id" }); if (error) { if (errs.length < 3) errs.push("legacy: " + error.message); } else legUp += Math.min(500, legacy.length - i); }
+      return json(200, { ok: errs.length === 0, shifts: defs.map((d) => ({ key: d.key, name: d.name, timing: `${d.cin}–${d.cout}`, staff: assignCounts[d.key] })), defaultedToB: defaulted, staffTotal: (staff || []).length, shiftAssignments: asnUp, legacyAssignments: legUp, errs });
+    }
+
     // Provision a login for EVERY staff member, keyed on their employee code:
     // email = <code>@<domain>, bootstrap password = the code (they set their own on
     // first login), role 'staff' + Staff template, onboarding_completed=false.
