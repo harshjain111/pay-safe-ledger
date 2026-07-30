@@ -121,25 +121,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch user role
-      const { data: roleData, error: roleError } = await supabase
+      // Fetch user role(s). A user may hold more than one (e.g. accountant +
+      // admin); pick a deterministic primary by priority. Using .single() here
+      // used to break the WHOLE session for any multi-role user (it errors on >1
+      // row → no role → locked out).
+      const { data: roleRows, error: roleError } = await supabase
         .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+        .select('role')
+        .eq('user_id', userId);
 
       if (roleError && roleError.code !== 'PGRST116') {
         console.error('Error fetching role:', roleError);
       }
 
-      if (roleData) {
-        setUserRole(roleData.role as AppRole);
+      const ROLE_PRIORITY = ['owner', 'accountant', 'admin', 'staff', 'ca'];
+      const heldRoles = (roleRows ?? []).map((r) => (r as { role: string }).role);
+      const primaryRole = ROLE_PRIORITY.find((r) => heldRoles.includes(r)) ?? heldRoles[0] ?? null;
+      if (primaryRole) {
+        setUserRole(primaryRole as AppRole);
       }
 
       // Effective permissions — server-resolved (get_my_permissions). Falls back
       // to the role map if the permissions migration isn't deployed yet, so the
       // UI never breaks and no one is locked out.
-      const roleStr = (roleData?.role as string | undefined) ?? null;
+      const roleStr = primaryRole;
       try {
         const { data: permRows, error: permErr } = await supabase.rpc('get_my_permissions');
         if (permErr) throw permErr;

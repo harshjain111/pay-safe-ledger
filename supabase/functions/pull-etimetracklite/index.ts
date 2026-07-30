@@ -288,6 +288,45 @@ serve(async (req) => {
       return json(200, { ok: !setErr, secretLoaded: !setErr, setError: setErr?.message ?? null, statusError: stErr?.message ?? null, status });
     }
 
+    // Diagnostic + safety backfill: every linked staff should have role 'staff'
+    // (unless owner/accountant). Reports role coverage and a given code's role.
+    if (body?.rolesSummary) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { data: staff } = await admin.from("staff").select("id, employee_id, user_id");
+      const { data: roles } = await admin.from("user_roles").select("user_id, role");
+      const roleByUser = new Map<string, string[]>();
+      for (const r of (roles || []) as { user_id: string; role: string }[]) {
+        (roleByUser.get(r.user_id) ?? roleByUser.set(r.user_id, []).get(r.user_id)!).push(r.role);
+      }
+      const counts: Record<string, number> = {};
+      for (const arr of roleByUser.values()) for (const r of arr) counts[r] = (counts[r] || 0) + 1;
+      let linkedNoRole = 0; const backfill = body.backfillStaffRole === true;
+      const { data: staffTmpl } = await admin.from("rights_templates").select("id").eq("name", "Staff").maybeSingle();
+      for (const s of (staff || []) as { id: string; user_id?: string | null }[]) {
+        if (!s.user_id) continue;
+        const rs = roleByUser.get(s.user_id) || [];
+        if (rs.length === 0) {
+          linkedNoRole++;
+          if (backfill) {
+            await admin.from("user_roles").upsert({ user_id: s.user_id, role: "staff" }, { onConflict: "user_id,role", ignoreDuplicates: true });
+            if ((staffTmpl as { id: string } | null)?.id) await admin.from("user_permissions").upsert({ user_id: s.user_id, template_id: (staffTmpl as { id: string }).id }, { onConflict: "user_id" });
+          }
+        }
+      }
+      // K2H001's role + template
+      const { data: k } = await admin.from("staff").select("user_id").eq("employee_id", "K2H001").maybeSingle();
+      const kUid = (k as { user_id?: string } | null)?.user_id ?? null;
+      const kRoles = kUid ? (roleByUser.get(kUid) || []) : [];
+      let kTemplate: string | null = null;
+      if (kUid) {
+        const { data: up } = await admin.from("user_permissions").select("template_id").eq("user_id", kUid).maybeSingle();
+        const tid = (up as { template_id?: string } | null)?.template_id;
+        if (tid) { const { data: t } = await admin.from("rights_templates").select("name").eq("id", tid).maybeSingle(); kTemplate = (t as { name?: string } | null)?.name ?? null; }
+      }
+      return json(200, { ok: true, roleCounts: counts, linkedStaffWithoutRole: linkedNoRole, backfilled: backfill, staffTotal: (staff || []).length, K2H001: { roles: kRoles, template: kTemplate } });
+    }
+
     // Apply an uploaded staff sheet (by employee code): update name / department /
     // designation / date_of_joining / monthly_salary (+ email/phone if present).
     if (body?.applyStaffFile) {
