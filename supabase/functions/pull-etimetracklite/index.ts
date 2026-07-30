@@ -351,6 +351,32 @@ serve(async (req) => {
       return json(200, { ok: true, updated, inserted, total: rows.length, errs });
     }
 
+    // Create a shift + assign it to EVERY active staff on all 7 weekdays, writing
+    // both the new (shift_assignment / shift_day_timing) and legacy
+    // (staff_shift_assignments) tables so payroll/discipline honour it.
+    if (body?.assignDefaultShift) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const name = String(body.name || "Night 4 PM – 2 AM");
+      const cin = String(body.check_in || "16:00");
+      const cout = String(body.check_out || "02:00");
+      const errs: string[] = [];
+      let shiftId: string | null = null;
+      const { data: exShift } = await admin.from("shifts").select("id").eq("name", name).maybeSingle();
+      if (exShift) { shiftId = (exShift as { id: string }).id; await admin.from("shifts").update({ check_in_time: cin, check_out_time: cout, is_active: true }).eq("id", shiftId); }
+      else { const { data: ns, error } = await admin.from("shifts").insert({ name, check_in_time: cin, check_out_time: cout }).select("id").maybeSingle(); if (error) return json(200, { ok: false, stage: "shift", error: error.message }); shiftId = (ns as { id: string } | null)?.id ?? null; }
+      if (!shiftId) return json(200, { ok: false, reason: "no shift id" });
+      const week = [0, 1, 2, 3, 4, 5, 6];
+      await admin.from("shift_day_timing").upsert(week.map((w) => ({ shift_id: shiftId, weekday: w, start_time: cin, end_time: cout })), { onConflict: "shift_id,weekday" });
+      const { data: staff } = await admin.from("staff").select("id").eq("is_active", true);
+      const asn: Record<string, unknown>[] = []; const legacy: Record<string, unknown>[] = [];
+      for (const s of (staff || []) as { id: string }[]) { for (const w of week) asn.push({ staff_id: s.id, weekday: w, shift_id: shiftId }); legacy.push({ staff_id: s.id, shift_id: shiftId }); }
+      let asnUp = 0, legUp = 0;
+      for (let i = 0; i < asn.length; i += 500) { const { error } = await admin.from("shift_assignment").upsert(asn.slice(i, i + 500), { onConflict: "staff_id,weekday" }); if (error) { if (errs.length < 3) errs.push("asn: " + error.message); } else asnUp += Math.min(500, asn.length - i); }
+      for (let i = 0; i < legacy.length; i += 500) { const { error } = await admin.from("staff_shift_assignments").upsert(legacy.slice(i, i + 500), { onConflict: "staff_id" }); if (error) { if (errs.length < 3) errs.push("legacy: " + error.message); } else legUp += Math.min(500, legacy.length - i); }
+      return json(200, { ok: errs.length === 0, shiftId, name, check_in: cin, check_out: cout, staff: (staff || []).length, shiftAssignments: asnUp, legacyAssignments: legUp, errs });
+    }
+
     // Provision a login for EVERY staff member, keyed on their employee code:
     // email = <code>@<domain>, bootstrap password = the code (they set their own on
     // first login), role 'staff' + Staff template, onboarding_completed=false.
@@ -583,23 +609,25 @@ serve(async (req) => {
       const codeToId = new Map<string, string>(); const idToUser = new Map<string, string | null>();
       for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
 
-      // ONE session per (staff, day): first punch = check-in, last punch = check-out.
-      // The eSSL "Att State" in/out flag is unreliable (often blank), so direction-
-      // based pairing left ~half of days unclosed. Bucketing punches by their own
-      // IST day and taking first→last is robust to missing direction and never
-      // spans midnight. A day with a single punch is present-but-checkout-unknown
-      // (open only if it is today). Matches consolidate_biometric_attendance().
+      // ONE session per (staff, BUSINESS day): first punch = check-in, last punch
+      // = check-out. Business day rolls over at org attendance_day_start_hour (IST),
+      // not calendar midnight — so an overnight 4pm–2am shift's check-in and 2am
+      // check-out attribute to the SAME day. day_start_hour=0 = calendar day.
+      // Matches consolidate_biometric_attendance().
+      const { data: orgP } = await db.from("organization_profile").select("attendance_day_start_hour").limit(1).maybeSingle();
+      const dayStartMs = (Number((orgP as { attendance_day_start_hour?: number } | null)?.attendance_day_start_hour ?? 0) || 0) * 3600_000;
+      const bizDay = (iso: string) => { const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000 - dayStartMs); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
       const byStaffDay = new Map<string, Map<string, string[]>>();
       let unmatchedB = 0;
       for (const r of rows) {
         const sid = codeToId.get(col(r, "UserId", "Employee Code In Device")); if (!sid) { unmatchedB++; continue; }
         const iso = logDateToIso(col(r, "Log Date")); if (!iso) continue;
-        const ist = new Date(new Date(iso).getTime() + 5.5 * 3600_000);
-        const wd = `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}`;
+        const wd = bizDay(iso);
         const days = byStaffDay.get(sid) ?? byStaffDay.set(sid, new Map()).get(sid)!;
         (days.get(wd) ?? days.set(wd, []).get(wd)!).push(iso);
       }
-      const todayWd = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+      const todayShift = new Date(now.getTime() - dayStartMs);
+      const todayWd = `${todayShift.getUTCFullYear()}-${pad(todayShift.getUTCMonth() + 1)}-${pad(todayShift.getUTCDate())}`;
       const sessions: Array<Record<string, unknown>> = [];
       for (const [sid, days] of byStaffDay) {
         for (const [wd, punches] of days) {
