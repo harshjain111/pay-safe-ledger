@@ -377,6 +377,49 @@ serve(async (req) => {
       return json(200, { ok: errs.length === 0, shiftId, name, check_in: cin, check_out: cout, staff: (staff || []).length, shiftAssignments: asnUp, legacyAssignments: legUp, errs });
     }
 
+    // Analyze biometric history → per-staff shift pattern, clustered into shift
+    // types (with cross-midnight detection). For the "recommend shifts" report.
+    if (body?.shiftAnalysis) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { data, error } = await admin.rpc("shift_pattern_analysis");
+      if (error) return json(200, { ok: false, error: error.message });
+      type Row = { employee_id: string; full_name: string; department: string | null; sessions: number; median_in_hour: number | null; p25_in_hour: number | null; p75_in_hour: number | null; median_out_hour: number | null; cross_midnight_pct: number | null; single_punch_pct: number | null; avg_worked_min: number | null };
+      const rows = (data || []) as Row[];
+      const hhmm = (h: number | null) => h == null ? "—" : `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+      const isNight = (r: Row) => r.median_in_hour != null && ((r.median_out_hour != null && r.median_out_hour < r.median_in_hour - 1) || (r.cross_midnight_pct ?? 0) > 25);
+      const classify = (r: Row): string => {
+        const mi = r.median_in_hour; if (mi == null) return "Unknown";
+        if ((r.single_punch_pct ?? 0) >= 60) return "Single-punch (presence only)";
+        if (isNight(r)) return mi >= 17 ? "Night: evening→~2am" : (mi >= 13 ? "Long/overnight: afternoon→morning" : "Overnight: midday→morning");
+        if (mi < 7) return "Early morning (before 7)";
+        if (mi < 10) return "Morning (7–10)";
+        if (mi < 12.5) return "Late morning (10–12:30)";
+        if (mi < 15) return "Midday (12:30–15)";
+        return "Afternoon start (15–17, same day)";
+      };
+      const checkinHist: Record<string, number> = {}, checkoutHist: Record<string, number> = {};
+      const clusters: Record<string, { count: number; ins: number[]; outs: number[]; xmid: number[]; depts: Record<string, number>; samples: string[] }> = {};
+      const byDept: Record<string, { staff: number; night: number; inSum: number; outN: number; outSum: number }> = {};
+      let nightStaff = 0, singlePunchStaff = 0;
+      for (const r of rows) {
+        if (r.median_in_hour != null) checkinHist[String(Math.floor(r.median_in_hour))] = (checkinHist[String(Math.floor(r.median_in_hour))] || 0) + 1;
+        if (r.median_out_hour != null) checkoutHist[String(Math.floor(r.median_out_hour))] = (checkoutHist[String(Math.floor(r.median_out_hour))] || 0) + 1;
+        const c = classify(r);
+        const cl = clusters[c] ?? (clusters[c] = { count: 0, ins: [], outs: [], xmid: [], depts: {}, samples: [] });
+        cl.count++; if (r.median_in_hour != null) cl.ins.push(r.median_in_hour); if (r.median_out_hour != null) cl.outs.push(r.median_out_hour); cl.xmid.push(r.cross_midnight_pct ?? 0);
+        const dep = r.department || "—"; cl.depts[dep] = (cl.depts[dep] || 0) + 1;
+        if (cl.samples.length < 6) cl.samples.push(`${r.employee_id} ${r.full_name}`);
+        if (isNight(r)) nightStaff++; if ((r.single_punch_pct ?? 0) >= 60) singlePunchStaff++;
+        const d = byDept[dep] ?? (byDept[dep] = { staff: 0, night: 0, inSum: 0, outN: 0, outSum: 0 });
+        d.staff++; if (isNight(r)) d.night++; if (r.median_in_hour != null) d.inSum += r.median_in_hour; if (r.median_out_hour != null) { d.outN++; d.outSum += r.median_out_hour; }
+      }
+      const med = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+      const clusterOut = Object.entries(clusters).map(([name, c]) => ({ shift: name, staff: c.count, typicalIn: hhmm(med(c.ins)), typicalOut: hhmm(med(c.outs)), avgCrossMidnightPct: Math.round(c.xmid.reduce((a, b) => a + b, 0) / c.xmid.length), topDepts: Object.entries(c.depts).sort((a, b) => b[1] - a[1]).slice(0, 4), samples: c.samples })).sort((a, b) => b.staff - a.staff);
+      const deptOut = Object.entries(byDept).map(([dep, d]) => ({ department: dep, staff: d.staff, nightPct: Math.round(100 * d.night / d.staff), typicalIn: hhmm(d.inSum / d.staff), typicalOut: d.outN ? hhmm(d.outSum / d.outN) : "—" })).sort((a, b) => b.staff - a.staff);
+      return json(200, { ok: true, totalStaff: rows.length, nightStaff, singlePunchStaff, checkinHist, checkoutHist, clusters: clusterOut, byDepartment: deptOut });
+    }
+
     // Provision a login for EVERY staff member, keyed on their employee code:
     // email = <code>@<domain>, bootstrap password = the code (they set their own on
     // first login), role 'staff' + Staff template, onboarding_completed=false.
