@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Card, CardContent } from '@/components/ui/card';
@@ -107,6 +108,7 @@ function fmtTime(iso: string | null): string {
 
 export default function Attendance() {
   const { isOwner, isAdmin, isCA } = useAuth();
+  const breaksEnabled = useBreaksEnabled();
   const canView = isOwner || isAdmin || isCA;
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -392,7 +394,7 @@ export default function Attendance() {
           description="Analytical attendance report with daily detail and date-matrix views."
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 min-w-0">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 ${breaksEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
           <StatCard
             title="Checked In Today"
             value={stats.checkedIn}
@@ -400,13 +402,15 @@ export default function Attendance() {
             icon={CalendarClock}
             color="green"
           />
-          <StatCard
-            title="On Break"
-            value={stats.onBreak}
-            subtitle="Right now"
-            icon={Coffee}
-            color="orange"
-          />
+          {breaksEnabled && (
+            <StatCard
+              title="On Break"
+              value={stats.onBreak}
+              subtitle="Right now"
+              icon={Coffee}
+              color="orange"
+            />
+          )}
           <StatCard
             title="Completed Today"
             value={stats.completed}

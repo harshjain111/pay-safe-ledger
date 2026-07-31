@@ -10,6 +10,7 @@ import { LeaveBalancesCard } from './LeaveBalancesCard';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAttendanceSummary } from '@/hooks/useAttendanceSummary';
 import { useBiometricEnrolment } from '@/hooks/useBiometricEnrolment';
+import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
 import {
   Users,
   Wallet,
@@ -55,6 +56,7 @@ export function OwnerDashboard() {
   const today = useAttendanceSummary(todayStr);
   const band = useAttendanceSummary(attDate);
   const bio = useBiometricEnrolment();
+  const breaksEnabled = useBreaksEnabled();
 
   const totalPendingApprovals = stats.pendingExpenses + stats.pendingRequests;
   const totalPendingApprovalsAmount = stats.totalPendingExpensesAmount + stats.totalPendingRequestsAmount;
@@ -220,9 +222,11 @@ export function OwnerDashboard() {
             className="h-9 w-auto"
           />
         </div>
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className={`grid gap-3 sm:gap-4 grid-cols-2 ${breaksEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} href="/attendance" loading={band.isLoading} />
-          <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} href="/attendance" loading={band.isLoading} />
+          {breaksEnabled && (
+            <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} href="/attendance" loading={band.isLoading} />
+          )}
           <DashboardCard icon={CheckCircle2} label="Completed" value={band.summary?.completed ?? 0} iconChip={CHIP.green} href="/attendance" loading={band.isLoading} />
           <DashboardCard icon={UserX} label="Absent" value={band.summary?.absent ?? 0} iconChip={CHIP.red} href="/attendance" loading={band.isLoading} />
         </div>
