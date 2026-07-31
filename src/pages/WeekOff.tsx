@@ -1,49 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert, CalendarOff, Loader2, Save, Layers } from 'lucide-react';
+import { ShieldAlert, CalendarOff, Loader2, Save, CalendarCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import { FilterBar } from '@/components/layout/filter-bar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import { listWeekOff, saveWeekOff } from '@/lib/shift-roster-service';
 import type { WeekOffState } from '@/lib/shift-roster';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const NEXT: Record<WeekOffState, WeekOffState> = { WORKING: 'WEEK_OFF', WEEK_OFF: 'OCCASIONAL_WEEK_OFF', OCCASIONAL_WEEK_OFF: 'WORKING' };
-const key = (sid: string, wd: number) => `${sid}:${wd}`;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const NONE = 'none';
 interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null }
-
-function StateCell({ state, onClick }: { state: WeekOffState; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="mx-auto flex h-7 w-12 items-center justify-center rounded-md border hover:bg-muted" aria-label={state}>
-      {state === 'WORKING' && <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />}
-      {state === 'WEEK_OFF' && <span className="text-[11px] font-semibold text-amber-600">WO</span>}
-      {state === 'OCCASIONAL_WEEK_OFF' && <span className="text-orange-500 text-xs">▲</span>}
-    </button>
-  );
-}
 
 export default function WeekOff() {
   const { isOwner, isAdmin } = useAuth();
   const canManage = isOwner || isAdmin;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
-  const [grid, setGrid] = useState<Map<string, WeekOffState>>(new Map());
+  // staff_id -> weekly off weekday (0-6) or null (no weekly off)
+  const [offDay, setOffDay] = useState<Map<string, number | null>>(new Map());
   const [dirty, setDirty] = useState<Set<string>>(new Set());
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [pattern, setPattern] = useState<WeekOffState[]>(Array(7).fill('WORKING'));
+  const [defaultDay, setDefaultDay] = useState<string>('0'); // Sunday
 
   const reload = async () => {
     setLoading(true);
@@ -53,7 +37,12 @@ export default function WeekOff() {
         listWeekOff(),
       ]);
       setStaff((st ?? []) as StaffRow[]);
-      setGrid(new Map(wo.map((w) => [key(w.staff_id, w.weekday), w.state])));
+      // Each staff's off day = the first weekday flagged WEEK_OFF.
+      const m = new Map<string, number | null>();
+      for (const w of wo) {
+        if (w.state === 'WEEK_OFF' && m.get(w.staff_id) == null) m.set(w.staff_id, w.weekday);
+      }
+      setOffDay(m);
       setDirty(new Set());
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to load'); }
     finally { setLoading(false); }
@@ -65,34 +54,31 @@ export default function WeekOff() {
     return q ? staff.filter((s) => s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q)) : staff;
   }, [staff, search]);
 
-  const stateOf = (sid: string, wd: number): WeekOffState => grid.get(key(sid, wd)) ?? 'WORKING';
-  const cycle = (sid: string, wd: number) => {
-    const k = key(sid, wd);
-    setGrid((p) => { const n = new Map(p); n.set(k, NEXT[stateOf(sid, wd)]); return n; });
-    setDirty((p) => new Set(p).add(k));
+  const setStaffOff = (sid: string, val: string) => {
+    const day = val === NONE ? null : Number(val);
+    setOffDay((p) => new Map(p).set(sid, day));
+    setDirty((p) => new Set(p).add(sid));
   };
-  const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const applyBulk = () => {
-    if (selected.size === 0) { toast.error('Please select at least one employee.'); return; }
-    setGrid((p) => {
-      const n = new Map(p);
-      const d = new Set(dirty);
-      for (const sid of selected) for (let wd = 0; wd < 7; wd++) { const k = key(sid, wd); n.set(k, pattern[wd]); d.add(k); }
-      setDirty(d);
-      return n;
-    });
-    setBulkOpen(false);
-    toast.success(`Pattern applied to ${selected.size} employee(s)`);
+  const applyDefaultToAll = () => {
+    const day = Number(defaultDay);
+    setOffDay((p) => { const n = new Map(p); for (const s of filtered) n.set(s.id, day); return n; });
+    setDirty((p) => { const n = new Set(p); for (const s of filtered) n.add(s.id); return n; });
+    toast.success(`${DAYS[day]} set as the weekly off for ${filtered.length} staff — review and Save.`);
   };
 
   const save = async () => {
     if (dirty.size === 0) { toast.message('No changes'); return; }
     setSaving(true);
     try {
-      const rows = [...dirty].map((k) => { const [staff_id, wd] = k.split(':'); return { staff_id, weekday: Number(wd), state: grid.get(k) ?? 'WORKING' as WeekOffState }; });
-      await saveWeekOff(rows);
-      toast.success(`Saved ${rows.length} change(s)`);
+      // For each changed staff, write all 7 weekdays (picked day = WEEK_OFF).
+      const rows: { staff_id: string; weekday: number; state: WeekOffState }[] = [];
+      for (const sid of dirty) {
+        const day = offDay.get(sid) ?? null;
+        for (let wd = 0; wd < 7; wd++) rows.push({ staff_id: sid, weekday: wd, state: (day === wd ? 'WEEK_OFF' : 'WORKING') });
+      }
+      await saveWeekOff(rows); // also dual-writes staff.weekly_off_day
+      toast.success(`Saved weekly off for ${dirty.size} staff.`);
       setDirty(new Set());
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to save'); }
     finally { setSaving(false); }
@@ -102,61 +88,61 @@ export default function WeekOff() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageHeader title="Week Off" description="Recurring weekly off pattern. Click a cell to cycle Working → WO → Occasional.">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => { setPattern(Array(7).fill('WORKING')); setBulkOpen(true); }} className="gap-1.5"><Layers className="h-4 w-4" /> Bulk Update ({selected.size})</Button>
-          <Button onClick={save} disabled={saving || dirty.size === 0} className="gap-1.5"><Save className="h-4 w-4" /> Save{dirty.size ? ` (${dirty.size})` : ''}</Button>
-        </div>
+      <PageHeader title="Weekly Off" description="Each person's recurring day off. Change a specific date instead from the Roster.">
+        <Button onClick={save} disabled={saving || dirty.size === 0} className="gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save{dirty.size ? ` (${dirty.size})` : ''}
+        </Button>
       </PageHeader>
+
+      {/* Default for everyone */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium">Default weekly off for everyone</span>
+          </div>
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Select value={defaultDay} onValueChange={setDefaultDay}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button variant="secondary" onClick={applyDefaultToAll}>Apply to all{search ? ' shown' : ''}</Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search staff…" />
 
-      {loading ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
-        <div className="rounded-xl border overflow-x-auto bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-secondary/60">
-                <TableHead className="w-10" />
-                <TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Department</TableHead>
-                {WEEKDAYS.map((d) => <TableHead key={d} className="text-center">{d}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={4 + 7} className="p-0"><EmptyState icon={CalendarOff} title="No staff" description="No active staff." /></TableCell></TableRow>
-              ) : filtered.map((s) => (
-                <TableRow key={s.id} className="even:bg-muted/30">
-                  <TableCell><Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggleSel(s.id)} aria-label={`Select ${s.full_name}`} /></TableCell>
-                  <TableCell className="text-sm">{s.employee_id}</TableCell>
-                  <TableCell className="font-medium whitespace-nowrap">{s.full_name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{s.department || '—'}</TableCell>
-                  {WEEKDAYS.map((_, wd) => <TableCell key={wd} className="p-1"><StateCell state={stateOf(s.id, wd)} onClick={() => cycle(s.id, wd)} /></TableCell>)}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={CalendarOff} title="No staff" description="No active staff match your search." />
+      ) : (
+        <div className="divide-y rounded-xl border bg-card">
+          {filtered.map((s) => {
+            const day = offDay.get(s.id);
+            return (
+              <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{s.full_name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{s.employee_id}{s.department ? ` · ${s.department}` : ''}</p>
+                </div>
+                <Select value={day == null ? NONE : String(day)} onValueChange={(v) => setStaffOff(s.id, v)}>
+                  <SelectTrigger className={`w-40 ${dirty.has(s.id) ? 'border-primary' : ''}`}>
+                    <SelectValue placeholder="No weekly off" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>No weekly off</SelectItem>
+                    {DAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Bulk Update Week Off</DialogTitle>
-            <DialogDescription>Set a weekly pattern, then apply it to the {selected.size} selected employee(s). Click each day to cycle.</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-between gap-1 py-2">
-            {WEEKDAYS.map((d, wd) => (
-              <div key={d} className="flex flex-col items-center gap-1">
-                <span className="text-[11px] text-muted-foreground">{d}</span>
-                <StateCell state={pattern[wd]} onClick={() => setPattern((p) => p.map((v, i) => (i === wd ? NEXT[v] : v)))} />
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
-            <Button onClick={applyBulk}>Apply to {selected.size}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
