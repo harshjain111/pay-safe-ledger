@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
@@ -110,6 +111,15 @@ export default function Attendance() {
   const { isOwner, isAdmin, isCA } = useAuth();
   const breaksEnabled = useBreaksEnabled();
   const canView = isOwner || isAdmin || isCA;
+
+  // Drill-down from dashboard cards: ?status=present|checkedIn|completed|absent
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status');
+  const setStatusFilter = (v: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (v) next.set('status', v); else next.delete('status');
+    setSearchParams(next);
+  };
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
@@ -280,6 +290,37 @@ export default function Attendance() {
     };
   }, [sessions, filteredStaff, grid, todayStr]);
 
+  // Focused "today" list driven by the ?status= drill-down from dashboard cards.
+  const FILTER_LABEL: Record<string, string> = {
+    present: 'Present today', checkedIn: 'Checked in today', completed: 'Completed today', absent: 'Absent today',
+  };
+  const focusList = useMemo(() => {
+    if (!statusFilter) return null;
+    if (statusFilter === 'absent') {
+      return filteredStaff
+        .filter((st) => grid[st.id]?.[todayStr]?.status === 'Absent')
+        .map((st) => ({ staff: st, session: null as AttendanceSession | null }))
+        .sort((a, b) => a.staff.employee_id.localeCompare(b.staff.employee_id));
+    }
+    // One representative session per staff for today (latest check-in wins).
+    const byStaff = new Map<string, AttendanceSession>();
+    for (const s of sessions) {
+      if (s.work_date !== todayStr) continue;
+      const cur = byStaff.get(s.staff_id);
+      if (!cur || (s.check_in_at ?? '') > (cur.check_in_at ?? '')) byStaff.set(s.staff_id, s);
+    }
+    const staffById = new Map(filteredStaff.map((st) => [st.id, st]));
+    const rows: { staff: StaffRow; session: AttendanceSession | null }[] = [];
+    for (const [sid, s] of byStaff) {
+      const st = staffById.get(sid);
+      if (!st) continue; // not in current dept/search filter
+      if (statusFilter === 'checkedIn' && s.status !== 'active') continue;
+      if (statusFilter === 'completed' && s.status !== 'completed') continue;
+      rows.push({ staff: st, session: s });
+    }
+    return rows.sort((a, b) => (a.session?.check_in_at ?? '').localeCompare(b.session?.check_in_at ?? ''));
+  }, [statusFilter, sessions, filteredStaff, grid, todayStr]);
+
   const periodLabel = `${format(parseISO(from), 'dd MMM yyyy')} – ${format(parseISO(to), 'dd MMM yyyy')}`;
 
   const handleExportExcel = async () => {
@@ -401,6 +442,7 @@ export default function Attendance() {
             subtitle="Currently on shift"
             icon={CalendarClock}
             color="green"
+            href="/attendance?status=checkedIn"
           />
           {breaksEnabled && (
             <StatCard
@@ -417,6 +459,7 @@ export default function Attendance() {
             subtitle="Shifts finished"
             icon={CheckCircle2}
             color="blue"
+            href="/attendance?status=completed"
           />
           <StatCard
             title="Absent Today"
@@ -424,6 +467,7 @@ export default function Attendance() {
             subtitle="No check-in"
             icon={Users}
             color="pink"
+            href="/attendance?status=absent"
           />
         </div>
 
@@ -435,6 +479,70 @@ export default function Attendance() {
           />
         )}
 
+        {/* Drill-down: focused list for today from a dashboard card */}
+        {statusFilter && (
+          <Card className="rounded-2xl border-0 shadow-card">
+            <CardContent className="p-4 md:p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">{FILTER_LABEL[statusFilter] ?? 'Today'}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(), 'EEEE, dd MMM yyyy')} · {focusList?.length ?? 0} {focusList?.length === 1 ? 'person' : 'people'}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setStatusFilter(null)}>View full report</Button>
+              </div>
+              {loading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
+              ) : !focusList || focusList.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">No staff match this filter for today.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-secondary/50">
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Check-in</TableHead>
+                        <TableHead>Check-out</TableHead>
+                        <TableHead>Worked</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {focusList.map(({ staff: st, session: s }) => (
+                        <TableRow
+                          key={st.id}
+                          className={s ? 'cursor-pointer hover:bg-secondary/30' : ''}
+                          onClick={() => { if (s) { setSelected(s); setDrawerOpen(true); } }}
+                        >
+                          <TableCell className="font-medium whitespace-nowrap">{st.full_name}</TableCell>
+                          <TableCell className="text-muted-foreground">{st.employee_id}</TableCell>
+                          <TableCell>{s?.check_in_at ? format(new Date(s.check_in_at), 'hh:mm a') : '—'}</TableCell>
+                          <TableCell>{s?.check_out_at ? format(new Date(s.check_out_at), 'hh:mm a') : '—'}</TableCell>
+                          <TableCell>{s?.worked_minutes != null ? formatMinutes(s.worked_minutes) : '—'}</TableCell>
+                          <TableCell>
+                            {!s ? (
+                              <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/15 dark:text-red-400">Absent</span>
+                            ) : s.status === 'active' ? (
+                              <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Checked in</span>
+                            ) : s.status === 'completed' ? (
+                              <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">Completed</span>
+                            ) : (
+                              <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize">{s.status}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {!statusFilter && (
         <Card className="max-w-full min-w-0 overflow-hidden rounded-2xl border-0 shadow-card">
           <CardContent className="min-w-0 p-4 md:p-6 space-y-4">
             {/* Filter bar */}
@@ -514,6 +622,7 @@ export default function Attendance() {
             />
           </CardContent>
         </Card>
+        )}
 
         <PenaltiesPanel />
 

@@ -64,6 +64,7 @@ export default function UsersList() {
   const [hasError, setHasError] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserWithRole | null>(null);
+  const [loginFilter, setLoginFilter] = useState<'all' | 'in' | 'out'>('all');
 
   useEffect(() => {
     fetchUsers();
@@ -113,12 +114,21 @@ export default function UsersList() {
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    (u.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.phone || '').includes(searchQuery) ||
-    (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const loggedInCount = users.filter((u) => !!u.last_sign_in).length;
+  const notLoggedInCount = users.length - loggedInCount;
+
+  const filteredUsers = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      (u.full_name || '').toLowerCase().includes(q) ||
+      (u.phone || '').includes(searchQuery) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    if (loginFilter === 'in') return !!u.last_sign_in;
+    if (loginFilter === 'out') return !u.last_sign_in;
+    return true;
+  });
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -218,6 +228,27 @@ export default function UsersList() {
               className="pl-10"
             />
           </div>
+
+          {/* Login-status filter */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {([
+              ['all', 'All', users.length],
+              ['in', 'Logged in', loggedInCount],
+              ['out', 'Not yet logged in', notLoggedInCount],
+            ] as const).map(([key, label, count]) => (
+              <Button
+                key={key}
+                type="button"
+                variant={loginFilter === key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setLoginFilter(key)}
+                className="gap-1.5"
+              >
+                {label}
+                <span className={`rounded-full px-1.5 text-xs ${loginFilter === key ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'}`}>{count}</span>
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -248,6 +279,7 @@ export default function UsersList() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Linked Staff</TableHead>
+                    <TableHead>Login</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -291,6 +323,20 @@ export default function UsersList() {
                           </Link>
                         ) : (
                           <span className="text-muted-foreground">Not linked</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.last_sign_in ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+                              Logged in
+                            </span>
+                            <span className="text-xs text-muted-foreground">{format(new Date(user.last_sign_in), 'dd MMM yyyy')}</span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                            Not yet logged in
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">

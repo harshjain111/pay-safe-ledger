@@ -195,7 +195,7 @@ export function OwnerDashboard() {
           value={today.summary?.present ?? 0}
           subtitle={`of ${today.summary?.totalTracked ?? 0} tracked`}
           iconChip={CHIP.green}
-          href="/attendance"
+          href="/attendance?status=present"
           loading={today.isLoading}
         />
         <DashboardCard
@@ -223,12 +223,12 @@ export function OwnerDashboard() {
           />
         </div>
         <div className={`grid gap-3 sm:gap-4 grid-cols-2 ${breaksEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-          <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} href="/attendance" loading={band.isLoading} />
+          <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} href="/attendance?status=checkedIn" loading={band.isLoading} />
           {breaksEnabled && (
             <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} href="/attendance" loading={band.isLoading} />
           )}
-          <DashboardCard icon={CheckCircle2} label="Completed" value={band.summary?.completed ?? 0} iconChip={CHIP.green} href="/attendance" loading={band.isLoading} />
-          <DashboardCard icon={UserX} label="Absent" value={band.summary?.absent ?? 0} iconChip={CHIP.red} href="/attendance" loading={band.isLoading} />
+          <DashboardCard icon={CheckCircle2} label="Completed" value={band.summary?.completed ?? 0} iconChip={CHIP.green} href="/attendance?status=completed" loading={band.isLoading} />
+          <DashboardCard icon={UserX} label="Absent" value={band.summary?.absent ?? 0} iconChip={CHIP.red} href="/attendance?status=absent" loading={band.isLoading} />
         </div>
       </div>
 
