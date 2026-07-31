@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
@@ -17,10 +18,12 @@ interface StatCardProps {
   color?: ColorVariant;
   className?: string;
   loading?: boolean;
+  /** When set, the card becomes a link to this route. */
+  href?: string;
 }
 
 export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
-  ({ title, value, subtitle, icon: Icon, trend, variant = 'default', color = 'blue', className, loading = false }, ref) => {
+  ({ title, value, subtitle, icon: Icon, trend, variant = 'default', color = 'blue', className, loading = false, href }, ref) => {
     const colorStyles: Record<ColorVariant, { icon: string; indicator: string }> = {
       blue: {
         icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
@@ -58,12 +61,13 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
 
     const isGradient = variant !== 'default';
 
-    return (
+    const card = (
       <div
         ref={ref}
         className={cn(
           'relative rounded-2xl p-4 sm:p-6 transition-all duration-300 hover-scale overflow-hidden',
           'shadow-card hover:shadow-card-hover',
+          href && 'cursor-pointer',
           variantStyles[variant],
           className
         )}
@@ -145,6 +149,9 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         </div>
       </div>
     );
+    return href ? (
+      <Link to={href} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{card}</Link>
+    ) : card;
   }
 );
 

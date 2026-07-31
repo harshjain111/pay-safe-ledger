@@ -158,6 +158,7 @@ export function OwnerDashboard() {
           value={stats.activeStaff}
           subtitle={stats.staffMissingSalary > 0 ? `${stats.staffMissingSalary} missing salary` : 'All set up'}
           iconChip={CHIP.blue}
+          href="/staff"
           loading={isLoading}
         />
         <DashboardCard
@@ -166,6 +167,7 @@ export function OwnerDashboard() {
           value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
           subtitle="Total liability"
           iconChip={CHIP.purple}
+          href="/salaries-advances"
           loading={isLoading}
         />
         <DashboardCard
@@ -174,6 +176,7 @@ export function OwnerDashboard() {
           value={`₹${stats.advancesOutstanding.toLocaleString('en-IN')}`}
           subtitle="To be adjusted"
           iconChip={CHIP.orange}
+          href="/salaries-advances"
           loading={isLoading}
         />
         <DashboardCard
@@ -182,6 +185,7 @@ export function OwnerDashboard() {
           value={format(now, 'MMM yyyy')}
           subtitle="Settlement period"
           iconChip={CHIP.pink}
+          href="/settlements"
         />
         <DashboardCard
           icon={UserCheck}
@@ -189,6 +193,7 @@ export function OwnerDashboard() {
           value={today.summary?.present ?? 0}
           subtitle={`of ${today.summary?.totalTracked ?? 0} tracked`}
           iconChip={CHIP.green}
+          href="/attendance"
           loading={today.isLoading}
         />
         <DashboardCard
@@ -216,10 +221,10 @@ export function OwnerDashboard() {
           />
         </div>
         <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-          <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} loading={band.isLoading} />
-          <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} loading={band.isLoading} />
-          <DashboardCard icon={CheckCircle2} label="Completed" value={band.summary?.completed ?? 0} iconChip={CHIP.green} loading={band.isLoading} />
-          <DashboardCard icon={UserX} label="Absent" value={band.summary?.absent ?? 0} iconChip={CHIP.red} loading={band.isLoading} />
+          <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} href="/attendance" loading={band.isLoading} />
+          <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} href="/attendance" loading={band.isLoading} />
+          <DashboardCard icon={CheckCircle2} label="Completed" value={band.summary?.completed ?? 0} iconChip={CHIP.green} href="/attendance" loading={band.isLoading} />
+          <DashboardCard icon={UserX} label="Absent" value={band.summary?.absent ?? 0} iconChip={CHIP.red} href="/attendance" loading={band.isLoading} />
         </div>
       </div>
 

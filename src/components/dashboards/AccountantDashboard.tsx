@@ -157,6 +157,7 @@ export function AccountantDashboard() {
           subtitle="Employees"
           icon={Users}
           color="pink"
+          href="/staff"
         />
       </div>
 

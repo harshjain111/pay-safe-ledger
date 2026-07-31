@@ -96,6 +96,7 @@ export function CADashboard() {
           subtitle={currentMonth}
           icon={FileText}
           variant="success"
+          href="/settlements"
         />
         <StatCard
           loading={isLoading}
@@ -103,6 +104,7 @@ export function CADashboard() {
           value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
           subtitle="This month"
           icon={BarChart3}
+          href="/payouts"
         />
         <StatCard
           loading={isLoading}
@@ -110,6 +112,7 @@ export function CADashboard() {
           value={stats.pendingSettlements}
           subtitle="Not yet settled"
           icon={Users}
+          href="/settlements"
         />
       </div>
 

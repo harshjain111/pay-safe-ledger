@@ -256,7 +256,13 @@ export function StaffDashboard() {
           </Card>
 
           {/* Advance Outstanding Card - Data from journal_lines (single source of truth) */}
-          <Card className="relative overflow-hidden">
+          <Card
+            className="relative overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
+            onClick={() => navigate('/requests')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/requests'); }}
+          >
             <CardContent className="p-4">
               <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center mb-2">
                 <TrendingUp className="h-5 w-5 text-warning" />
