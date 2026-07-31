@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert, CalendarOff, Loader2, Save, CalendarCheck } from 'lucide-react';
+import { ShieldAlert, CalendarOff, Loader2, Save, CalendarCheck, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FilterBar } from '@/components/layout/filter-bar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/lib/toast';
@@ -24,10 +25,12 @@ export default function WeekOff() {
   // staff_id -> weekly off weekday (0-6) or null (no weekly off)
   const [offDay, setOffDay] = useState<Map<string, number | null>>(new Map());
   const [dirty, setDirty] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [defaultDay, setDefaultDay] = useState<string>('0'); // Sunday
+  const [bulkDay, setBulkDay] = useState<string>('0');
 
   const reload = async () => {
     setLoading(true);
@@ -44,6 +47,7 @@ export default function WeekOff() {
       }
       setOffDay(m);
       setDirty(new Set());
+      setSelected(new Set());
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to load'); }
     finally { setLoading(false); }
   };
@@ -54,17 +58,34 @@ export default function WeekOff() {
     return q ? staff.filter((s) => s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q)) : staff;
   }, [staff, search]);
 
+  const allShownSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
+
   const setStaffOff = (sid: string, val: string) => {
     const day = val === NONE ? null : Number(val);
     setOffDay((p) => new Map(p).set(sid, day));
     setDirty((p) => new Set(p).add(sid));
   };
 
-  const applyDefaultToAll = () => {
-    const day = Number(defaultDay);
-    setOffDay((p) => { const n = new Map(p); for (const s of filtered) n.set(s.id, day); return n; });
-    setDirty((p) => { const n = new Set(p); for (const s of filtered) n.add(s.id); return n; });
-    toast.success(`${DAYS[day]} set as the weekly off for ${filtered.length} staff — review and Save.`);
+  const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => setSelected((p) => {
+    const n = new Set(p);
+    if (filtered.every((s) => n.has(s.id))) for (const s of filtered) n.delete(s.id);
+    else for (const s of filtered) n.add(s.id);
+    return n;
+  });
+
+  const applyToStaff = (ids: string[], val: string, label: string) => {
+    const day = val === NONE ? null : Number(val);
+    setOffDay((p) => { const n = new Map(p); for (const id of ids) n.set(id, day); return n; });
+    setDirty((p) => { const n = new Set(p); for (const id of ids) n.add(id); return n; });
+    toast.success(`${day == null ? 'No weekly off' : DAYS[day]} set for ${ids.length} ${label} — review and Save.`);
+  };
+
+  const applyDefaultToAll = () => applyToStaff(filtered.map((s) => s.id), defaultDay, search ? 'shown staff' : 'staff');
+  const applyBulkToSelected = () => {
+    if (selected.size === 0) return;
+    applyToStaff([...selected], bulkDay, 'selected staff');
+    setSelected(new Set());
   };
 
   const save = async () => {
@@ -85,6 +106,16 @@ export default function WeekOff() {
   };
 
   if (!canManage) return <EmptyState icon={ShieldAlert} title="Access Denied" description="Only owners and admins can set week-offs." />;
+
+  const dayPicker = (value: string, onChange: (v: string) => void, className = 'w-40') => (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={className}><SelectValue placeholder="No weekly off" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>No weekly off</SelectItem>
+        {DAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -115,32 +146,46 @@ export default function WeekOff() {
 
       <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search staff…" />
 
+      {/* Bulk assign to a hand-picked selection */}
+      {selected.size > 0 && (
+        <div className="sticky top-2 z-10 flex flex-col gap-3 rounded-xl border border-primary bg-primary/10 p-3 shadow-sm backdrop-blur sm:flex-row sm:items-center">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex items-center gap-2 sm:ml-auto">
+            {dayPicker(bulkDay, setBulkDay)}
+            <Button onClick={applyBulkToSelected}>Assign to {selected.size}</Button>
+            <Button variant="ghost" size="icon" onClick={() => setSelected(new Set())} aria-label="Clear selection"><X className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={CalendarOff} title="No staff" description="No active staff match your search." />
       ) : (
-        <div className="divide-y rounded-xl border bg-card">
-          {filtered.map((s) => {
-            const day = offDay.get(s.id);
-            return (
-              <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{s.full_name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{s.employee_id}{s.department ? ` · ${s.department}` : ''}</p>
+        <div className="rounded-xl border bg-card">
+          {/* Select-all header */}
+          <div className="flex items-center gap-3 border-b bg-secondary/40 px-3 py-2 sm:px-4">
+            <Checkbox checked={allShownSelected} onCheckedChange={toggleSelectAll} aria-label="Select all shown" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {selected.size > 0 ? `${selected.size} selected` : `Select all (${filtered.length})`}
+            </span>
+          </div>
+          <div className="divide-y">
+            {filtered.map((s) => {
+              const day = offDay.get(s.id);
+              return (
+                <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                  <Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggleSel(s.id)} aria-label={`Select ${s.full_name}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{s.full_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{s.employee_id}{s.department ? ` · ${s.department}` : ''}</p>
+                  </div>
+                  {dayPicker(day == null ? NONE : String(day), (v) => setStaffOff(s.id, v), `w-40 ${dirty.has(s.id) ? 'border-primary' : ''}`)}
                 </div>
-                <Select value={day == null ? NONE : String(day)} onValueChange={(v) => setStaffOff(s.id, v)}>
-                  <SelectTrigger className={`w-40 ${dirty.has(s.id) ? 'border-primary' : ''}`}>
-                    <SelectValue placeholder="No weekly off" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>No weekly off</SelectItem>
-                    {DAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
