@@ -550,6 +550,15 @@ serve(async (req) => {
       return json(200, { ok: !error, error: error?.message ?? null, result: data });
     }
 
+    // Repair (gap-based): correct for day AND overnight shifts. Splits punches into
+    // sessions wherever the gap > body.maxGapMin (default 720 = 12h).
+    if (body?.rebuildByGap) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { data, error } = await admin.rpc("rebuild_sessions_by_gap", { _max_gap_min: Number(body.maxGapMin) || 720 });
+      return json(200, { ok: !error, error: error?.message ?? null, result: data });
+    }
+
     const jar = new Jar();
     const diag = await login(jar);
     if (body?.probe) return json(200, { ok: true, cookies: jar.names(), ...diag });
@@ -701,38 +710,39 @@ serve(async (req) => {
       const codeToId = new Map<string, string>(); const idToUser = new Map<string, string | null>();
       for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
 
-      // ONE session per (staff, BUSINESS day): first punch = check-in, last punch
-      // = check-out. Business day rolls over at org attendance_day_start_hour (IST),
-      // not calendar midnight — so an overnight 4pm–2am shift's check-in and 2am
-      // check-out attribute to the SAME day. day_start_hour=0 = calendar day.
-      // Matches consolidate_biometric_attendance().
-      const { data: orgP } = await db.from("organization_profile").select("attendance_day_start_hour").limit(1).maybeSingle();
-      const dayStartMs = (Number((orgP as { attendance_day_start_hour?: number } | null)?.attendance_day_start_hour ?? 0) || 0) * 3600_000;
-      const bizDay = (iso: string) => { const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000 - dayStartMs); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
-      const byStaffDay = new Map<string, Map<string, string[]>>();
+      // GAP-based sessionization (matches rebuild_sessions_by_gap): sort each
+      // staff's punches; a gap > 12h starts a new session. check-in = first punch,
+      // check-out = last, attributed to the check-in's calendar date (IST). Correct
+      // for day shifts AND overnight shifts (a 4pm–2am shift's 10h gap stays one
+      // session; the 14h gap to the next day always splits days).
+      const MAX_GAP_MS = 12 * 3600_000;
+      const wdOf = (iso: string) => { const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
+      const byStaff = new Map<string, string[]>();
       let unmatchedB = 0;
       for (const r of rows) {
         const sid = codeToId.get(col(r, "UserId", "Employee Code In Device")); if (!sid) { unmatchedB++; continue; }
         const iso = logDateToIso(col(r, "Log Date")); if (!iso) continue;
-        const wd = bizDay(iso);
-        const days = byStaffDay.get(sid) ?? byStaffDay.set(sid, new Map()).get(sid)!;
-        (days.get(wd) ?? days.set(wd, []).get(wd)!).push(iso);
+        (byStaff.get(sid) ?? byStaff.set(sid, []).get(sid)!).push(iso);
       }
-      const todayShift = new Date(now.getTime() - dayStartMs);
-      const todayWd = `${todayShift.getUTCFullYear()}-${pad(todayShift.getUTCMonth() + 1)}-${pad(todayShift.getUTCDate())}`;
+      const todayWd = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
       const sessions: Array<Record<string, unknown>> = [];
-      for (const [sid, days] of byStaffDay) {
-        for (const [wd, punches] of days) {
-          punches.sort();
-          const first = punches[0]; const last = punches[punches.length - 1];
-          const closed = last > first;
-          sessions.push({
-            staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: wd, check_in_at: first,
-            check_out_at: closed ? last : null,
-            worked_minutes: closed ? Math.max(0, Math.round((new Date(last).getTime() - new Date(first).getTime()) / 60000)) : null,
-            status: (!closed && wd === todayWd) ? "active" : "completed",
-            source: "biometric", check_in_photo_url: "biometric",
-          });
+      for (const [sid, isos] of byStaff) {
+        const uniq = [...new Set(isos)].sort();
+        let start = 0;
+        for (let i = 0; i < uniq.length; i++) {
+          const gap = i === uniq.length - 1 ? Infinity : new Date(uniq[i + 1]).getTime() - new Date(uniq[i]).getTime();
+          if (gap > MAX_GAP_MS) {
+            const first = uniq[start], last = uniq[i];
+            const closed = last > first; const wd = wdOf(first);
+            sessions.push({
+              staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: wd, check_in_at: first,
+              check_out_at: closed ? last : null,
+              worked_minutes: closed ? Math.max(0, Math.round((new Date(last).getTime() - new Date(first).getTime()) / 60000)) : null,
+              status: (!closed && wd === todayWd) ? "active" : "completed",
+              source: "biometric", check_in_photo_url: "biometric",
+            });
+            start = i + 1;
+          }
         }
       }
 

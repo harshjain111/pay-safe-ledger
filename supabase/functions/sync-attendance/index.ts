@@ -53,7 +53,7 @@ serve(async (req) => {
       // Wide re-pull (~5 weeks) then a clean rebuild of every biometric day.
       const pull = await call({ backfill: true, days: 35 }, 90000);
       if (!pull?.ok) return json({ ok: false, full: true, reason: String(pull?.error || pull?.reason || unreachable(false)) });
-      const cons = await call({ consolidateAttendance: true }, 120000);
+      const cons = await call({ rebuildByGap: true }, 120000);
       return json({
         ok: !!cons?.ok,
         full: true,
