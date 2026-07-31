@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Wallet, Eye, EyeOff, Loader2, Phone, Mail, ArrowLeft, WifiOff, RefreshCw } from 'lucide-react';
+import { Wallet, Eye, EyeOff, Loader2, Phone, Mail, ArrowLeft, WifiOff, RefreshCw, KeyRound, PartyPopper } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { phoneToEmail, PHONE_EMAIL_DOMAIN } from '@/lib/auth-email';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,12 +68,19 @@ export default function Auth() {
     return localStorage.getItem('rememberMe') === 'true';
   });
 
-  // Two-step sign-in: 'identifier' (phone or email) then 'password'.
-  const [step, setStep] = useState<'identifier' | 'password'>('identifier');
+  // Sign-in steps: 'identifier' → then either 'password' (returning user) or
+  // 'set-password' (first-time user creating their password).
+  const [step, setStep] = useState<'identifier' | 'password' | 'set-password'>('identifier');
   const [identifier, setIdentifier] = useState(() => {
     return rememberMe ? localStorage.getItem('savedIdentifier') || localStorage.getItem('savedPhone') || '' : '';
   });
   const [loginPassword, setLoginPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [checking, setChecking] = useState(false);
+  // Suppresses the auto-redirect effect while we silently sign a first-time
+  // user in (with their bootstrap code) to set their new password.
+  const manualNavRef = useRef(false);
 
   // Identifier can be an employee code (e.g. K2H137), a phone number, or an email.
   const identifierRaw = identifier.trim();
@@ -83,7 +90,7 @@ export default function Auth() {
   const cleanIdentifier = identifierIsEmail ? identifierRaw.toLowerCase() : (identifierIsPhone ? identifierDigits : identifierRaw);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !manualNavRef.current) {
       navigate('/dashboard');
     }
   }, [user, authLoading, navigate]);
@@ -141,8 +148,9 @@ export default function Auth() {
     return `${identifierRaw.toLowerCase()}@${PHONE_EMAIL_DOMAIN}`; // employee code
   };
 
-  // Step 1 → Step 2: validate the identifier, then reveal the password field.
-  const handleContinue = (e: React.FormEvent) => {
+  // Step 1 → Step 2: validate the identifier, then decide whether this is a
+  // first-time user (→ set-password) or a returning user (→ password).
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (identifierIsEmail) emailSchema.parse(cleanIdentifier);
@@ -154,7 +162,73 @@ export default function Auth() {
         return;
       }
     }
-    setStep('password');
+
+    // Ask the backend whether this account still needs to create a password.
+    setChecking(true);
+    let firstTime = false;
+    try {
+      const { data } = await supabase.rpc('is_first_time_login' as never, { _id: identifierRaw } as never);
+      firstTime = data === true;
+    } catch { /* fall back to the normal password step */ }
+    setChecking(false);
+    setStep(firstTime ? 'set-password' : 'password');
+  };
+
+  // First-time users: silently sign in with the bootstrap credential (their
+  // employee code) and immediately set the password they chose here.
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNetworkError(false);
+
+    try {
+      passwordSchema.parse(newPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) { toast.error(error.errors[0].message); return; }
+    }
+    if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setNetworkError(true);
+      toast.error('You appear to be offline. Please check your internet and try again.');
+      return;
+    }
+
+    setIsLoading(true);
+    manualNavRef.current = true; // hold off the auto-redirect until we're done
+    try {
+      const email = await resolveLoginEmail();
+      // Bootstrap password = the employee code (local-part of the login email).
+      const bootstrap = (email.split('@')[0] || identifierRaw).toLowerCase();
+
+      const { error: signErr } = await runSignInWithTimeout(() => signIn(email, bootstrap), SIGN_IN_TIMEOUT_MS);
+      if (signErr) {
+        // Bootstrap didn't work (e.g. password already changed) — fall back to
+        // asking for their current password rather than blocking them.
+        manualNavRef.current = false;
+        setIsLoading(false);
+        toast.error('Please enter your current password to continue.');
+        setStep('password');
+        return;
+      }
+
+      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (updErr) throw updErr;
+
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('savedIdentifier', cleanIdentifier);
+      }
+      // Tell onboarding the password is already done so it skips that step.
+      localStorage.setItem('hrbuddy_pw_set', '1');
+      toast.success('Password set! Let’s finish your profile.');
+      setIsLoading(false);
+      navigate('/onboarding');
+    } catch (err) {
+      manualNavRef.current = false;
+      setIsLoading(false);
+      setNetworkError(isLikelyNetworkError(err instanceof Error ? err.message : ''));
+      toast.error(err instanceof Error ? err.message : 'Could not set your password. Please try again.');
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -304,9 +378,13 @@ export default function Auth() {
 
         <Card className="shadow-xl border-border/50">
           <CardHeader className="pb-4 text-center">
-            <h2 className="text-xl font-semibold">Welcome Back</h2>
+            <h2 className="text-xl font-semibold">{step === 'set-password' ? 'Welcome! 🎉' : 'Welcome Back'}</h2>
             <p className="text-sm text-muted-foreground">
-              {step === 'identifier' ? 'Sign in with your employee code, phone, or email' : 'Enter your password to continue'}
+              {step === 'identifier'
+                ? 'Sign in with your employee code, phone, or email'
+                : step === 'set-password'
+                  ? 'Create a password to secure your account'
+                  : 'Enter your password to continue'}
             </p>
           </CardHeader>
 
@@ -332,14 +410,89 @@ export default function Auth() {
                       className="pl-10"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">First time? Sign in with your employee code — your initial password is the same code.</p>
+                  <p className="text-xs text-muted-foreground">First time? Just enter your employee code — we'll help you set your password next.</p>
                 </div>
 
-                <Button type="submit" className="w-full">Continue</Button>
+                <Button type="submit" className="w-full" disabled={checking}>
+                  {checking ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Checking…</>) : 'Continue'}
+                </Button>
 
                 <p className="text-xs text-center text-muted-foreground pt-2">
                   Contact your administrator if you don't have an account
                 </p>
+              </form>
+            ) : step === 'set-password' ? (
+              <form onSubmit={handleSetNewPassword} className="space-y-4">
+                {/* Chosen identifier + change */}
+                <button
+                  type="button"
+                  onClick={() => { setStep('identifier'); setNewPassword(''); setConfirmPassword(''); }}
+                  className="flex w-full items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {identifierIsEmail ? <Mail className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
+                    {cleanIdentifier}
+                  </span>
+                  <span className="ml-auto text-xs text-primary">Change</span>
+                </button>
+
+                <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <PartyPopper className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs text-muted-foreground">
+                    Looks like it's your first time. Create a password you'll use to sign in from now on.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New password</Label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="At least 6 characters"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      required
+                      autoFocus
+                      autoComplete="new-password"
+                      className="pl-10"
+                    />
+                    <Button
+                      type="button" variant="ghost" size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="confirm-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      className="pl-10"
+                    />
+                  </div>
+                  {confirmPassword.length > 0 && confirmPassword !== newPassword && (
+                    <p className="text-xs text-destructive">Passwords do not match</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmPassword}>
+                  {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Setting up…</>) : 'Set password & continue'}
+                </Button>
               </form>
             ) : (
               <form onSubmit={handleLogin} className="space-y-4">

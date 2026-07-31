@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,7 +26,10 @@ export default function Onboarding() {
   const { data: org } = useOrganizationProfile();
   const orgName = org?.trade_name || org?.legal_name || ORGANIZATION.name || 'your organization';
 
-  const [step, setStep] = useState(0);
+  // If the password was already set on the login screen (first-time flow),
+  // skip the password step and start at Language.
+  const pwPreset = typeof window !== 'undefined' && localStorage.getItem('hrbuddy_pw_set') === '1';
+  const [step, setStep] = useState(pwPreset ? 1 : 0);
   const [langCode, setLangCode] = useState('en');
   const [langOpen, setLangOpen] = useState(false);
   const [email, setEmail] = useState(staffData?.email && staffData.email !== '' ? staffData.email : '');
@@ -36,12 +39,15 @@ export default function Onboarding() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [pwSet, setPwSet] = useState(false); // password saved to auth in step 0
+  const [pwSet, setPwSet] = useState(pwPreset); // password saved (login or step 0)
   const [savingPw, setSavingPw] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const selectedLang = useMemo(() => LANGUAGES.find((l) => l.code === langCode), [langCode]);
   const firstName = (staffData?.full_name || '').trim().split(/\s+/)[0] || 'there';
+
+  // One-time flag from the login set-password flow; consume it on mount.
+  useEffect(() => { localStorage.removeItem('hrbuddy_pw_set'); }, []);
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
