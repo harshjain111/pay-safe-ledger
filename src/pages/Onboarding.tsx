@@ -15,10 +15,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { toast } from '@/hooks/use-toast';
 import { ORGANIZATION, BRAND } from '@/lib/brand';
 import {
-  PartyPopper, Languages, IdCard, Eye, EyeOff, Loader2, Check, ChevronDown, ArrowRight, ArrowLeft, Sparkles,
+  PartyPopper, Languages, IdCard, Eye, EyeOff, Loader2, Check, ChevronDown, ArrowRight, ArrowLeft,
 } from 'lucide-react';
 
-const STEPS = ['Welcome', 'Language', 'Your details'] as const;
+const STEPS = ['Set password', 'Language', 'Your details'] as const;
 
 export default function Onboarding() {
   const { user, staffData, isLoading } = useAuth();
@@ -36,6 +36,8 @@ export default function Onboarding() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [pwSet, setPwSet] = useState(false); // password saved to auth in step 0
+  const [savingPw, setSavingPw] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const selectedLang = useMemo(() => LANGUAGES.find((l) => l.code === langCode), [langCode]);
@@ -44,10 +46,30 @@ export default function Onboarding() {
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  const finish = async () => {
-    // Password is required on first login (bootstrap is the employee code).
+  // Step 0 — set + confirm the password, then persist it to the auth account
+  // right away (bootstrap password is the employee code) before moving on.
+  const savePassword = async () => {
     if (password.length < 6) return toast({ title: 'Set a password', description: 'Use at least 6 characters.', variant: 'destructive' });
     if (password !== confirm) return toast({ title: 'Passwords do not match', variant: 'destructive' });
+    setSavingPw(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setPwSet(true);
+      next();
+    } catch (e) {
+      toast({ title: 'Could not set password', description: e instanceof Error ? e.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  const finish = async () => {
+    // Safety net: password is normally set in step 0; re-apply if somehow pending.
+    if (!pwSet) {
+      if (password.length < 6) return toast({ title: 'Set a password', description: 'Use at least 6 characters.', variant: 'destructive' });
+      if (password !== confirm) return toast({ title: 'Passwords do not match', variant: 'destructive' });
+    }
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) return toast({ title: 'Phone required', description: 'Enter a valid 10-digit phone number.', variant: 'destructive' });
     const cleanAadhaar = aadhaar.replace(/\D/g, '');
@@ -55,8 +77,10 @@ export default function Onboarding() {
 
     setSaving(true);
     try {
-      const { error: pwErr } = await supabase.auth.updateUser({ password });
-      if (pwErr) throw pwErr;
+      if (!pwSet) {
+        const { error: pwErr } = await supabase.auth.updateUser({ password });
+        if (pwErr) throw pwErr;
+      }
       const { error } = await supabase.rpc('complete_staff_onboarding' as never, {
         _email: email.trim(),
         _phone: cleanPhone,
@@ -104,21 +128,61 @@ export default function Onboarding() {
             <Progress value={((step + 1) / STEPS.length) * 100} className="h-1.5" />
           </div>
 
-          {/* Step 0: Welcome */}
+          {/* Step 0: Welcome + set password */}
           {step === 0 && (
-            <div className="space-y-5 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <PartyPopper className="h-8 w-8 text-primary" />
+            <div className="space-y-5">
+              <div className="space-y-3 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <PartyPopper className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-1.5">
+                  <h1 className="text-2xl font-bold">Welcome, {firstName}!</h1>
+                  <p className="text-muted-foreground">
+                    You've joined <span className="font-semibold text-foreground">{orgName}</span> on VIBRND HR BUDDY.
+                    First, set a password to secure your account.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <h1 className="text-2xl font-bold">Welcome, {firstName}!</h1>
-                <p className="text-muted-foreground">
-                  You've joined <span className="font-semibold text-foreground">{orgName}</span> on VIBRND HR BUDDY —
-                  your home for attendance, leave, advances and payslips. Let's set up your account in a minute.
-                </p>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ob-password">New password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="ob-password"
+                      type={showPw ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      autoComplete="new-password"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') savePassword(); }}
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                      {showPw ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ob-confirm">Confirm password *</Label>
+                  <Input
+                    id="ob-confirm"
+                    type={showPw ? 'text' : 'password'}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                    onKeyDown={(e) => { if (e.key === 'Enter') savePassword(); }}
+                  />
+                  {confirm.length > 0 && confirm !== password && (
+                    <p className="text-xs text-destructive">Passwords do not match</p>
+                  )}
+                </div>
               </div>
-              <Button onClick={next} className="w-full gap-2">
-                <Sparkles className="h-4 w-4" /> Get started
+
+              <Button onClick={savePassword} disabled={savingPw || password.length < 6 || password !== confirm} className="w-full gap-2">
+                {savingPw ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : <>Set password & continue <ArrowRight className="h-4 w-4" /></>}
               </Button>
             </div>
           )}
@@ -192,43 +256,18 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold">Your details</h2>
-                  <p className="text-sm text-muted-foreground">Set a password and your phone to finish. The rest is optional.</p>
+                  <p className="text-sm text-muted-foreground">Add your phone to finish. The rest is optional.</p>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                {/* 1. Password */}
-                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-                  <p className="text-sm font-medium">Set your password *</p>
-                  <div className="relative">
-                    <Input
-                      type={showPw ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="New password (min 6 chars)"
-                      autoComplete="new-password"
-                    />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}>
-                      {showPw ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                    </Button>
-                  </div>
-                  <Input
-                    type={showPw ? 'text' : 'password'}
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Confirm password"
-                    autoComplete="new-password"
-                  />
-                </div>
-
-                {/* 2. Phone */}
+                {/* 1. Phone */}
                 <div className="space-y-1.5">
                   <Label htmlFor="ob-phone">Phone number *</Label>
                   <Input id="ob-phone" type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" maxLength={15} />
                 </div>
 
-                {/* 3. Email (optional) */}
+                {/* 2. Email (optional) */}
                 <div className="space-y-1.5">
                   <Label htmlFor="ob-email">Email <span className="font-normal text-muted-foreground">(optional)</span></Label>
                   <Input id="ob-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
