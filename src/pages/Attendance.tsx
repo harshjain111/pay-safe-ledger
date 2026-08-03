@@ -503,6 +503,7 @@ export default function Attendance() {
                       <TableRow className="bg-secondary/50">
                         <TableHead>Employee</TableHead>
                         <TableHead>Code</TableHead>
+                        <TableHead>Shift date</TableHead>
                         <TableHead>Check-in</TableHead>
                         <TableHead>Check-out</TableHead>
                         <TableHead>Worked</TableHead>
@@ -518,8 +519,9 @@ export default function Attendance() {
                         >
                           <TableCell className="font-medium whitespace-nowrap">{st.full_name}</TableCell>
                           <TableCell className="text-muted-foreground">{st.employee_id}</TableCell>
-                          <TableCell>{s?.check_in_at ? format(new Date(s.check_in_at), 'hh:mm a') : '—'}</TableCell>
-                          <TableCell>{s?.check_out_at ? format(new Date(s.check_out_at), 'hh:mm a') : '—'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{s?.work_date ? format(new Date(s.work_date + 'T00:00:00'), 'dd MMM yyyy') : format(new Date(), 'dd MMM yyyy')}</TableCell>
+                          <TableCell className="whitespace-nowrap">{s?.check_in_at ? format(new Date(s.check_in_at), 'dd MMM, hh:mm a') : '—'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{s?.check_out_at ? format(new Date(s.check_out_at), 'dd MMM, hh:mm a') : '—'}</TableCell>
                           <TableCell>{s?.worked_minutes != null ? formatMinutes(s.worked_minutes) : '—'}</TableCell>
                           <TableCell>
                             {!s ? (

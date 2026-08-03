@@ -715,8 +715,18 @@ serve(async (req) => {
       // check-out = last, attributed to the check-in's calendar date (IST). Correct
       // for day shifts AND overnight shifts (a 4pm–2am shift's 10h gap stays one
       // session; the 14h gap to the next day always splits days).
+      // Keep this in lock-step with rebuild_sessions_by_gap() (the daily rebuild):
+      //  • coalesce confirm double-taps within 5 min into one punch,
+      //  • split visits on a >12h gap, EXCEPT an early-morning punch (<10:00 IST,
+      //    within 20h) is the trailing checkout of the previous overnight shift,
+      //  • a lone early-morning punch is attributed to the previous day.
       const MAX_GAP_MS = 12 * 3600_000;
+      const DEDUP_MS = 5 * 60_000;
+      const LATE_MERGE_MS = 20 * 3600_000;
+      const MORNING_END = 10; // no shift starts before 10:00 IST here
+      const istHour = (iso: string) => new Date(new Date(iso).getTime() + 5.5 * 3600_000).getUTCHours();
       const wdOf = (iso: string) => { const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
+      const wdPrev = (iso: string) => { const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000 - 86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
       const byStaff = new Map<string, string[]>();
       let unmatchedB = 0;
       for (const r of rows) {
@@ -727,13 +737,30 @@ serve(async (req) => {
       const todayWd = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
       const sessions: Array<Record<string, unknown>> = [];
       for (const [sid, isos] of byStaff) {
-        const uniq = [...new Set(isos)].sort();
+        // Coalesce: keep the earliest punch of each cluster of taps <= 5 min apart.
+        const sorted = [...new Set(isos)].sort();
+        const uniq: string[] = [];
+        let prevT: number | null = null;
+        for (const t of sorted) {
+          const tm = new Date(t).getTime();
+          if (prevT === null || tm - prevT > DEDUP_MS) uniq.push(t);
+          prevT = tm;
+        }
         let start = 0;
         for (let i = 0; i < uniq.length; i++) {
-          const gap = i === uniq.length - 1 ? Infinity : new Date(uniq[i + 1]).getTime() - new Date(uniq[i]).getTime();
-          if (gap > MAX_GAP_MS) {
+          let boundary = i === uniq.length - 1;
+          if (!boundary) {
+            const gap = new Date(uniq[i + 1]).getTime() - new Date(uniq[i]).getTime();
+            if (gap > MAX_GAP_MS) {
+              const nextIsTrailingMorning = istHour(uniq[i + 1]) < MORNING_END && gap <= LATE_MERGE_MS;
+              if (!nextIsTrailingMorning) boundary = true;
+            }
+          }
+          if (boundary) {
             const first = uniq[start], last = uniq[i];
-            const closed = last > first; const wd = wdOf(first);
+            const closed = last > first;
+            const loneMorning = !closed && istHour(first) < MORNING_END;
+            const wd = loneMorning ? wdPrev(first) : wdOf(first);
             sessions.push({
               staff_id: sid, user_id: idToUser.get(sid) ?? null, work_date: wd, check_in_at: first,
               check_out_at: closed ? last : null,
