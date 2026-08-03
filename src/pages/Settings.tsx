@@ -47,6 +47,7 @@ import {
   User,
   Calculator,
   Building2,
+  Store,
   Database,
   type LucideIcon,
 } from 'lucide-react';
@@ -64,7 +65,7 @@ import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutlet
 import { OrganizationProfileCard } from '@/components/settings/OrganizationProfileCard';
 import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
 
-type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'data';
+type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'masters' | 'data';
 
 interface Category {
   id: CategoryId;
@@ -72,6 +73,8 @@ interface Category {
   icon: LucideIcon;
   /** Permission required to see this category; undefined = everyone. */
   permission?: string;
+  /** When set, category is shown to these roles instead of a permission check. */
+  roles?: ('owner' | 'admin' | 'accountant')[];
 }
 
 const CATEGORIES: Category[] = [
@@ -80,16 +83,20 @@ const CATEGORIES: Category[] = [
   { id: 'attendance', label: 'Attendance & Leave', icon: Clock, permission: 'settings.attendance.edit' },
   { id: 'hardware', label: 'Hardware', icon: Fingerprint, permission: 'settings.attendance.edit' },
   { id: 'organisation', label: 'Organisation', icon: Building2, permission: 'settings.organisation.edit' },
+  { id: 'masters', label: 'Lists & Masters', icon: Store, roles: ['owner', 'admin', 'accountant'] },
   { id: 'data', label: 'Data Management', icon: Database, permission: 'settings.data.manage' },
 ];
 
 export default function Settings() {
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
-  const { user, userRole, staffData, can } = useAuth();
+  const { user, userRole, staffData, can, isOwner, isAdmin, isAccountant } = useAuth();
   const { language, setLanguage } = useLanguage();
 
-  const visible = CATEGORIES.filter((c) => !c.permission || can(c.permission));
+  const visible = CATEGORIES.filter((c) => {
+    if (c.roles) return (isOwner && c.roles.includes('owner')) || (isAdmin && c.roles.includes('admin')) || (isAccountant && c.roles.includes('accountant'));
+    return !c.permission || can(c.permission);
+  });
   const active = visible.find((c) => c.id === category) ?? visible[0];
 
   // Normalize the URL: unknown / disallowed category → first visible one.
@@ -423,10 +430,15 @@ export default function Settings() {
           )}
 
           {active.id === 'organisation' && (
-            <SettingsPanel title="Organisation" description="Company profile, outlets, departments and expense categories.">
+            <SettingsPanel title="Organisation" description="Company profile and expense categories.">
               <OrganizationProfileCard />
-              <ManageOutletsDepartmentsCard />
               <ManageCategoriesCard />
+            </SettingsPanel>
+          )}
+
+          {active.id === 'masters' && (
+            <SettingsPanel title="Lists & Masters" description="Outlets, departments and designations used across staff records and the staff form.">
+              <ManageOutletsDepartmentsCard />
             </SettingsPanel>
           )}
 
