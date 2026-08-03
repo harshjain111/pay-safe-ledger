@@ -11,6 +11,7 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAttendanceSummary } from '@/hooks/useAttendanceSummary';
 import { useBiometricEnrolment } from '@/hooks/useBiometricEnrolment';
 import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
+import { useLateForDate } from '@/hooks/useLateForDate';
 import {
   Users,
   Wallet,
@@ -30,6 +31,7 @@ import {
   CheckCircle2,
   UserX,
   Fingerprint,
+  AlarmClock,
   type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -55,6 +57,7 @@ export function OwnerDashboard() {
   const [attDate, setAttDate] = useState(todayStr);
   const today = useAttendanceSummary(todayStr);
   const band = useAttendanceSummary(attDate);
+  const late = useLateForDate(attDate);
   const bio = useBiometricEnrolment();
   const breaksEnabled = useBreaksEnabled();
 
@@ -222,8 +225,9 @@ export function OwnerDashboard() {
             className="h-9 w-auto"
           />
         </div>
-        <div className={`grid gap-3 sm:gap-4 grid-cols-2 ${breaksEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        <div className={`grid gap-3 sm:gap-4 grid-cols-2 ${breaksEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <DashboardCard icon={LogIn} label="Checked In" value={band.summary?.checkedIn ?? 0} iconChip={CHIP.blue} href="/attendance?status=checkedIn" loading={band.isLoading} />
+          <DashboardCard icon={AlarmClock} label="Late" value={late.count} iconChip={late.count > 0 ? CHIP.amber : CHIP.grey} href="/attendance?status=late" loading={late.isLoading} />
           {breaksEnabled && (
             <DashboardCard icon={Coffee} label="On Break" value={band.summary?.onBreak ?? 0} iconChip={CHIP.amber} href="/attendance" loading={band.isLoading} />
           )}

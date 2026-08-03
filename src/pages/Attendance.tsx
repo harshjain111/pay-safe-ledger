@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useLateForDate } from '@/hooks/useLateForDate';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -112,9 +113,10 @@ export default function Attendance() {
   const breaksEnabled = useBreaksEnabled();
   const canView = isOwner || isAdmin || isCA;
 
-  // Drill-down from dashboard cards: ?status=present|checkedIn|completed|absent
+  // Drill-down from dashboard cards: ?status=present|checkedIn|completed|absent|late
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status');
+  const lateData = useLateForDate(format(new Date(), 'yyyy-MM-dd'), canView && statusFilter === 'late');
   const setStatusFilter = (v: string | null) => {
     const next = new URLSearchParams(searchParams);
     if (v) next.set('status', v); else next.delete('status');
@@ -292,7 +294,7 @@ export default function Attendance() {
 
   // Focused "today" list driven by the ?status= drill-down from dashboard cards.
   const FILTER_LABEL: Record<string, string> = {
-    present: 'Present today', checkedIn: 'Checked in today', completed: 'Completed today', absent: 'Absent today',
+    present: 'Present today', checkedIn: 'Checked in today', completed: 'Completed today', absent: 'Absent today', late: 'Late today',
   };
   const focusList = useMemo(() => {
     if (!statusFilter) return null;
@@ -487,12 +489,47 @@ export default function Attendance() {
                 <div>
                   <h2 className="text-lg font-semibold">{FILTER_LABEL[statusFilter] ?? 'Today'}</h2>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(), 'EEEE, dd MMM yyyy')} · {focusList?.length ?? 0} {focusList?.length === 1 ? 'person' : 'people'}
+                    {format(new Date(), 'EEEE, dd MMM yyyy')} · {(statusFilter === 'late' ? lateData.rows.length : (focusList?.length ?? 0))} {(statusFilter === 'late' ? lateData.rows.length : (focusList?.length ?? 0)) === 1 ? 'person' : 'people'}
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setStatusFilter(null)}>View full report</Button>
               </div>
-              {loading ? (
+              {statusFilter === 'late' ? (
+                lateData.isLoading ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : lateData.rows.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">No late arrivals today.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-secondary/50">
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Scheduled in</TableHead>
+                          <TableHead>Actual in</TableHead>
+                          <TableHead>Late by</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lateData.rows.map((r) => (
+                          <TableRow key={r.staff_id}>
+                            <TableCell className="font-medium whitespace-nowrap">{r.full_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{r.employee_id}</TableCell>
+                            <TableCell className="whitespace-nowrap">{format(new Date(r.scheduledISO), 'hh:mm a')}</TableCell>
+                            <TableCell className="whitespace-nowrap">{format(new Date(r.checkInISO), 'dd MMM, hh:mm a')}</TableCell>
+                            <TableCell>
+                              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                                {r.lateMinutes >= 60 ? `${Math.floor(r.lateMinutes / 60)}h ${r.lateMinutes % 60}m` : `${r.lateMinutes}m`}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
+              ) : loading ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
               ) : !focusList || focusList.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">No staff match this filter for today.</div>
