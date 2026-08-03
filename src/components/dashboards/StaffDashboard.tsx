@@ -218,8 +218,11 @@ export function StaffDashboard() {
         {/* Attendance widget */}
         <div data-tour="attendance"><AttendanceWidget /></div>
 
-        {/* My pending leave balance */}
-        <MyLeaveBalanceCard staffId={staffData?.id} />
+        {/* My weekly off + leave balance by type */}
+        <MyLeaveBalanceCard
+          staffId={staffData?.id}
+          weeklyOffDay={(staffData as unknown as { weekly_off_day?: number | null })?.weekly_off_day ?? null}
+        />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3">
