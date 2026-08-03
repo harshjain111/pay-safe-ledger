@@ -26,7 +26,8 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
 import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
-import { Plus, Calendar, Search, Clock, CheckCircle, XCircle, CalendarX, CalendarMinus, Scale } from 'lucide-react';
+import { AssignLeaveTypeDialog } from '@/components/leave/AssignLeaveTypeDialog';
+import { Plus, Calendar, Search, Clock, CheckCircle, XCircle, CalendarX, CalendarMinus, Scale, UserX } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import type { LeaveRecord, LeaveStatus } from '@/types/leave';
 import { LEAVE_TYPE_CONFIG, LEAVE_STATUS_LABELS } from '@/types/leave';
@@ -49,6 +50,13 @@ export default function LeaveRecords() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
+
+  // Leaves vs Absences view (management only). Absences = days flagged absent by
+  // the attendance discipline check that don't yet have an approved leave.
+  const [view, setView] = useState<'leaves' | 'absences'>('leaves');
+  const [absences, setAbsences] = useState<{ id: string; staff_id: string; work_date: string; staff_name: string; employee_id: string }[]>([]);
+  const [absLoading, setAbsLoading] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{ id: string; staff: { id: string; name: string }; date: string } | null>(null);
 
   // Filters
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -104,10 +112,51 @@ export default function LeaveRecords() {
     }
   }, [selectedMonth, selectedStaffId, selectedStatus]);
 
+  const fetchAbsences = useCallback(async () => {
+    if (isStaff) return;
+    setAbsLoading(true);
+    try {
+      const monthStart = format(startOfMonth(new Date(selectedMonth + '-01')), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(new Date(selectedMonth + '-01')), 'yyyy-MM-dd');
+      let q = supabase
+        .from('attendance_discipline_log' as never)
+        .select('id, staff_id, work_date, is_absent, is_cancelled')
+        .eq('is_absent', true)
+        .gte('work_date', monthStart)
+        .lte('work_date', monthEnd)
+        .order('work_date', { ascending: false });
+      if (selectedStaffId !== 'all') q = q.eq('staff_id', selectedStaffId);
+      const { data } = await q;
+      const rows = ((data ?? []) as { id: string; staff_id: string; work_date: string; is_cancelled?: boolean }[]).filter((r) => !r.is_cancelled);
+      // Exclude days already covered by an approved leave.
+      const covered = new Set(leaveRecords.filter((r) => r.status === 'approved').map((r) => `${r.staff_id}|${r.leave_date}`));
+      const nameMap = new Map(staff.map((s) => [s.id, s]));
+      setAbsences(
+        rows
+          .filter((r) => !covered.has(`${r.staff_id}|${r.work_date}`))
+          .map((r) => ({
+            id: r.id,
+            staff_id: r.staff_id,
+            work_date: r.work_date,
+            staff_name: nameMap.get(r.staff_id)?.full_name ?? 'Unknown',
+            employee_id: nameMap.get(r.staff_id)?.employee_id ?? '',
+          })),
+      );
+    } catch (e) {
+      console.error('Absences load failed', e);
+    } finally {
+      setAbsLoading(false);
+    }
+  }, [isStaff, selectedMonth, selectedStaffId, leaveRecords, staff]);
+
   useEffect(() => {
     fetchLeaveRecords();
     if (!isStaff) fetchStaff();
   }, [fetchLeaveRecords, fetchStaff, isStaff]);
+
+  useEffect(() => {
+    if (view === 'absences') fetchAbsences();
+  }, [view, fetchAbsences]);
 
   // Configured leave-type names (id -> name) for the records table.
   useEffect(() => {
@@ -141,6 +190,12 @@ export default function LeaveRecords() {
       );
     }
     return true;
+  });
+
+  const filteredAbsences = absences.filter((a) => {
+    if (!searchQuery) return true;
+    const s = searchQuery.toLowerCase();
+    return a.staff_name.toLowerCase().includes(s) || a.employee_id.toLowerCase().includes(s);
   });
 
   const pendingCount = leaveRecords.filter((r) => r.status === 'pending').length;
@@ -216,6 +271,19 @@ export default function LeaveRecords() {
         </div>
       </PageHeader>
 
+      {!isStaff && (
+        <div className="flex gap-2">
+          <Button variant={view === 'leaves' ? 'default' : 'outline'} size="sm" onClick={() => setView('leaves')} className="gap-1.5">
+            <Calendar className="h-4 w-4" /> Leave records
+          </Button>
+          <Button variant={view === 'absences' ? 'default' : 'outline'} size="sm" onClick={() => setView('absences')} className="gap-1.5">
+            <UserX className="h-4 w-4" /> Absences
+          </Button>
+        </div>
+      )}
+
+      {view === 'leaves' && (
+      <>
       {/* Summary tiles */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card
@@ -317,6 +385,8 @@ export default function LeaveRecords() {
           </CardContent>
         </Card>
       )}
+      </>
+      )}
 
       {/* Filters */}
       <Card>
@@ -366,6 +436,7 @@ export default function LeaveRecords() {
       </Card>
 
       {/* Leave table */}
+      {view === 'leaves' ? (
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -462,6 +533,55 @@ export default function LeaveRecords() {
           )}
         </CardContent>
       </Card>
+      ) : (
+      <Card>
+        <CardContent className="p-0">
+          {absLoading ? (
+            <ListSkeleton variant="rows" />
+          ) : filteredAbsences.length === 0 ? (
+            <EmptyState
+              icon={UserX}
+              title="No open absences"
+              description="No absent days need a leave type for this filter. Absences are detected by the daily attendance check."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Staff</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Day</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAbsences.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <div className="font-medium">{a.staff_name}</div>
+                        <div className="text-xs text-muted-foreground">{a.employee_id}</div>
+                      </TableCell>
+                      <TableCell className="font-medium">{format(new Date(a.work_date), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="text-muted-foreground">{format(new Date(a.work_date), 'EEEE')}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAssignTarget({ id: a.id, staff: { id: a.staff_id, name: a.staff_name }, date: a.work_date })}
+                        >
+                          Assign leave
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      )}
 
       <CreateLeaveDialog
         open={showCreateDialog}
@@ -475,6 +595,15 @@ export default function LeaveRecords() {
         onOpenChange={setShowApprovalDialog}
         leaveRecord={selectedLeave}
         onSuccess={fetchLeaveRecords}
+      />
+
+      <AssignLeaveTypeDialog
+        open={!!assignTarget}
+        onOpenChange={(o) => !o && setAssignTarget(null)}
+        staff={assignTarget?.staff ?? null}
+        date={assignTarget?.date ?? null}
+        disciplineLogId={assignTarget?.id ?? null}
+        onSuccess={() => { fetchLeaveRecords(); fetchAbsences(); }}
       />
     </div>
   );
