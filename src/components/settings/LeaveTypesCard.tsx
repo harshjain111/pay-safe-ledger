@@ -17,13 +17,17 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/lib/toast';
-import { fetchLeaveTypes, type LeaveTypeRow, type LeaveAccrualMode } from '@/lib/leave';
+import { fetchLeaveTypes, fetchLeaveYearStartMonth, leaveYearFor, type LeaveTypeRow, type LeaveAccrualMode } from '@/lib/leave';
+import { LeaveTypeOverrides } from './LeaveTypeOverrides';
+import { CalendarRange, RotateCcw } from 'lucide-react';
 
 const ACCRUAL_LABEL: Record<LeaveAccrualMode, string> = {
   annual: 'Annual (granted upfront)',
   monthly: 'Monthly (accrues over the year)',
   none: 'No accrual',
 };
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 interface FormState {
   name: string;
@@ -177,6 +181,14 @@ function LeaveTypeDialog({
             </div>
             <Switch checked={f.is_active} onCheckedChange={(v) => set('is_active', v)} aria-label="Active" />
           </div>
+
+          {editing ? (
+            <LeaveTypeOverrides leaveTypeId={editing.id} />
+          ) : (
+            <p className="rounded-lg border border-dashed p-3 text-[11px] text-muted-foreground">
+              Save the type first, then re-open it to add department/outlet exemptions & quota overrides.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -188,19 +200,52 @@ function LeaveTypeDialog({
 }
 
 export function LeaveTypesCard() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isAccountant } = useAuth();
+  const canManage = isOwner || isAdmin || isAccountant;
   const [types, setTypes] = useState<LeaveTypeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<LeaveTypeRow | null>(null);
+
+  const [startMonth, setStartMonth] = useState(1);
+  const [savingMonth, setSavingMonth] = useState(false);
+  const [rolling, setRolling] = useState(false);
 
   const reload = async () => {
     setLoading(true);
     setTypes(await fetchLeaveTypes());
     setLoading(false);
   };
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); fetchLeaveYearStartMonth().then(setStartMonth); }, []);
+
+  const fy = leaveYearFor(new Date(), startMonth);
+
+  const saveStartMonth = async (m: number) => {
+    setStartMonth(m);
+    setSavingMonth(true);
+    const { data: org } = await supabase.from('organization_profile').select('id').limit(1).maybeSingle();
+    const id = (org as { id?: string } | null)?.id;
+    if (id) {
+      const { error } = await supabase.from('organization_profile').update({ leave_year_start_month: m }).eq('id', id);
+      if (error) toast.error('Could not save leave-year start');
+      else toast.success('Leave year updated');
+    }
+    setSavingMonth(false);
+  };
+
+  const runRollover = async () => {
+    setRolling(true);
+    try {
+      const { data, error } = await supabase.rpc('run_leave_rollover', { _target_fy: fy.fyStartYear });
+      if (error) throw error;
+      const n = (data as { openings_written?: number } | null)?.openings_written ?? 0;
+      toast.success(`Rollover complete — ${n} opening balance(s) carried into ${fy.label}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Rollover failed');
+    } finally {
+      setRolling(false);
+    }
+  };
 
   const handleDelete = async (t: LeaveTypeRow) => {
     const { error } = await supabase.from('leave_types').delete().eq('id', t.id);
@@ -228,6 +273,52 @@ export function LeaveTypesCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 p-4 pt-0 sm:p-6 sm:pt-0">
+        {/* Financial year + rollover */}
+        <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarRange className="h-4 w-4 text-primary" />
+              <div>
+                <p className="text-sm font-medium">Leave year</p>
+                <p className="text-[11px] text-muted-foreground">Current: {fy.label} ({fy.fromISO} → {fy.toISO})</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={String(startMonth)} onValueChange={(v) => saveStartMonth(Number(v))}>
+                <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover">
+                  {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>Starts {m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {savingMonth && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-muted-foreground sm:max-w-[70%]">
+              Year-end rollover carries each staff's unused balance of <span className="font-medium">carry-forward</span> types into {fy.label}'s opening (capped at max balance). Types without carry-forward reset.
+            </p>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="shrink-0 gap-1.5" disabled={rolling}>
+                  {rolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />} Run rollover
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Run year-end rollover for {fy.label}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Recomputes opening balances for {fy.label} from the previous year's closing balances, for carry-forward leave types only (capped at each type's max balance). It overwrites existing opening balances for those types this year.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={runRollover}>Run rollover</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : types.length === 0 ? (

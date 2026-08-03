@@ -17,7 +17,7 @@ export function MyLeaveBalanceCard({ staffId, weeklyOffDay }: { staffId?: string
     let cancelled = false;
     (async () => {
       try {
-        const rows = await computeLeaveBalancesForStaff(staffId, new Date().getFullYear());
+        const rows = await computeLeaveBalancesForStaff(staffId);
         if (!cancelled) setBalances(rows);
       } catch (e) {
         console.error('Failed to load leave balances', e);

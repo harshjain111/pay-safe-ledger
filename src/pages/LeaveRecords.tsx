@@ -174,7 +174,7 @@ export default function LeaveRecords() {
       return;
     }
     (async () => {
-      const b = await computeLeaveBalancesForStaff(balanceStaffId, year);
+      const b = await computeLeaveBalancesForStaff(balanceStaffId);
       if (!cancelled) setBalances(b);
     })();
     return () => { cancelled = true; };

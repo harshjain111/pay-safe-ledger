@@ -170,24 +170,62 @@ export interface LeaveTypeBalance {
   balance: number;
 }
 
-/** Per-type leave balance for a staff member in a calendar year:
- *  balance = opening (carry-forward) + accrued − used. */
+export interface LeaveYearInfo {
+  startMonth: number;   // 1..12 (1 = calendar year)
+  fyStartYear: number;  // the year the current FY started
+  label: string;        // e.g. "2026" or "FY 2026–27"
+  fromISO: string;      // yyyy-MM-dd
+  toISO: string;        // yyyy-MM-dd
+}
+
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** The org's financial-year start month (1 = Jan). Defaults to 1. */
+export async function fetchLeaveYearStartMonth(): Promise<number> {
+  const { data } = await supabase.from('organization_profile' as never).select('leave_year_start_month').limit(1).maybeSingle();
+  const m = Number((data as { leave_year_start_month?: number } | null)?.leave_year_start_month ?? 1);
+  return m >= 1 && m <= 12 ? m : 1;
+}
+
+/** The financial-year window containing `now`, given the FY start month. */
+export function leaveYearFor(now: Date, startMonth: number): LeaveYearInfo {
+  const fyStartYear = (now.getMonth() + 1) >= startMonth ? now.getFullYear() : now.getFullYear() - 1;
+  const from = new Date(fyStartYear, startMonth - 1, 1);
+  const to = new Date(new Date(fyStartYear + 1, startMonth - 1, 1).getTime() - 86400000);
+  const label = startMonth === 1 ? String(fyStartYear) : `FY ${fyStartYear}–${String((fyStartYear + 1) % 100).padStart(2, '0')}`;
+  return { startMonth, fyStartYear, label, fromISO: isoDate(from), toISO: isoDate(to) };
+}
+
+/** Per-type leave balance for a staff member in the current financial year:
+ *  balance = opening (carry-forward) + accrued − used. Applies per-department /
+ *  per-outlet overrides (quota override or exemption). */
 export async function computeLeaveBalancesForStaff(
   staffId: string,
-  year: number,
   now: Date = new Date(),
 ): Promise<LeaveTypeBalance[]> {
-  const [types, recordsRes, openingRes] = await Promise.all([
+  const startMonth = await fetchLeaveYearStartMonth();
+  const ly = leaveYearFor(now, startMonth);
+
+  const [types, staffRes, recordsRes, openingRes, ovrRes] = await Promise.all([
     fetchLeaveTypes(true),
-    supabase
-      .from('leave_records')
-      .select('leave_type_id')
-      .eq('staff_id', staffId)
-      .eq('status', 'approved')
-      .gte('leave_date', `${year}-01-01`)
-      .lte('leave_date', `${year}-12-31`),
-    supabase.from('leave_balances').select('leave_type_id, opening').eq('staff_id', staffId).eq('year', year),
+    supabase.from('staff').select('department_id, outlet_id').eq('id', staffId).maybeSingle(),
+    supabase.from('leave_records').select('leave_type_id').eq('staff_id', staffId).eq('status', 'approved').gte('leave_date', ly.fromISO).lte('leave_date', ly.toISO),
+    supabase.from('leave_balances').select('leave_type_id, opening').eq('staff_id', staffId).eq('year', ly.fyStartYear),
+    supabase.from('leave_type_overrides' as never).select('leave_type_id, scope, department_id, outlet_id, quota_override, is_exempt, is_active'),
   ]);
+
+  const staffDept = (staffRes.data as { department_id?: string | null } | null)?.department_id ?? null;
+  const staffOutlet = (staffRes.data as { outlet_id?: string | null } | null)?.outlet_id ?? null;
+
+  type Ovr = { leave_type_id: string; scope: string; department_id: string | null; outlet_id: string | null; quota_override: number | null; is_exempt: boolean; is_active?: boolean };
+  const overrides = ((ovrRes.data ?? []) as unknown as Ovr[]).filter((o) => o.is_active !== false);
+  const overrideFor = (typeId: string): Ovr | null => {
+    const cands = overrides.filter((o) => o.leave_type_id === typeId && (
+      (o.scope === 'department' && o.department_id && o.department_id === staffDept) ||
+      (o.scope === 'outlet' && o.outlet_id && o.outlet_id === staffOutlet)
+    ));
+    return cands.find((o) => o.scope === 'department') ?? cands[0] ?? null; // department wins
+  };
 
   const usedByType = new Map<string, number>();
   for (const r of (recordsRes.data ?? []) as { leave_type_id: string | null }[]) {
@@ -199,10 +237,20 @@ export async function computeLeaveBalancesForStaff(
     openingByType.set(b.leave_type_id, Number(b.opening ?? 0));
   }
 
-  return types.map((t) => {
+  const fyFrom = new Date(ly.fyStartYear, startMonth - 1, 1);
+  const fyToExcl = new Date(ly.fyStartYear + 1, startMonth - 1, 1);
+  const monthsElapsed = now < fyFrom ? 0 : now >= fyToExcl ? 12 : (now.getFullYear() - fyFrom.getFullYear()) * 12 + (now.getMonth() - fyFrom.getMonth()) + 1;
+
+  const result: LeaveTypeBalance[] = [];
+  for (const t of types) {
+    const ov = overrideFor(t.id);
+    if (ov?.is_exempt) continue; // staff in this dept/outlet don't get this type
+    const quota = ov && ov.quota_override != null ? Number(ov.quota_override) : t.default_quota;
+    const accrued = t.accrual === 'none' ? 0 : t.accrual === 'monthly' ? Math.round((quota / 12) * monthsElapsed * 100) / 100 : quota;
     const opening = openingByType.get(t.id) ?? 0;
-    const accrued = accruedForType(t, year, now);
     const used = usedByType.get(t.id) ?? 0;
-    return { type: t, opening, accrued, used, balance: Math.round((opening + accrued - used) * 100) / 100 };
-  });
+    const effType = ov && ov.quota_override != null ? { ...t, default_quota: quota } : t;
+    result.push({ type: effType, opening, accrued, used, balance: Math.round((opening + accrued - used) * 100) / 100 });
+  }
+  return result;
 }

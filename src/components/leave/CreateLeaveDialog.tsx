@@ -114,7 +114,7 @@ export function CreateLeaveDialog({
       return;
     }
     (async () => {
-      const balances = await computeLeaveBalancesForStaff(targetStaffId, new Date().getFullYear());
+      const balances = await computeLeaveBalancesForStaff(targetStaffId);
       if (cancelled) return;
       const b = balances.find((x) => x.type.id === selectedTypeId);
       setTypeBalance(b ? { used: b.used, accrued: b.accrued, balance: b.balance } : null);
