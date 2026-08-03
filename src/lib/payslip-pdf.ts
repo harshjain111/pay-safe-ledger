@@ -12,6 +12,18 @@ export interface PayslipStaff {
   bank_account_number?: string | null;
   bank_name?: string | null;
   bank_ifsc?: string | null;
+  pan_number?: string | null;
+  uan_number?: string | null;
+  esic_number?: string | null;
+}
+
+/** Employer details printed at the top of the payslip. All optional. */
+export interface PayslipOrg {
+  name?: string | null;
+  address?: string | null;
+  gstin?: string | null;
+  epf_number?: string | null;
+  esi_number?: string | null;
 }
 
 export interface PayslipSettlement {
@@ -49,21 +61,31 @@ const inr = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement, startY = 14) {
+async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement, org?: PayslipOrg, startY = 14) {
   const { default: autoTable } = await import('jspdf-autotable');
   const pageWidth = doc.internal.pageSize.getWidth();
   const monthLabel = format(new Date(s.settlement_month + '-01'), 'MMMM yyyy');
 
-  // Header
+  // Header — title, employer name, address and statutory registration numbers.
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text('PAYSLIP', pageWidth / 2, startY, { align: 'center' });
-  doc.setFontSize(10);
+  let hy = startY + 6;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(org?.name || ORG_LABEL, pageWidth / 2, hy, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.text(ORG_LABEL, pageWidth / 2, startY + 6, { align: 'center' });
-  // (Employer name — kept on payslip; product footer below)
+  doc.setFontSize(8);
+  if (org?.address) { hy += 4; doc.text(org.address, pageWidth / 2, hy, { align: 'center', maxWidth: pageWidth - 60 }); }
+  const reg = [
+    org?.gstin && `GSTIN: ${org.gstin}`,
+    org?.epf_number && `EPF: ${org.epf_number}`,
+    org?.esi_number && `ESI: ${org.esi_number}`,
+  ].filter(Boolean).join('   |   ');
+  if (reg) { hy += 4; doc.text(reg, pageWidth / 2, hy, { align: 'center' }); }
+  hy += 5;
   doc.setFontSize(9);
-  doc.text(`Pay Period: ${monthLabel}`, pageWidth / 2, startY + 11, { align: 'center' });
+  doc.text(`Pay Period: ${monthLabel}`, pageWidth / 2, hy, { align: 'center' });
 
   // Verification QR (top-right) — encodes the payslip's canonical fields so a
   // scan can be cross-checked against the printed figures. (QR stamp)
@@ -95,7 +117,7 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   doc.text(`Scan to verify · ${ref}`, qrX + qrSize / 2, qrY + qrSize + 2.5, { align: 'center' });
 
   // Staff details box
-  const detailsY = startY + 18;
+  const detailsY = hy + 6;
   autoTable(doc, {
     startY: detailsY,
     theme: 'plain',
@@ -109,6 +131,8 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
         'Pay Date',
         s.paid_at ? format(new Date(s.paid_at), 'dd MMM yyyy') : (s.settled_at ? format(new Date(s.settled_at), 'dd MMM yyyy') : '-'),
       ],
+      ['PAN', staff.pan_number || '-', 'UAN (EPFO)', staff.uan_number || '-'],
+      ['ESIC No.', staff.esic_number || '-', '', ''],
     ],
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 35 },
@@ -208,10 +232,10 @@ async function drawPayslip(doc: jsPDF, staff: PayslipStaff, s: PayslipSettlement
   }
 }
 
-export async function downloadPayslipPDF(staff: PayslipStaff, settlement: PayslipSettlement) {
+export async function downloadPayslipPDF(staff: PayslipStaff, settlement: PayslipSettlement, org?: PayslipOrg) {
   const { default: JsPDF } = await import('jspdf');
   const doc = new JsPDF('p', 'mm', 'a4');
-  await drawPayslip(doc, staff, settlement);
+  await drawPayslip(doc, staff, settlement, org);
 
   // Footer
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -230,13 +254,14 @@ export async function downloadPayslipPDF(staff: PayslipStaff, settlement: Paysli
 export async function downloadBulkPayslipsPDF(
   month: string,
   items: Array<{ staff: PayslipStaff; settlement: PayslipSettlement }>,
+  org?: PayslipOrg,
 ) {
   const { default: JsPDF } = await import('jspdf');
   const doc = new JsPDF('p', 'mm', 'a4');
   for (let idx = 0; idx < items.length; idx++) {
     const item = items[idx];
     if (idx > 0) doc.addPage();
-    await drawPayslip(doc, item.staff, item.settlement);
+    await drawPayslip(doc, item.staff, item.settlement, org);
     const pageHeight = doc.internal.pageSize.getHeight();
     doc.setFontSize(7);
     doc.setFont('helvetica', 'italic');

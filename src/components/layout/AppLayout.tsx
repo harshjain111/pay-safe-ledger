@@ -358,6 +358,7 @@ function roleNavSections(
       {
         items: [
           { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+          { title: 'My Salary Slips', href: '/my-payslips', icon: FileText },
           { title: 'My Ledger', href: '/ledger', icon: FileText },
           { title: 'My Expenses', href: '/expenses', icon: Receipt },
           { title: 'Request Advance', href: '/requests', icon: ClipboardList },
