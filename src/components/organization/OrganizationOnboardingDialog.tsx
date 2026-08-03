@@ -64,6 +64,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
     defaultValues: {
       trade_name: '', legal_name: '', email: '', website: '', phone: '',
       gstin: '', pan: '', address: '', city: '', state: '', pincode: '',
+      epf_number: '', esi_number: '',
     },
   });
 
@@ -82,6 +83,8 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
       city: profile?.city ?? '',
       state: profile?.state ?? '',
       pincode: profile?.pincode ?? '',
+      epf_number: profile?.epf_number ?? '',
+      esi_number: profile?.esi_number ?? '',
     });
     setLogoFile(null);
     setLogoPreview(profile?.logo_url ?? null);
@@ -129,6 +132,8 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
           city: nullify(values.city),
           state: nullify(values.state),
           pincode: nullify(values.pincode),
+          epf_number: nullify(values.epf_number),
+          esi_number: nullify(values.esi_number),
           logo_url: logoUrl,
           onboarded_at: profile?.onboarded_at ?? new Date().toISOString(),
         })
@@ -212,6 +217,12 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
             </Field>
             <Field label="PAN" error={errors.pan?.message}>
               <Input {...register('pan')} placeholder="AAAAA9999A" className="uppercase" />
+            </Field>
+            <Field label="EPF No. (EPFO)" error={errors.epf_number?.message}>
+              <Input {...register('epf_number')} placeholder="Establishment code" />
+            </Field>
+            <Field label="ESI No. (ESIC)" error={errors.esi_number?.message}>
+              <Input {...register('esi_number')} placeholder="Employer code" />
             </Field>
             <div className="sm:col-span-2">
               <Field label="Address" error={errors.address?.message}>

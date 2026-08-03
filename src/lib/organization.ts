@@ -18,6 +18,8 @@ export interface OrgProfile {
   onboarded_at: string | null;
   breaks_enabled?: boolean;
   self_checkin_enabled?: boolean;
+  epf_number?: string | null;
+  esi_number?: string | null;
 }
 
 // Every field is optional at the field level; the refine enforces "trade name OR
@@ -44,6 +46,8 @@ export const organizationFormSchema = z
     city: opt(80),
     state: opt(80),
     pincode: z.string().trim().regex(/^$|^[0-9]{6}$/, 'Enter a 6-digit pincode').optional().or(z.literal('')),
+    epf_number: opt(30),
+    esi_number: opt(30),
   })
   .refine((d) => Boolean(d.trade_name?.trim()) || Boolean(d.legal_name?.trim()), {
     message: 'Enter at least the Trade name or the Legal name',

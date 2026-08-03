@@ -70,6 +70,8 @@ export default function StaffForm() {
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [panFile, setPanFile] = useState<File | null>(null);
   const [panNumber, setPanNumber] = useState('');
+  const [uanNumber, setUanNumber] = useState('');
+  const [esicNumber, setEsicNumber] = useState('');
   const [bankProofFile, setBankProofFile] = useState<File | null>(null);
   const [reportingManagerId, setReportingManagerId] = useState<string>('');
   const [isManager, setIsManager] = useState(false);
@@ -192,6 +194,8 @@ export default function StaffForm() {
         setPtExempt(!!data.pt_exempt);
         setOtStandardMinutesOverride(data.ot_standard_minutes_override != null ? String(data.ot_standard_minutes_override) : '');
         setOtMultiplierOverride(data.ot_multiplier_override != null ? String(data.ot_multiplier_override) : '');
+        setUanNumber((data as { uan_number?: string | null }).uan_number || '');
+        setEsicNumber((data as { esic_number?: string | null }).esic_number || '');
 
         // Fetch role if user_id exists
         if (data.user_id) {
@@ -363,6 +367,8 @@ export default function StaffForm() {
         updateData.emergency_contact_name = emergencyName.trim() || null;
         updateData.emergency_contact_phone = emergencyPhone.trim() || null;
         updateData.emergency_contact_relation = emergencyRelation.trim() || null;
+        updateData.uan_number = uanNumber.trim() || null;
+        updateData.esic_number = esicNumber.trim() || null;
         // Bank details + Salary structure + Statutory — owner only writes
         if (isOwner) {
           updateData.bank_account_name = bankAccountName.trim() || null;
@@ -938,6 +944,15 @@ export default function StaffForm() {
                   <Input id="kycPan" type="file" accept="image/*,application/pdf"
                     onChange={(e) => pickFile(e.target.files?.[0] || null, setPanFile)} />
                   {panFile && <p className="text-xs text-muted-foreground">Selected: {panFile.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="uanNumber">UAN (EPFO)</Label>
+                  <Input id="uanNumber" value={uanNumber}
+                    onChange={(e) => setUanNumber(e.target.value)} placeholder="12-digit UAN" />
+                  <Label htmlFor="esicNumber" className="mt-2 block">ESIC Number</Label>
+                  <Input id="esicNumber" value={esicNumber}
+                    onChange={(e) => setEsicNumber(e.target.value)} placeholder="ESIC IP number" />
+                  <p className="text-xs text-muted-foreground">Shown on the employee's salary slip.</p>
                 </div>
               </div>
             </CardContent>
