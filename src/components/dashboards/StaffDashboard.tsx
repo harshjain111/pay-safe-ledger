@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffBalance } from '@/hooks/useStaffBalance';
 import { MyLeaveBalanceCard } from './MyLeaveBalanceCard';
+import { TodayPresenceCard } from './TodayPresenceCard';
 import { LanguageToggle } from '@/components/staff/LanguageToggle';
 import { QuickAdvanceForm } from '@/components/staff/QuickAdvanceForm';
 import { CreateLeaveDialog } from '@/components/leave/CreateLeaveDialog';
@@ -215,6 +216,9 @@ export function StaffDashboard() {
       {Header}
 
       <div className="p-4 space-y-4 pb-8">
+        {/* Today's presence — status + login/log-off (always visible) */}
+        <TodayPresenceCard userId={staffData?.user_id ?? undefined} />
+
         {/* Attendance widget */}
         <div data-tour="attendance"><AttendanceWidget /></div>
 
@@ -226,23 +230,24 @@ export function StaffDashboard() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Salary Card - Hidden by default */}
-          <Card className="relative overflow-hidden">
+          {/* Salary Card - tap anywhere to reveal/hide */}
+          <Card
+            className="relative overflow-hidden cursor-pointer transition-colors hover:bg-muted/30"
+            role="button"
+            tabIndex={0}
+            aria-pressed={showSalary}
+            aria-label={showSalary ? 'Hide salary' : 'Reveal salary'}
+            onClick={() => setShowSalary((v) => !v)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowSalary((v) => !v); } }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Wallet className="h-5 w-5 text-primary" />
                 </div>
-                <button
-                  onClick={() => setShowSalary(!showSalary)}
-                  className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
-                >
-                  {showSalary ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
+                <span className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground">
+                  {showSalary ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground mb-1">{t('my_salary')}</p>
               {showSalary ? (
@@ -253,7 +258,7 @@ export function StaffDashboard() {
                 <p className="text-xl font-bold text-muted-foreground">••••••</p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                {showSalary ? '' : t('tap_to_view')}
+                {showSalary ? 'Tap to hide' : t('tap_to_view')}
               </p>
             </CardContent>
           </Card>
