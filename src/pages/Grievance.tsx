@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  ShieldCheck, Mic, Square, Trash2, ImagePlus, Loader2, CheckCircle2, Send,
+  ShieldCheck, Trash2, ImagePlus, Loader2, CheckCircle2, Send,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -21,19 +21,14 @@ export default function Grievance() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const [anonymous, setAnonymous] = useState(true);
+  // Concerns are attributed by default so management can follow up; the employee
+  // may opt into anonymity with the checkbox below.
+  const [anonymous, setAnonymous] = useState(false);
 
   // photo
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-
-  // voice
-  const [recording, setRecording] = useState(false);
-  const [voice, setVoice] = useState<Blob | null>(null);
-  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
 
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -44,35 +39,13 @@ export default function Grievance() {
     setPhotoPreview(URL.createObjectURL(f));
   };
 
-  const startRec = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-        setVoice(blob);
-        setVoiceUrl(URL.createObjectURL(blob));
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mr.start();
-      recorderRef.current = mr;
-      setRecording(true);
-    } catch {
-      toast({ title: 'Microphone blocked', description: 'Allow mic access to record a voice note.', variant: 'destructive' });
-    }
-  };
-  const stopRec = () => { recorderRef.current?.stop(); setRecording(false); };
-  const clearVoice = () => { setVoice(null); setVoiceUrl(null); };
-
   const onSubmit = async () => {
-    if (!message.trim() && !photo && !voice) {
-      return toast({ title: 'Nothing to send', description: 'Add a note, a photo, or a voice message.', variant: 'destructive' });
+    if (!message.trim() && !photo) {
+      return toast({ title: 'Nothing to send', description: 'Add a note or a photo.', variant: 'destructive' });
     }
     setSubmitting(true);
     try {
-      await submitGrievance({ category, message: message.trim(), photo, voice, anonymous });
+      await submitGrievance({ category, message: message.trim(), photo, anonymous });
       setDone(true);
     } catch (e) {
       toast({ title: 'Could not submit', description: e instanceof Error ? e.message : 'Please try again.', variant: 'destructive' });
@@ -95,7 +68,7 @@ export default function Grievance() {
                 <>Thank you. Your concern has been submitted <strong>with your name</strong> so management can follow up with you.</>
               )}
             </p>
-            <Button variant="outline" onClick={() => { setDone(false); setMessage(''); setPhoto(null); setPhotoPreview(null); clearVoice(); }}>
+            <Button variant="outline" onClick={() => { setDone(false); setMessage(''); setPhoto(null); setPhotoPreview(null); }}>
               Raise another
             </Button>
           </CardContent>
@@ -113,11 +86,11 @@ export default function Grievance() {
             Raise a concern
           </CardTitle>
           <CardDescription>
-            Report a problem or something you witnessed. You can type, attach a photo, or record a voice note.
+            Report a problem or something you witnessed. You can type or attach a photo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Anonymous toggle — prominent by design */}
+          {/* Anonymous toggle — prominent by design, opt-in */}
           <label
             htmlFor="grievance-anon"
             className={cn(
@@ -139,7 +112,7 @@ export default function Grievance() {
               <p className="text-sm text-muted-foreground">
                 {anonymous
                   ? 'Your identity is NOT recorded — no name, no account. Uncheck if you want management to know it’s you.'
-                  : 'Your name WILL be shared with management for this concern so they can follow up with you.'}
+                  : 'Your name WILL be shared with management for this concern so they can follow up with you. Check the box to stay anonymous.'}
               </p>
             </div>
           </label>
@@ -163,23 +136,6 @@ export default function Grievance() {
               maxLength={5000}
               placeholder="Describe the issue or what you saw…"
             />
-          </div>
-
-          {/* Voice note */}
-          <div className="space-y-1.5">
-            <Label>Voice note (optional)</Label>
-            {!voice ? (
-              <Button type="button" variant={recording ? 'destructive' : 'outline'} onClick={recording ? stopRec : startRec} className="w-full gap-2">
-                {recording ? <><Square className="h-4 w-4" /> Stop recording…</> : <><Mic className="h-4 w-4" /> Record voice note</>}
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <audio controls src={voiceUrl ?? undefined} className="h-9 flex-1" />
-                <Button type="button" variant="ghost" size="icon" aria-label="Delete voice note" onClick={clearVoice}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
           </div>
 
           {/* Photo */}

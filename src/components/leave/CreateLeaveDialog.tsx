@@ -21,9 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, eachDayOfInterval } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { NotificationEvents } from '@/lib/notifications';
@@ -51,7 +52,7 @@ export function CreateLeaveDialog({
   const { user, userRole, isAccountant, accountingMode, staffData } = useAuth();
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState(staffId || '');
-  const [leaveDate, setLeaveDate] = useState<Date>();
+  const [range, setRange] = useState<DateRange | undefined>();
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeRow[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [deductionDays, setDeductionDays] = useState(1);
@@ -122,8 +123,8 @@ export function CreateLeaveDialog({
   }, [open, targetStaffId, selectedTypeId]);
 
   const handleSubmit = async () => {
-    if (!leaveDate) {
-      toast({ title: 'Validation Error', description: 'Please select a leave date.', variant: 'destructive' });
+    if (!range?.from) {
+      toast({ title: 'Validation Error', description: 'Please select your leave date(s).', variant: 'destructive' });
       return;
     }
     if (!targetStaffId) {
@@ -144,50 +145,77 @@ export function CreateLeaveDialog({
     try {
       setIsSubmitting(true);
 
-      const insertData = isPersonalRequest
-        ? {
-            // Type + deduction are left for the approver (manager/admin/owner).
-            staff_id: targetStaffId,
-            leave_date: format(leaveDate, 'yyyy-MM-dd'),
-            leave_type_id: null,
-            deduction_days: 0,
-            status: 'pending' as const,
-            remarks: remarks || undefined,
-            created_by: user?.id,
-          }
-        : {
-            staff_id: targetStaffId,
-            leave_date: format(leaveDate, 'yyyy-MM-dd'),
-            leave_type_id: selectedType!.id,
-            // Keep the legacy enum in sync for back-compat (paid vs salary-impacting).
-            leave_type: (selectedType!.is_paid ? 'paid' : 'unpaid') as 'paid' | 'unpaid',
-            deduction_days: canSetDeduction ? deductionDays : selectedType!.default_deduction,
-            status: 'approved' as const,
-            remarks: remarks || undefined,
-            created_by: user?.id,
-            approved_by: user?.id,
-            approved_at: new Date().toISOString(),
-          };
+      const from = range.from;
+      const to = range.to ?? range.from;
+      const days = eachDayOfInterval({ start: from, end: to });
+      const fromStr = format(from, 'yyyy-MM-dd');
+      const toStr = format(to, 'yyyy-MM-dd');
 
-      const { error } = await supabase.from('leave_records').insert([insertData]);
+      // Skip dates that already have a leave record for this person.
+      const { data: existing } = await supabase
+        .from('leave_records')
+        .select('leave_date')
+        .eq('staff_id', targetStaffId)
+        .gte('leave_date', fromStr)
+        .lte('leave_date', toStr);
+      const taken = new Set((existing ?? []).map((r) => (r as { leave_date: string }).leave_date));
+
+      const rows = days
+        .map((d) => format(d, 'yyyy-MM-dd'))
+        .filter((d) => !taken.has(d))
+        .map((d) =>
+          isPersonalRequest
+            ? {
+                // Type + deduction are left for the approver (manager/admin/owner).
+                staff_id: targetStaffId,
+                leave_date: d,
+                leave_type_id: null,
+                deduction_days: 0,
+                status: 'pending' as const,
+                remarks: remarks || undefined,
+                created_by: user?.id,
+              }
+            : {
+                staff_id: targetStaffId,
+                leave_date: d,
+                leave_type_id: selectedType!.id,
+                // Keep the legacy enum in sync for back-compat (paid vs salary-impacting).
+                leave_type: (selectedType!.is_paid ? 'paid' : 'unpaid') as 'paid' | 'unpaid',
+                deduction_days: canSetDeduction ? deductionDays : selectedType!.default_deduction,
+                status: 'approved' as const,
+                remarks: remarks || undefined,
+                created_by: user?.id,
+                approved_by: user?.id,
+                approved_at: new Date().toISOString(),
+              },
+        );
+
+      if (rows.length === 0) {
+        toast({ title: 'Already recorded', description: 'Leave already exists for the selected date(s).', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase.from('leave_records').insert(rows);
       if (error) {
-        if (error.code === '23505') throw new Error('A leave record already exists for this date.');
+        if (error.code === '23505') throw new Error('A leave record already exists for one of these dates.');
         throw error;
       }
 
+      const rangeLabel = days.length === 1
+        ? format(from, 'dd MMM yyyy')
+        : `${format(from, 'dd MMM')} – ${format(to, 'dd MMM yyyy')} (${rows.length} day${rows.length === 1 ? '' : 's'})`;
+
       // Personal self-requests go to the owner for approval — notify them.
       if (isPersonalRequest) {
-        await NotificationEvents.leaveRequested(
-          staffData?.full_name || 'A team member',
-          format(leaveDate, 'dd MMM yyyy'),
-        );
+        await NotificationEvents.leaveRequested(staffData?.full_name || 'A team member', rangeLabel);
       }
 
       toast({
         title: isPersonalRequest ? 'Leave Request Submitted' : 'Leave Recorded',
         description: isPersonalRequest
-          ? 'Your leave request has been submitted to the owner for approval.'
-          : 'Leave record has been created and approved.',
+          ? `Your leave request (${rangeLabel}) has been submitted to the owner for approval.`
+          : `Leave recorded for ${rangeLabel}.`,
       });
 
       onSuccess();
@@ -207,7 +235,7 @@ export function CreateLeaveDialog({
 
   const resetForm = () => {
     setSelectedStaffId(staffId || '');
-    setLeaveDate(undefined);
+    setRange(undefined);
     setRemarks('');
     const def = leaveTypes.find((t) => t.is_default) ?? leaveTypes[0];
     setSelectedTypeId(def?.id ?? '');
@@ -243,21 +271,26 @@ export function CreateLeaveDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Leave Date *</Label>
+            <Label>Leave Dates *</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn('w-full justify-start text-left font-normal', !leaveDate && 'text-muted-foreground')}
+                  className={cn('w-full justify-start text-left font-normal', !range?.from && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {leaveDate ? format(leaveDate, 'PPP') : 'Pick a date'}
+                  {range?.from
+                    ? range.to && range.to.getTime() !== range.from.getTime()
+                      ? `${format(range.from, 'PPP')} → ${format(range.to, 'PPP')}`
+                      : format(range.from, 'PPP')
+                    : 'Pick a date or range'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={leaveDate} onSelect={setLeaveDate} initialFocus />
+                <Calendar mode="range" selected={range} onSelect={setRange} numberOfMonths={1} initialFocus />
               </PopoverContent>
             </Popover>
+            <p className="text-xs text-muted-foreground">Pick a single day, or a start and end date for multiple days.</p>
           </div>
 
           {/* Leave Type — only when recording on someone's behalf. Personal
