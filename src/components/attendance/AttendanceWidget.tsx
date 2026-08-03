@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, LogIn, LogOut, Coffee, Play, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
+import { useBreaksEnabled, useSelfCheckinEnabled } from '@/hooks/useOrganizationProfile';
 import { useCurrentAttendanceSession } from '@/hooks/useCurrentAttendanceSession';
 import { syncAttendanceNow } from '@/lib/attendance-sync';
 import { CaptureDialog } from './CaptureDialog';
@@ -42,6 +42,10 @@ function formatElapsed(fromIso: string, now: number): string {
 export function AttendanceWidget() {
   const { user, staffData } = useAuth();
   const breaksEnabled = useBreaksEnabled();
+  const selfCheckinEnabled = useSelfCheckinEnabled();
+  // This employee may self check-in only if the org has it on AND they're allowed.
+  const selfAllowed = (staffData as unknown as { self_checkin_allowed?: boolean })?.self_checkin_allowed !== false;
+  const canSelfPunch = selfCheckinEnabled && selfAllowed;
   const { session, todayCompleted, isLoading, refresh } = useCurrentAttendanceSession(user?.id);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showCheckOut, setShowCheckOut] = useState(false);
@@ -205,14 +209,16 @@ export function AttendanceWidget() {
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {refreshBtn}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCheckIn(true)}
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                New shift
-              </Button>
+              {canSelfPunch && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCheckIn(true)}
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  New shift
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -230,6 +236,9 @@ export function AttendanceWidget() {
 
   // ---- NO active session, NOT completed today ----
   if (!session) {
+    // Self check-in disabled/not allowed for this person → nothing to show;
+    // their attendance comes from the biometric device instead.
+    if (!canSelfPunch) return null;
     return (
       <Card className="rounded-2xl shadow-card border-0 bg-gradient-to-br from-primary/10 to-primary/5">
         <CardContent className="p-5">
@@ -313,45 +322,47 @@ export function AttendanceWidget() {
           {refreshBtn}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {breaksEnabled && (!onBreak ? (
+        {canSelfPunch && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {breaksEnabled && (!onBreak ? (
+              <Button
+                variant="outline"
+                onClick={handleStartBreak}
+                disabled={breakLoading}
+                className="flex-1 min-w-[140px]"
+              >
+                {breakLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Coffee className="mr-2 h-4 w-4" />
+                )}
+                Start Break
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleEndBreak}
+                disabled={breakLoading}
+                className="flex-1 min-w-[140px]"
+              >
+                {breakLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="mr-2 h-4 w-4" />
+                )}
+                End Break
+              </Button>
+            ))}
             <Button
-              variant="outline"
-              onClick={handleStartBreak}
-              disabled={breakLoading}
+              onClick={() => setShowCheckOut(true)}
+              variant="destructive"
               className="flex-1 min-w-[140px]"
             >
-              {breakLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Coffee className="mr-2 h-4 w-4" />
-              )}
-              Start Break
+              <LogOut className="mr-2 h-4 w-4" />
+              Check Out
             </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={handleEndBreak}
-              disabled={breakLoading}
-              className="flex-1 min-w-[140px]"
-            >
-              {breakLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-2 h-4 w-4" />
-              )}
-              End Break
-            </Button>
-          ))}
-          <Button
-            onClick={() => setShowCheckOut(true)}
-            variant="destructive"
-            className="flex-1 min-w-[140px]"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Check Out
-          </Button>
-        </div>
+          </div>
+        )}
       </CardContent>
 
       <CaptureDialog

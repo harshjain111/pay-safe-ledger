@@ -30,3 +30,14 @@ export function useBreaksEnabled(): boolean {
   const { data } = useOrganizationProfile();
   return (data as (OrgProfile & { breaks_enabled?: boolean }) | null)?.breaks_enabled !== false;
 }
+
+/**
+ * Whether in-app self check-in/out ("Ready for your shift?") is enabled for the
+ * org. Default-ON while loading or if the flag is absent, so a transient miss
+ * never wrongly hides it. Per-employee access is gated separately by
+ * staff.self_checkin_allowed.
+ */
+export function useSelfCheckinEnabled(): boolean {
+  const { data } = useOrganizationProfile();
+  return (data as (OrgProfile & { self_checkin_enabled?: boolean }) | null)?.self_checkin_enabled !== false;
+}

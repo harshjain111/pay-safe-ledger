@@ -55,6 +55,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ClearTransactionDataCard } from '@/components/settings/ClearTransactionDataCard';
 import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
+import { SelfCheckinCard } from '@/components/settings/SelfCheckinCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
 import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
@@ -410,6 +411,7 @@ export default function Settings() {
               <HrPayRulesCard />
               <LeaveTypesCard />
               <AttendanceCoverageCard />
+              <SelfCheckinCard />
               <HolidaysCard />
             </SettingsPanel>
           )}
