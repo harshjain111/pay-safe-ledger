@@ -31,6 +31,7 @@ import {
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { Plus, Search, Users, MoreHorizontal, Eye, Edit, FileText, ChevronDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import type { Staff } from '@/types/database';
@@ -64,6 +65,10 @@ export default function StaffList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<ViewKey>('active');
+  const [outletMap, setOutletMap] = useState<Map<string, string>>(new Map());
+  const [deptFilter, setDeptFilter] = useState('all');
+  const [desigFilter, setDesigFilter] = useState('all');
+  const [outletFilter, setOutletFilter] = useState('all');
 
   const [statusDialog, setStatusDialog] = useState<{
     open: boolean;
@@ -76,8 +81,17 @@ export default function StaffList() {
 
   useEffect(() => {
     fetchStaff();
+    (async () => {
+      const { data } = await supabase.from('outlets').select('id, name');
+      setOutletMap(new Map(((data ?? []) as { id: string; name: string }[]).map((o) => [o.id, o.name])));
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner]);
+
+  const outletOf = (s: Staff) => {
+    const id = (s as unknown as { outlet_id?: string | null }).outlet_id;
+    return id ? outletMap.get(id) ?? null : null;
+  };
 
   const fetchStaff = async () => {
     try {
@@ -103,6 +117,11 @@ export default function StaffList() {
     { active: 0, inactive: 0, left: 0, terminated: 0 } as Record<StaffStatus, number>,
   );
 
+  const NONE = '__none__';
+  const deptOptions = Array.from(new Set(staff.map((s) => (s.department ?? '').trim()).filter(Boolean))).sort();
+  const desigOptions = Array.from(new Set(staff.map((s) => (s.designation ?? '').trim()).filter(Boolean))).sort();
+  const outletOptions = Array.from(new Set(staff.map(outletOf).filter(Boolean) as string[])).sort();
+
   const filteredStaff = staff
     .filter((s) => getStatus(s) === view)
     .filter(
@@ -110,7 +129,14 @@ export default function StaffList() {
         s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.employee_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.email.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    )
+    .filter((s) => (deptFilter === 'all' ? true : deptFilter === NONE ? !(s.department ?? '').trim() : (s.department ?? '').trim() === deptFilter))
+    .filter((s) => (desigFilter === 'all' ? true : desigFilter === NONE ? !(s.designation ?? '').trim() : (s.designation ?? '').trim() === desigFilter))
+    .filter((s) => {
+      if (outletFilter === 'all') return true;
+      const o = outletOf(s);
+      return outletFilter === NONE ? !o : o === outletFilter;
+    });
 
   const getInitials = (name: string) =>
     name
@@ -173,6 +199,7 @@ export default function StaffList() {
     { header: 'Name', value: (s) => s.full_name },
     { header: 'Department', value: (s) => s.department ?? '' },
     { header: 'Designation', value: (s) => s.designation ?? '' },
+    { header: 'Outlet', value: (s) => outletOf(s) ?? '' },
     { header: 'Phone', value: (s) => s.phone ?? '' },
     { header: 'Status', value: (s) => getStatus(s) },
     { header: 'Date of Joining', value: (s) => s.date_of_joining ?? '' },
@@ -208,7 +235,7 @@ export default function StaffList() {
       </Tabs>
 
       <Card className="mb-4 sm:mb-6">
-        <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+        <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -218,6 +245,37 @@ export default function StaffList() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-sm sm:text-base"
             />
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Select value={deptFilter} onValueChange={setDeptFilter}>
+              <SelectTrigger className="h-9 sm:w-48"><SelectValue placeholder="All departments" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                <SelectItem value={NONE}>— No department —</SelectItem>
+                {deptOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={desigFilter} onValueChange={setDesigFilter}>
+              <SelectTrigger className="h-9 sm:w-48"><SelectValue placeholder="All designations" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All designations</SelectItem>
+                <SelectItem value={NONE}>— No designation —</SelectItem>
+                {desigOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={outletFilter} onValueChange={setOutletFilter}>
+              <SelectTrigger className="h-9 sm:w-48"><SelectValue placeholder="All outlets" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All outlets</SelectItem>
+                <SelectItem value={NONE}>— No outlet —</SelectItem>
+                {outletOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(deptFilter !== 'all' || desigFilter !== 'all' || outletFilter !== 'all') && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setDeptFilter('all'); setDesigFilter('all'); setOutletFilter('all'); }}>
+                Clear filters
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -289,7 +347,7 @@ export default function StaffList() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                      <span>{member.designation || member.department || '-'}</span>
+                      <span>{[member.designation || member.department, outletOf(member)].filter(Boolean).join(' · ') || '-'}</span>
                       {canViewSalaries && (
                         member.monthly_salary > 0 ? (
                           <Amount value={member.monthly_salary} size="sm" />
@@ -316,6 +374,7 @@ export default function StaffList() {
                       <TableHead>Employee</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Designation</TableHead>
+                      <TableHead>Outlet</TableHead>
                       {canViewSalaries && <TableHead className="text-right">Salary</TableHead>}
                       <TableHead>Status</TableHead>
                       <TableHead>{view === 'left' || view === 'terminated' ? 'Date of Leaving' : 'Joined'}</TableHead>
@@ -340,6 +399,9 @@ export default function StaffList() {
                         </TableCell>
                         <TableCell>{member.department || '-'}</TableCell>
                         <TableCell>{member.designation || '-'}</TableCell>
+                        <TableCell>
+                          {outletOf(member) ?? <span className="text-warning text-xs font-medium">Not set</span>}
+                        </TableCell>
                         {canViewSalaries && (
                           <TableCell className="text-right">
                             {member.monthly_salary > 0 ? (
