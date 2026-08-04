@@ -25,9 +25,11 @@ function scheduledIso(workDate: string, time: string): string {
   return d.toISOString();
 }
 
-export async function fetchLateForDate(dateStr: string): Promise<LateRow[]> {
+export async function fetchLateForDate(dateStr: string, outletId?: string): Promise<LateRow[]> {
+  let staffQuery = supabase.from('staff').select('id, employee_id, full_name').eq('is_active', true).eq('attendance_tracked', true);
+  if (outletId) staffQuery = staffQuery.eq('outlet_id', outletId);
   const [staffRes, rulesRes, sessRes] = await Promise.all([
-    supabase.from('staff').select('id, employee_id, full_name').eq('is_active', true).eq('attendance_tracked', true),
+    staffQuery,
     supabase.from('discipline_rules' as never).select('grace_minutes_in').order('updated_at', { ascending: false }).limit(1),
     supabase.from('attendance_sessions' as never).select('staff_id, check_in_at').eq('work_date', dateStr),
   ]);

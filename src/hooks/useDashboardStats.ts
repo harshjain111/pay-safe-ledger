@@ -43,7 +43,7 @@ const EMPTY_STATS: DashboardStats = {
   monthlyPayroll: 0,
 };
 
-async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
+async function fetchDashboardStats(withSalary: boolean): Promise<DashboardStats> {
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // Use head:true count queries wherever we only need a count + sum of amount.
@@ -59,8 +59,8 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
     trialBalanceResult,
     completedTodayResult,
   ] = await Promise.all([
-    // Active staff. Salary is owner-only.
-    isOwner
+    // Active staff. Salary only fetched for salary-permitted roles.
+    withSalary
       ? supabase.from('staff').select('id, monthly_salary, is_active').eq('is_active', true)
       : supabase.from('staff').select('id', { count: 'exact', head: true }).eq('is_active', true),
 
@@ -80,7 +80,7 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
       .eq('status', 'approved')
       .is('paid_at', null),
 
-    isOwner
+    withSalary
       ? supabase
           .from('salary_settlements')
           .select('id, balance_payable')
@@ -100,7 +100,7 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
   // Active staff stats. Owner branch fetched rows (for payroll sum); admin branch is head-count.
   let activeStaffCount = 0;
   let monthlyPayroll = 0;
-  if (isOwner) {
+  if (withSalary) {
     const rows = (staffResult.data || []) as Array<{ monthly_salary?: number }>;
     activeStaffCount = rows.length;
     monthlyPayroll = rows.reduce((sum, s) => sum + Number(s.monthly_salary || 0), 0);
@@ -142,14 +142,14 @@ async function fetchDashboardStats(isOwner: boolean): Promise<DashboardStats> {
 }
 
 export function useDashboardStats() {
-  const { user, isOwner } = useAuth();
+  const { user, canViewSalaries } = useAuth();
 
   const { data, isLoading, refetch } = useQuery({
-    // isOwner is part of the key because the query branches on it (the
-    // owner-only salary-settlements fetch). A role change must produce a
-    // distinct cache entry rather than serve stale non-owner data.
-    queryKey: queryKeys.dashboardStats.byRole(isOwner),
-    queryFn: () => fetchDashboardStats(isOwner),
+    // canViewSalaries is part of the key because the query branches on it (the
+    // salary-settlements + payroll fetch). A permission change must produce a
+    // distinct cache entry rather than serve stale non-salary data.
+    queryKey: queryKeys.dashboardStats.byRole(canViewSalaries),
+    queryFn: () => fetchDashboardStats(canViewSalaries),
     enabled: !!user,
     staleTime: 60_000,
     refetchOnWindowFocus: false,

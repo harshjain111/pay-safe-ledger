@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Amount } from '@/components/ui/amount';
 import { DashboardCard } from './DashboardCard';
 import { QuickActionsCard, QuickAction } from './QuickActionsCard';
@@ -49,15 +52,25 @@ const CHIP = {
 
 export function OwnerDashboard() {
   const { stats, isLoading } = useDashboardStats();
+  const { canViewSalaries } = useAuth();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
   const currentMonth = format(now, 'MMMM yyyy');
 
+  // Outlet-wise filter for the attendance figures.
+  const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([]);
+  const [outletFilter, setOutletFilter] = useState('all');
+  const outletId = outletFilter === 'all' ? undefined : outletFilter;
+  useEffect(() => {
+    supabase.from('outlets').select('id, name').eq('is_active', true).order('name')
+      .then(({ data }) => setOutlets((data ?? []) as { id: string; name: string }[]));
+  }, []);
+
   // Today's roll-up feeds the KPI; the band has its own date control.
   const [attDate, setAttDate] = useState(todayStr);
-  const today = useAttendanceSummary(todayStr);
-  const band = useAttendanceSummary(attDate);
-  const late = useLateForDate(attDate);
+  const today = useAttendanceSummary(todayStr, outletId);
+  const band = useAttendanceSummary(attDate, outletId);
+  const late = useLateForDate(attDate, true, outletId);
   const bio = useBiometricEnrolment();
   const breaksEnabled = useBreaksEnabled();
 
@@ -67,7 +80,7 @@ export function OwnerDashboard() {
   const totalPendingPayouts = stats.approvedExpenses + stats.approvedRequests + stats.pendingSalarySettlements;
   const totalPendingPayoutsAmount = stats.totalApprovedExpensesAmount + stats.totalApprovedRequestsAmount + stats.totalPendingSalaryAmount;
 
-  const quickActions: QuickAction[] = [
+  const allQuickActions: QuickAction[] = [
     {
       label: 'Settle Salary',
       description: 'Process monthly salary settlements',
@@ -104,6 +117,9 @@ export function OwnerDashboard() {
       badgeVariant: 'destructive',
     },
   ];
+
+  // Hide salary-specific quick actions from roles without the salary permission.
+  const quickActions = allQuickActions.filter((a) => canViewSalaries || (a.label !== 'Settle Salary' && a.label !== 'Add Salary to Staff'));
 
   // One action tile: accent + "Action needed" badge when there's work, muted
   // "All caught up" otherwise.
@@ -146,13 +162,26 @@ export function OwnerDashboard() {
   return (
     <div className="space-y-6 md:space-y-8 pb-6">
       <PageHeader title="Dashboard" description={`Overview for ${currentMonth}`}>
-        <Link to="/staff/new">
-          <Button className="rounded-xl shadow-lg text-sm sm:text-base px-3 sm:px-4">
-            <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Add Staff</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {outlets.length > 0 && (
+            <Select value={outletFilter} onValueChange={setOutletFilter}>
+              <SelectTrigger className="h-9 w-40 sm:w-48" aria-label="Filter attendance by outlet">
+                <SelectValue placeholder="All outlets" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover">
+                <SelectItem value="all">All outlets</SelectItem>
+                {outlets.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <Link to="/staff/new">
+            <Button className="rounded-xl shadow-lg text-sm sm:text-base px-3 sm:px-4">
+              <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Add Staff</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       {/* Band 1 — KPI strip (max 3 across so 6 cards wrap to 2 rows and titles fit) */}
@@ -166,15 +195,17 @@ export function OwnerDashboard() {
           href="/staff"
           loading={isLoading}
         />
-        <DashboardCard
-          icon={Wallet}
-          label="Monthly Payroll"
-          value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
-          subtitle="Total liability"
-          iconChip={CHIP.purple}
-          href="/salaries-advances"
-          loading={isLoading}
-        />
+        {canViewSalaries && (
+          <DashboardCard
+            icon={Wallet}
+            label="Monthly Payroll"
+            value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
+            subtitle="Total liability"
+            iconChip={CHIP.purple}
+            href="/salaries-advances"
+            loading={isLoading}
+          />
+        )}
         <DashboardCard
           icon={ArrowUpRight}
           label="Advances Outstanding"

@@ -31,18 +31,20 @@ interface SessionRow {
  * model (attendance_sessions status active/on_break/completed, attendance-
  * tracked active staff, approved leave_records) so the numbers always agree.
  */
-export function useAttendanceSummary(date: string) {
+export function useAttendanceSummary(date: string, outletId?: string) {
   const { user } = useAuth();
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['attendanceSummary', date],
+    queryKey: ['attendanceSummary', date, outletId ?? 'all'],
     queryFn: async (): Promise<AttendanceSummary> => {
+      let staffQuery = supabase
+        .from('staff')
+        .select('id, user_id')
+        .eq('is_active', true)
+        .eq('attendance_tracked', true);
+      if (outletId) staffQuery = staffQuery.eq('outlet_id', outletId);
       const [staffRes, sessRes, leaveRes] = await Promise.all([
-        supabase
-          .from('staff')
-          .select('id, user_id')
-          .eq('is_active', true)
-          .eq('attendance_tracked', true),
+        staffQuery,
         supabase
           .from('attendance_sessions' as never)
           .select('staff_id, user_id, status')
@@ -55,8 +57,15 @@ export function useAttendanceSummary(date: string) {
       ]);
 
       const staff = ((staffRes.data as unknown as StaffRow[]) ?? []);
-      const sessions = ((sessRes.data as unknown as SessionRow[]) ?? []);
+      const allSessions = ((sessRes.data as unknown as SessionRow[]) ?? []);
       const leaves = ((leaveRes.data as unknown as Array<{ staff_id: string }>) ?? []);
+
+      // Scope sessions to the selected outlet's staff (all staff when unfiltered).
+      const allowedIds = new Set(staff.map((s) => s.id));
+      const allowedUsers = new Set(staff.filter((s) => s.user_id).map((s) => s.user_id as string));
+      const sessions = outletId
+        ? allSessions.filter((s) => (s.staff_id && allowedIds.has(s.staff_id)) || (s.user_id && allowedUsers.has(s.user_id)))
+        : allSessions;
 
       const presentKeys = new Set<string>();
       let checkedIn = 0;
