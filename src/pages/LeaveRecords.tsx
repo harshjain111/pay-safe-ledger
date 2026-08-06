@@ -112,42 +112,56 @@ export default function LeaveRecords() {
     }
   }, [selectedMonth, selectedStaffId, selectedStatus]);
 
+  // Absences computed LIVE from attendance (not the nightly discipline sweep):
+  // an attendance-tracked active staff has no session and no approved leave on a
+  // working day (excluding their weekly off and holidays), up to today.
   const fetchAbsences = useCallback(async () => {
     if (isStaff) return;
     setAbsLoading(true);
     try {
-      const monthStart = format(startOfMonth(new Date(selectedMonth + '-01')), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(new Date(selectedMonth + '-01')), 'yyyy-MM-dd');
-      let q = supabase
-        .from('attendance_discipline_log' as never)
-        .select('id, staff_id, work_date, is_absent, is_cancelled')
-        .eq('is_absent', true)
-        .gte('work_date', monthStart)
-        .lte('work_date', monthEnd)
-        .order('work_date', { ascending: false });
-      if (selectedStaffId !== 'all') q = q.eq('staff_id', selectedStaffId);
-      const { data } = await q;
-      const rows = ((data ?? []) as { id: string; staff_id: string; work_date: string; is_cancelled?: boolean }[]).filter((r) => !r.is_cancelled);
-      // Exclude days already covered by an approved leave.
-      const covered = new Set(leaveRecords.filter((r) => r.status === 'approved').map((r) => `${r.staff_id}|${r.leave_date}`));
-      const nameMap = new Map(staff.map((s) => [s.id, s]));
-      setAbsences(
-        rows
-          .filter((r) => !covered.has(`${r.staff_id}|${r.work_date}`))
-          .map((r) => ({
-            id: r.id,
-            staff_id: r.staff_id,
-            work_date: r.work_date,
-            staff_name: nameMap.get(r.staff_id)?.full_name ?? 'Unknown',
-            employee_id: nameMap.get(r.staff_id)?.employee_id ?? '',
-          })),
-      );
+      const monthStart = startOfMonth(new Date(selectedMonth + '-01'));
+      const monthEnd = endOfMonth(monthStart);
+      const today = new Date();
+      const rangeEnd = monthEnd < today ? monthEnd : today; // never flag future days
+      const fromISO = format(monthStart, 'yyyy-MM-dd');
+      const toISO = format(rangeEnd, 'yyyy-MM-dd');
+      if (rangeEnd < monthStart) { setAbsences([]); setAbsLoading(false); return; }
+
+      let staffQ = supabase.from('staff').select('id, full_name, employee_id, weekly_off_day').eq('is_active', true).eq('attendance_tracked', true).order('full_name');
+      if (selectedStaffId !== 'all') staffQ = staffQ.eq('id', selectedStaffId);
+      const [staffRes, sessRes, leaveRes, holRes] = await Promise.all([
+        staffQ,
+        supabase.from('attendance_sessions' as never).select('staff_id, work_date').gte('work_date', fromISO).lte('work_date', toISO),
+        supabase.from('leave_records').select('staff_id, leave_date').eq('status', 'approved').gte('leave_date', fromISO).lte('leave_date', toISO),
+        supabase.from('holidays').select('date').gte('date', fromISO).lte('date', toISO),
+      ]);
+      const staffList = ((staffRes.data ?? []) as { id: string; full_name: string; employee_id: string; weekly_off_day: number | null }[]);
+      const sessionSet = new Set(((sessRes.data ?? []) as { staff_id: string; work_date: string }[]).map((s) => `${s.staff_id}|${s.work_date}`));
+      const leaveSet = new Set(((leaveRes.data ?? []) as { staff_id: string; leave_date: string }[]).map((l) => `${l.staff_id}|${l.leave_date}`));
+      const holidaySet = new Set(((holRes.data ?? []) as { date: string }[]).map((h) => h.date));
+
+      const days: string[] = [];
+      for (let d = new Date(monthStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) days.push(format(d, 'yyyy-MM-dd'));
+
+      const rows: { id: string; staff_id: string; work_date: string; staff_name: string; employee_id: string }[] = [];
+      for (const st of staffList) {
+        for (const day of days) {
+          if (holidaySet.has(day)) continue;
+          const dow = new Date(day + 'T00:00:00').getDay();
+          if (st.weekly_off_day != null && dow === st.weekly_off_day) continue;
+          const k = `${st.id}|${day}`;
+          if (sessionSet.has(k) || leaveSet.has(k)) continue;
+          rows.push({ id: k, staff_id: st.id, work_date: day, staff_name: st.full_name, employee_id: st.employee_id });
+        }
+      }
+      rows.sort((a, b) => (a.work_date < b.work_date ? 1 : a.work_date > b.work_date ? -1 : a.staff_name.localeCompare(b.staff_name)));
+      setAbsences(rows);
     } catch (e) {
       console.error('Absences load failed', e);
     } finally {
       setAbsLoading(false);
     }
-  }, [isStaff, selectedMonth, selectedStaffId, leaveRecords, staff]);
+  }, [isStaff, selectedMonth, selectedStaffId]);
 
   useEffect(() => {
     fetchLeaveRecords();
@@ -542,7 +556,7 @@ export default function LeaveRecords() {
             <EmptyState
               icon={UserX}
               title="No open absences"
-              description="No absent days need a leave type for this filter. Absences are detected by the daily attendance check."
+              description="No unexcused absent days for this filter — everyone was present, on approved leave, on a weekly off, or on a holiday."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -602,7 +616,6 @@ export default function LeaveRecords() {
         onOpenChange={(o) => !o && setAssignTarget(null)}
         staff={assignTarget?.staff ?? null}
         date={assignTarget?.date ?? null}
-        disciplineLogId={assignTarget?.id ?? null}
         onSuccess={() => { fetchLeaveRecords(); fetchAbsences(); }}
       />
     </div>
