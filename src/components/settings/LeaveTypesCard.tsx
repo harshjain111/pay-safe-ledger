@@ -28,6 +28,14 @@ const ACCRUAL_LABEL: Record<LeaveAccrualMode, string> = {
 };
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Human label for the leave-year definition given the FY start month. */
+function leaveYearKind(startMonth: number): string {
+  if (startMonth === 1) return 'calendar year (Jan–Dec)';
+  if (startMonth === 4) return 'financial year (Apr–Mar)';
+  return `year (${MON3[startMonth - 1]}–${MON3[(startMonth + 10) % 12]})`;
+}
 
 interface FormState {
   name: string;
@@ -47,12 +55,13 @@ const blankForm: FormState = {
 };
 
 function LeaveTypeDialog({
-  open, onOpenChange, editing, onSaved,
+  open, onOpenChange, editing, onSaved, startMonth,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: LeaveTypeRow | null;
   onSaved: () => void;
+  startMonth: number;
 }) {
   const { user } = useAuth();
   const [f, setF] = useState<FormState>(blankForm);
@@ -140,13 +149,13 @@ function LeaveTypeDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Accrual</Label>
+              <Label className="text-xs">Auto-allocation</Label>
               <Select value={f.accrual} onValueChange={(v) => set('accrual', v as LeaveAccrualMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="annual">Annual</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="none">No accrual</SelectItem>
+                  <SelectItem value="annual">Every year ({startMonth === 1 ? 'Jan–Dec' : startMonth === 4 ? 'Apr–Mar' : `${MON3[startMonth - 1]}–${MON3[(startMonth + 10) % 12]}`})</SelectItem>
+                  <SelectItem value="monthly">Every month</SelectItem>
+                  <SelectItem value="none">No auto-allocation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -155,6 +164,13 @@ function LeaveTypeDialog({
               <Input type="number" min="0" step="0.5" value={f.default_quota} disabled={f.accrual === 'none'} onChange={(e) => set('default_quota', Number(e.target.value))} />
             </div>
           </div>
+
+          {f.accrual !== 'none' && (
+            <p className="-mt-1 text-[11px] text-muted-foreground">
+              {f.accrual === 'annual' ? 'Full quota granted at the start of' : 'Accrues month by month across'} each{' '}
+              <span className="font-medium text-foreground">{leaveYearKind(startMonth)}</span>. Change the leave year at the top of this card.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -337,7 +353,7 @@ export function LeaveTypesCard() {
                   {!t.is_active && <Badge variant="outline" className="text-[10px] text-muted-foreground">Inactive</Badge>}
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {ACCRUAL_LABEL[t.accrual]}
+                  {t.accrual === 'none' ? 'No auto-allocation' : t.accrual === 'annual' ? `Every year · ${leaveYearKind(startMonth)}` : 'Every month'}
                   {t.accrual !== 'none' && ` · ${t.default_quota} days/yr`}
                   {` · ${t.default_deduction}d deduction`}
                   {t.carry_forward && ' · carries forward'}
@@ -370,7 +386,7 @@ export function LeaveTypesCard() {
           <Plus className="h-4 w-4" /> Add leave type
         </Button>
       </CardContent>
-      <LeaveTypeDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} onSaved={reload} />
+      <LeaveTypeDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} onSaved={reload} startMonth={startMonth} />
     </Card>
   );
 }
