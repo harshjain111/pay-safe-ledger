@@ -6,7 +6,7 @@ import { CADashboard } from '@/components/dashboards/CADashboard';
 import { Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { userRole, isLoading, isAccountant, accountingMode } = useAuth();
+  const { userRole, isLoading, accountingMode, isOwner, staffData } = useAuth();
 
   if (isLoading) {
     return (
@@ -16,8 +16,10 @@ export default function Dashboard() {
     );
   }
 
-  // Accountant in personal mode sees staff dashboard
-  if (isAccountant && !accountingMode) {
+  // Any non-owner staff-linked user (admin / accountant / manager) who toggled
+  // into the personal "Employee" view sees the staff dashboard.
+  const canSwitch = !isOwner && userRole !== 'staff' && userRole !== 'ca' && !!staffData;
+  if (canSwitch && !accountingMode) {
     return <StaffDashboard />;
   }
 

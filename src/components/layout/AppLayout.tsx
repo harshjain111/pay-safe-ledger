@@ -101,9 +101,10 @@ function getNavSections(
   accountingMode: boolean,
   isAccountant: boolean,
   counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number },
-  can: (permission: string) => boolean
+  can: (permission: string) => boolean,
+  canSwitch: boolean,
 ): NavSection[] {
-  return roleNavSections(userRole, accountingMode, isAccountant, counts)
+  return roleNavSections(userRole, accountingMode, isAccountant, counts, canSwitch)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
@@ -119,11 +120,33 @@ function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number }
+  counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number },
+  canSwitch: boolean,
 ): NavSection[] {
   // Pending items awaiting approval — surfaced as ONE badge on the merged
   // "Approvals" item (advances + expenses).
   const pendingApprovals = counts.pendingRequests + counts.pendingExpenses;
+
+  // Any non-owner staff-linked user (admin / accountant / manager) who has
+  // toggled into the personal "employee" view gets the self-service nav — they
+  // check in on biometric and can raise their own advances / leave / concerns.
+  if (canSwitch && !accountingMode) {
+    return [
+      {
+        title: 'My Account',
+        items: [
+          { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+          { title: 'My Salary Slips', href: '/my-payslips', icon: FileText },
+          { title: 'My Ledger', href: '/ledger', icon: FileText },
+          { title: 'My Expenses', href: '/expenses', icon: Receipt },
+          { title: 'Request Advance', href: '/requests', icon: ClipboardList },
+          { title: 'My Attendance', href: '/my-attendance', icon: Clock },
+          { title: 'Raise a Concern', href: '/grievance', icon: MessageSquareWarning },
+          { title: 'Settings', href: '/settings', icon: Settings },
+        ],
+      },
+    ];
+  }
 
   // Owner - full access
   if (userRole === 'owner') {
@@ -277,26 +300,9 @@ function roleNavSections(
     ];
   }
 
-  // Accountant - dual context
+  // Accountant - work (accounting) view. The personal "My Account" view is
+  // handled by the shared canSwitch branch above.
   if (isAccountant) {
-    if (!accountingMode) {
-      // My Account context (personal/employee self-service view) — unchanged
-      return [
-        {
-          title: 'My Account',
-          items: [
-            { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-            { title: 'My Ledger', href: '/ledger', icon: FileText },
-            { title: 'My Expenses', href: '/expenses', icon: Receipt },
-            { title: 'Request Advance', href: '/requests', icon: ClipboardList },
-            { title: 'My Attendance', href: '/my-attendance', icon: Clock },
-            { title: 'Raise a Concern', href: '/grievance', icon: MessageSquareWarning },
-            { title: 'Settings', href: '/settings', icon: Settings },
-          ],
-        },
-      ];
-    } else {
-      // Accounting context (finance operator view) — management taxonomy
       return [
         {
           items: [
@@ -347,7 +353,6 @@ function roleNavSections(
           ],
         },
       ];
-    }
   }
 
   // Staff - personal view only — self-service, unchanged
@@ -418,7 +423,11 @@ function NotificationBadge({ count }: { count: number }) {
 }
 
 function AppSidebar() {
-  const { userRole, staffData, signOut, isAccountant, accountingMode, setAccountingMode, user, can } = useAuth();
+  const { userRole, staffData, signOut, isAccountant, accountingMode, setAccountingMode, user, can, isOwner } = useAuth();
+  // Non-owner staff-linked users (admin / accountant / manager) are also
+  // employees — they can toggle into the personal "employee" view.
+  const canSwitch = !isOwner && userRole !== 'staff' && userRole !== 'ca' && !!staffData;
+  const workLabel = userRole === 'accountant' ? 'Accounting' : userRole === 'admin' ? 'Admin' : 'Work';
   const { data: orgProfile } = useOrganizationProfile();
   const orgName = orgDisplayName(orgProfile) || ORGANIZATION.name;
   const orgLogo = orgProfile?.logo_url || ORGANIZATION.logo;
@@ -437,7 +446,7 @@ function AppSidebar() {
     }
   }, [location.pathname, isMobile, setOpenMobile]);
 
-  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can);
+  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can, canSwitch);
 
   const handleSignOut = async () => {
     await signOut();
@@ -491,8 +500,8 @@ function AppSidebar() {
         )}
       </SidebarHeader>
 
-      {/* Accountant mode toggle - Cleaner design */}
-      {isAccountant && (
+      {/* Work / Employee context toggle */}
+      {canSwitch && (
         <div className={cn("px-3 pb-3", isCollapsed && "px-2 pb-2")}>
           {!isCollapsed ? (
             <div className="flex items-center rounded-lg bg-sidebar-accent/40 p-0.5">
@@ -501,28 +510,28 @@ function AppSidebar() {
                 variant="ghost"
                 className={cn(
                   'flex-1 text-xs rounded-md h-8 transition-all gap-1.5',
-                  !accountingMode 
-                    ? 'bg-sidebar-foreground/10 text-sidebar-foreground font-medium shadow-sm' 
+                  !accountingMode
+                    ? 'bg-sidebar-foreground/10 text-sidebar-foreground font-medium shadow-sm'
                     : 'text-sidebar-muted hover:text-sidebar-foreground hover:bg-transparent'
                 )}
                 onClick={() => setAccountingMode(false)}
               >
                 <User className="h-3.5 w-3.5" />
-                My Account
+                Employee
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 className={cn(
                   'flex-1 text-xs rounded-md h-8 transition-all gap-1.5',
-                  accountingMode 
+                  accountingMode
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
                     : 'text-sidebar-muted hover:text-sidebar-foreground hover:bg-transparent'
                 )}
                 onClick={() => setAccountingMode(true)}
               >
                 <Briefcase className="h-3.5 w-3.5" />
-                Accounting
+                {workLabel}
               </Button>
             </div>
           ) : (
@@ -538,13 +547,13 @@ function AppSidebar() {
                       : 'bg-sidebar-accent/40 text-sidebar-muted hover:text-sidebar-foreground'
                   )}
                   onClick={() => setAccountingMode(!accountingMode)}
-                  aria-label={accountingMode ? 'Switch to My Account' : 'Switch to Accounting'}
+                  aria-label={accountingMode ? 'Switch to Employee view' : `Switch to ${workLabel}`}
                 >
                   {accountingMode ? <Briefcase className="h-4 w-4" /> : <User className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">
-                {accountingMode ? 'Switch to My Account' : 'Switch to Accounting'}
+                {accountingMode ? 'Switch to Employee view' : `Switch to ${workLabel}`}
               </TooltipContent>
             </Tooltip>
           )}
@@ -671,14 +680,15 @@ function AppSidebar() {
 }
 
 function AppHeader() {
-  const { user, staffData, userRole, isAccountant, accountingMode, signOut, can } = useAuth();
+  const { user, staffData, userRole, isAccountant, accountingMode, signOut, can, isOwner } = useAuth();
+  const canSwitch = !isOwner && userRole !== 'staff' && userRole !== 'ca' && !!staffData;
   const location = useLocation();
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const counts = useNotificationCounts();
 
-  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can);
+  const navSections = getNavSections(userRole, accountingMode, isAccountant, counts.counts, can, canSwitch);
   const allItems = navSections.flatMap(s => s.items);
 
   const getInitials = (name: string) => {

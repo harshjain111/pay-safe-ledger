@@ -53,9 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [staffData, setStaffData] = useState<Staff | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // Persist the accountant's context across reloads (was resetting to Personal).
+  // Persist the work/employee context across reloads. Default = WORK view (only
+  // an explicit switch to the Employee view is stored as 'false'), so admins /
+  // accountants land on their management dashboard, not the employee one.
   const [accountingMode, setAccountingModeState] = useState<boolean>(() => {
-    try { return localStorage.getItem('accountingMode') === 'true'; } catch { return false; }
+    try { return localStorage.getItem('accountingMode') !== 'false'; } catch { return true; }
   });
   const setAccountingMode = (mode: boolean) => {
     setAccountingModeState(mode);
@@ -212,7 +214,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setAccountingMode(false);
+    // Reset context to the default (work) view for the next login.
+    setAccountingModeState(true);
+    try { localStorage.removeItem('accountingMode'); } catch { /* storage unavailable */ }
   };
 
   const isOwner = userRole === 'owner';
