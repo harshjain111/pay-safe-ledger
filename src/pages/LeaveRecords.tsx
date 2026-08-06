@@ -53,7 +53,8 @@ export default function LeaveRecords() {
 
   // Leaves vs Absences view (management only). Absences = days flagged absent by
   // the attendance discipline check that don't yet have an approved leave.
-  const [view, setView] = useState<'leaves' | 'absences'>('leaves');
+  // Staff see their own leave records; management defaults to the Absences view.
+  const [view, setView] = useState<'leaves' | 'absences'>(userRole === 'staff' ? 'leaves' : 'absences');
   const [absences, setAbsences] = useState<{ id: string; staff_id: string; work_date: string; staff_name: string; employee_id: string }[]>([]);
   const [absLoading, setAbsLoading] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ id: string; staff: { id: string; name: string }; date: string } | null>(null);
@@ -285,14 +286,25 @@ export default function LeaveRecords() {
         </div>
       </PageHeader>
 
-      {!isStaff && (
-        <div className="flex gap-2">
-          <Button variant={view === 'leaves' ? 'default' : 'outline'} size="sm" onClick={() => setView('leaves')} className="gap-1.5">
-            <Calendar className="h-4 w-4" /> Leave records
-          </Button>
-          <Button variant={view === 'absences' ? 'default' : 'outline'} size="sm" onClick={() => setView('absences')} className="gap-1.5">
-            <UserX className="h-4 w-4" /> Absences
-          </Button>
+      {/* Absence-focused summary (management) */}
+      {view === 'absences' && (
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Card className="border-warning/40">
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><UserX className="h-3.5 w-3.5" /> Pending assignment</CardTitle></CardHeader>
+            <CardContent><div className="text-2xl font-bold text-warning">{filteredAbsences.length}</div><p className="text-xs text-muted-foreground mt-0.5">Absent days to treat</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Pending requests</CardTitle></CardHeader>
+            <CardContent><div className={cn('text-2xl font-bold', pendingCount > 0 && 'text-warning')}>{pendingCount}</div><p className="text-xs text-muted-foreground mt-0.5">Leave requests to review</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> Approved</CardTitle></CardHeader>
+            <CardContent><div className="text-2xl font-bold">{approvedCount}</div><p className="text-xs text-muted-foreground mt-0.5">Leaves this month</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><CalendarMinus className="h-3.5 w-3.5" /> Deduction days</CardTitle></CardHeader>
+            <CardContent><div className="text-2xl font-bold">{totalDeductionDays}</div><p className="text-xs text-muted-foreground mt-0.5">This month</p></CardContent>
+          </Card>
         </div>
       )}
 
@@ -548,6 +560,30 @@ export default function LeaveRecords() {
         </CardContent>
       </Card>
       ) : (
+      <>
+      {pendingCount > 0 && (
+        <Card className="mb-4">
+          <div className="flex items-center gap-2 border-b bg-warning/5 px-4 py-2.5">
+            <Clock className="h-4 w-4 text-warning" />
+            <span className="text-sm font-medium">Pending leave requests to review ({pendingCount})</span>
+          </div>
+          <div className="divide-y">
+            {leaveRecords.filter((r) => r.status === 'pending').map((r) => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{r.staff?.full_name}</p>
+                  <p className="text-xs text-muted-foreground">{r.staff?.employee_id} · {format(new Date(r.leave_date), 'dd MMM yyyy')}{r.remarks ? ` · ${r.remarks}` : ''}</p>
+                </div>
+                {canApprove && r.staff?.user_id !== user?.id ? (
+                  <Button size="sm" onClick={() => handleReviewClick(r)}>Review</Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Awaiting owner</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       <Card>
         <CardContent className="p-0">
           {absLoading ? (
@@ -595,6 +631,7 @@ export default function LeaveRecords() {
           )}
         </CardContent>
       </Card>
+      </>
       )}
 
       <CreateLeaveDialog
