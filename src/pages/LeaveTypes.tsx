@@ -142,8 +142,8 @@ function LeaveTypeDialog({ open, onOpenChange, editing, onSaved }: {
 }
 
 export default function LeaveTypes() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner } = useAuth();
+  const canManage = isOwner; // leave types are owner-only
 
   const [rows, setRows] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +167,7 @@ export default function LeaveTypes() {
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to delete'); }
   };
 
-  if (!canManage) return <EmptyState icon={ShieldAlert} title="Access Denied" description="Only owners and admins can manage leave types." />;
+  if (!canManage) return <EmptyState icon={ShieldAlert} title="Access Denied" description="Only the owner can manage leave types." />;
 
   const periodLabel = (n: number, p: Period) => `${n}/${p === 'MONTH' ? 'mo' : 'yr'}`;
   const columns: DataTableColumn<LeaveType>[] = [

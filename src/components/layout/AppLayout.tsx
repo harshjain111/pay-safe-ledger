@@ -179,7 +179,6 @@ function roleNavSections(
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
           { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
@@ -257,7 +256,6 @@ function roleNavSections(
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Leave Types', href: '/leave-types', icon: CalendarRange },
           { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },

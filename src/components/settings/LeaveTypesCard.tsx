@@ -216,8 +216,8 @@ function LeaveTypeDialog({
 }
 
 export function LeaveTypesCard() {
-  const { isOwner, isAdmin, isAccountant } = useAuth();
-  const canManage = isOwner || isAdmin || isAccountant;
+  const { isOwner } = useAuth();
+  const canManage = isOwner; // leave types are owner-only
   const [types, setTypes] = useState<LeaveTypeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
