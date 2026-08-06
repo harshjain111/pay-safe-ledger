@@ -182,8 +182,6 @@ function roleNavSections(
           { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
-          { title: 'Holiday Templates', href: '/holiday-templates', icon: CalendarRange },
-          { title: 'Holiday Assign', href: '/holiday-assign', icon: UserPlus },
         ],
       },
       {
@@ -259,8 +257,6 @@ function roleNavSections(
           { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
           { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
           { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
-          { title: 'Holiday Templates', href: '/holiday-templates', icon: CalendarRange },
-          { title: 'Holiday Assign', href: '/holiday-assign', icon: UserPlus },
         ],
       },
       {

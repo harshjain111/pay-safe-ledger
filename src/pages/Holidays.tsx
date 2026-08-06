@@ -1,19 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { format, parseISO } from 'date-fns';
-import { Plus, Pencil, Trash2, CalendarDays, List, Search, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { supabase as anyClient } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -21,382 +18,227 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
-import { ErrorState } from '@/components/layout/ErrorState';
+import { CalendarCheck, Plus, Trash2, Loader2, ShieldAlert, Users } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { useHolidays, type HolidayWithAssignments, type HolidayInput, type HolidayTargets, type HolidayType } from '@/hooks/useHolidays';
-import { expandHolidaysInRange } from '@/lib/holidays';
 
-interface Option { id: string; name: string }
-interface StaffOption { id: string; full_name: string; outlet_id: string | null }
-
-const TYPE_LABEL: Record<HolidayType, string> = { public: 'Public', optional: 'Optional', restricted: 'Restricted' };
-
-function TypeBadge({ type }: { type: HolidayType }) {
-  const cls =
-    type === 'public'
-      ? 'border-violet-300 text-violet-700 dark:text-violet-400'
-      : type === 'optional'
-      ? 'border-amber-300 text-amber-700 dark:text-amber-400'
-      : 'border-sky-300 text-sky-700 dark:text-sky-400';
-  return <Badge variant="outline" className={cls}>{TYPE_LABEL[type]}</Badge>;
+interface Named { id: string; name: string }
+interface HolidayGroup {
+  id: string; name: string; from_date: string; to_date: string; is_paid: boolean;
+  applies_to: 'all' | 'selected'; department_ids: string[]; outlet_ids: string[]; roles: string[];
 }
+const ROLES = ['staff', 'accountant', 'admin', 'ca', 'owner'];
 
-// ---- create / edit dialog --------------------------------------------------
-function HolidayDialog({
-  open, onOpenChange, editing, outlets, staffList, onSave,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  editing: HolidayWithAssignments | null;
-  outlets: Option[];
-  staffList: StaffOption[];
-  onSave: (input: HolidayInput, targets: HolidayTargets) => Promise<void>;
-}) {
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [type, setType] = useState<HolidayType>('public');
-  const [isPaid, setIsPaid] = useState(true);
-  const [recurring, setRecurring] = useState(false);
-  const [orgWide, setOrgWide] = useState(true);
-  const [outletIds, setOutletIds] = useState<Set<string>>(new Set());
-  const [staffIds, setStaffIds] = useState<Set<string>>(new Set());
-  const [note, setNote] = useState('');
-  const [staffSearch, setStaffSearch] = useState('');
+export default function Holidays() {
+  const { isOwner, isAdmin, isAccountant, user } = useAuth();
+  const canManage = isOwner || isAdmin || isAccountant;
+
+  const [groups, setGroups] = useState<HolidayGroup[]>([]);
+  const [depts, setDepts] = useState<Named[]>([]);
+  const [outlets, setOutlets] = useState<Named[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    if (editing) {
-      setName(editing.name); setDate(editing.date); setType(editing.type);
-      setIsPaid(editing.is_paid); setRecurring(editing.recurring_yearly); setOrgWide(editing.org_wide);
-      setOutletIds(new Set(editing.outletIds)); setStaffIds(new Set(editing.staffIds)); setNote(editing.note ?? '');
-    } else {
-      setName(''); setDate(format(new Date(), 'yyyy-MM-dd')); setType('public');
-      setIsPaid(true); setRecurring(false); setOrgWide(true);
-      setOutletIds(new Set()); setStaffIds(new Set()); setNote('');
-    }
-    setStaffSearch('');
-  }, [open, editing]);
+  const [name, setName] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [isPaid, setIsPaid] = useState(true);
+  const [appliesAll, setAppliesAll] = useState(true);
+  const [deptSel, setDeptSel] = useState<Set<string>>(new Set());
+  const [outletSel, setOutletSel] = useState<Set<string>>(new Set());
+  const [roleSel, setRoleSel] = useState<Set<string>>(new Set(['staff']));
 
-  const toggle = (set: Set<string>, id: string, apply: (s: Set<string>) => void) => {
-    const next = new Set(set);
-    next.has(id) ? next.delete(id) : next.add(id);
-    apply(next);
+  const load = async () => {
+    setLoading(true);
+    const [g, d, o] = await Promise.all([
+      anyClient.from('holiday_groups').select('*').order('from_date', { ascending: false }),
+      supabase.from('departments').select('id, name').eq('is_active', true).order('name'),
+      supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
+    ]);
+    setGroups((g.data ?? []) as HolidayGroup[]);
+    setDepts((d.data ?? []) as Named[]);
+    setOutlets((o.data ?? []) as Named[]);
+    setLoading(false);
+  };
+  useEffect(() => { if (canManage) load(); else setLoading(false); }, [canManage]);
+
+  const resetForm = () => {
+    setName(''); setFromDate(''); setToDate(''); setIsPaid(true); setAppliesAll(true);
+    setDeptSel(new Set()); setOutletSel(new Set()); setRoleSel(new Set(['staff']));
   };
 
-  const filteredStaff = useMemo(() => {
-    const q = staffSearch.trim().toLowerCase();
-    return q ? staffList.filter((s) => s.full_name.toLowerCase().includes(q)) : staffList;
-  }, [staffList, staffSearch]);
+  const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
+    const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); setter(n);
+  };
 
-  const submit = async () => {
+  const save = async () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
-    if (!date) { toast.error('Date is required'); return; }
-    if (!orgWide && outletIds.size === 0 && staffIds.size === 0) {
-      toast.error('Pick at least one branch or staff member, or make it org-wide');
+    if (!fromDate) { toast.error('Pick a start date'); return; }
+    const to = toDate || fromDate;
+    if (to < fromDate) { toast.error('End date is before start date'); return; }
+    if (!appliesAll && deptSel.size === 0 && outletSel.size === 0 && roleSel.size === 0) {
+      toast.error('Pick at least one department, outlet or role — or choose Everyone');
       return;
     }
     setSaving(true);
     try {
-      await onSave(
-        { name: name.trim(), date, type, is_paid: isPaid, recurring_yearly: recurring, org_wide: orgWide, note: note.trim() || null },
-        { outletIds: [...outletIds], staffIds: [...staffIds] },
-      );
-      toast.success(editing ? 'Holiday updated' : 'Holiday created');
-      onOpenChange(false);
+      const { data, error } = await anyClient.from('holiday_groups').insert({
+        name: name.trim(), from_date: fromDate, to_date: to, is_paid: isPaid,
+        applies_to: appliesAll ? 'all' : 'selected',
+        department_ids: appliesAll ? [] : [...deptSel],
+        outlet_ids: appliesAll ? [] : [...outletSel],
+        roles: appliesAll ? [] : [...roleSel],
+        created_by: user?.id ?? null,
+      }).select('id').single();
+      if (error) throw error;
+      const { data: res, error: rpcErr } = await anyClient.rpc('apply_holiday_group', { _group_id: (data as { id: string }).id });
+      if (rpcErr) throw rpcErr;
+      const n = (res as { leaves_created?: number } | null)?.leaves_created ?? 0;
+      toast.success(`Holiday saved — ${n} staff-day leave(s) auto-assigned.`);
+      resetForm();
+      setOpen(false);
+      load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to save holiday');
+      toast.error(e instanceof Error ? e.message : 'Could not save holiday');
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'Edit Holiday' : 'Add Holiday'}</DialogTitle>
-          <DialogDescription>Mandatory (public) paid holidays are paid non-working days; optional &amp; restricted are shown but not auto-applied.</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Republic Day" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Type</Label>
-              <Select value={type} onValueChange={(v) => setType(v as HolidayType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="public">Public (mandatory)</SelectItem>
-                  <SelectItem value="optional">Optional</SelectItem>
-                  <SelectItem value="restricted">Restricted</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="pr-3">
-              <Label className="text-sm">Paid holiday</Label>
-              <p className="text-[10px] text-muted-foreground">Paid non-working day; working it earns comp-off / OT</p>
-            </div>
-            <Switch checked={isPaid} onCheckedChange={setIsPaid} aria-label="Paid holiday" />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="pr-3">
-              <Label className="text-sm">Repeats every year</Label>
-              <p className="text-[10px] text-muted-foreground">The day &amp; month recur annually (e.g. 26 Jan)</p>
-            </div>
-            <Switch checked={recurring} onCheckedChange={setRecurring} aria-label="Repeats every year" />
-          </div>
-
-          {/* Scope */}
-          <div className="space-y-2">
-            <Label className="text-xs">Applies to</Label>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant={orgWide ? 'default' : 'outline'} onClick={() => setOrgWide(true)}>All staff</Button>
-              <Button type="button" size="sm" variant={!orgWide ? 'default' : 'outline'} onClick={() => setOrgWide(false)}>Specific branches / staff</Button>
-            </div>
-          </div>
-
-          {!orgWide && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Branches</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {outlets.length === 0 && <span className="text-xs text-muted-foreground">No branches</span>}
-                  {outlets.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => toggle(outletIds, o.id, setOutletIds)}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs transition-colors',
-                        outletIds.has(o.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted',
-                      )}
-                    >
-                      {o.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Specific staff ({staffIds.size} selected)</Label>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={staffSearch} onChange={(e) => setStaffSearch(e.target.value)} placeholder="Search staff…" className="h-8 pl-8 text-sm" />
-                </div>
-                <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-lg border p-1">
-                  {filteredStaff.map((s) => {
-                    const on = staffIds.has(s.id);
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => toggle(staffIds, s.id, setStaffIds)}
-                        className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors', on ? 'bg-primary/10' : 'hover:bg-muted')}
-                      >
-                        <span className={cn('flex h-4 w-4 items-center justify-center rounded border', on ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40')}>
-                          {on && <Check className="h-3 w-3" />}
-                        </span>
-                        {s.full_name}
-                      </button>
-                    );
-                  })}
-                  {filteredStaff.length === 0 && <p className="px-2 py-2 text-xs text-muted-foreground">No staff match</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Note (optional)</Label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal note" />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Add holiday'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export default function Holidays() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
-  const { holidays, loading, error, reload, createHoliday, updateHoliday, deleteHoliday } = useHolidays();
-
-  const [outlets, setOutlets] = useState<Option[]>([]);
-  const [staffList, setStaffList] = useState<StaffOption[]>([]);
-  const [view, setView] = useState<'list' | 'calendar'>('list');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<HolidayWithAssignments | null>(null);
-  const [calMonth, setCalMonth] = useState<Date>(new Date());
-
-  useEffect(() => {
-    (async () => {
-      const [o, s] = await Promise.all([
-        supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('staff').select('id, full_name, outlet_id').eq('is_active', true).order('full_name'),
-      ]);
-      setOutlets((o.data ?? []) as Option[]);
-      setStaffList((s.data ?? []) as StaffOption[]);
-    })();
-  }, []);
-
-  const outletName = (id: string) => outlets.find((o) => o.id === id)?.name ?? '—';
-
-  const year = calMonth.getFullYear();
-  const occurrences = useMemo(
-    () => expandHolidaysInRange(holidays, `${year}-01-01`, `${year}-12-31`),
-    [holidays, year],
-  );
-  const holidayDates = useMemo(() => occurrences.map((o) => parseISO(o.date)), [occurrences]);
-  const monthKey = format(calMonth, 'yyyy-MM');
-  const monthOccurrences = occurrences.filter((o) => o.date.slice(0, 7) === monthKey);
-
-  const openCreate = () => { setEditing(null); setDialogOpen(true); };
-  const openEdit = (h: HolidayWithAssignments) => { setEditing(h); setDialogOpen(true); };
-  const handleDelete = async (h: HolidayWithAssignments) => {
-    try { await deleteHoliday(h.id); toast.success('Holiday deleted'); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to delete'); }
+  const remove = async (g: HolidayGroup) => {
+    const { error } = await anyClient.from('holiday_groups').delete().eq('id', g.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Holiday removed'); load(); }
   };
 
-  const scopeLabel = (h: HolidayWithAssignments) => {
-    if (h.org_wide) return 'All staff';
+  const audienceLabel = (g: HolidayGroup) => {
+    if (g.applies_to === 'all') return 'Everyone';
     const parts: string[] = [];
-    if (h.outletIds.length) parts.push(`${h.outletIds.length} branch${h.outletIds.length > 1 ? 'es' : ''}`);
-    if (h.staffIds.length) parts.push(`${h.staffIds.length} staff`);
-    return parts.join(', ') || '—';
+    if (g.department_ids?.length) parts.push(`${g.department_ids.length} dept`);
+    if (g.outlet_ids?.length) parts.push(`${g.outlet_ids.length} outlet`);
+    if (g.roles?.length) parts.push(g.roles.join(', '));
+    return parts.join(' · ') || 'Selected';
   };
+  const dateLabel = (g: HolidayGroup) =>
+    g.from_date === g.to_date
+      ? format(new Date(g.from_date + 'T00:00:00'), 'dd MMM yyyy')
+      : `${format(new Date(g.from_date + 'T00:00:00'), 'dd MMM')} – ${format(new Date(g.to_date + 'T00:00:00'), 'dd MMM yyyy')}`;
 
-  const columns: DataTableColumn<HolidayWithAssignments>[] = [
-    { id: 'name', header: 'Holiday', sortable: true, sortAccessor: (h) => h.name, cell: (h) => <span className="font-medium">{h.name}</span> },
-    {
-      id: 'date', header: 'Date', sortable: true, sortAccessor: (h) => h.date,
-      cell: (h) => (
-        <span className="whitespace-nowrap">
-          {format(parseISO(h.date), h.recurring_yearly ? 'dd MMM' : 'dd MMM yyyy')}
-          {h.recurring_yearly && <span className="ml-1 text-[10px] text-muted-foreground">(yearly)</span>}
-        </span>
-      ),
-    },
-    { id: 'type', header: 'Type', cell: (h) => <TypeBadge type={h.type} /> },
-    { id: 'paid', header: 'Paid', align: 'center', cell: (h) => (h.is_paid ? 'Yes' : 'No') },
-    { id: 'scope', header: 'Applies to', cell: (h) => <span className="text-sm text-muted-foreground">{scopeLabel(h)}</span> },
-  ];
+  if (!canManage) return <EmptyState icon={ShieldAlert} title="Access Denied" description="Only owners, admins and accountants can manage holidays." />;
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageHeader title="Holidays" description="Public, optional &amp; restricted holidays and who they apply to">
-        {canManage && (
-          <Button onClick={openCreate} className="gap-1.5">
-            <Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Holiday</span>
-          </Button>
-        )}
+      <PageHeader title="Holidays" description="Create a holiday for one day or a period; choose who it applies to. Selected staff are auto-given a paid holiday leave — reflected in the Duty Roster and Bulk Attendance.">
+        <Button onClick={() => { resetForm(); setOpen(true); }} className="gap-1.5"><Plus className="h-4 w-4" /> Add holiday</Button>
       </PageHeader>
 
-      <Tabs value={view} onValueChange={(v) => setView(v as 'list' | 'calendar')}>
-        <TabsList>
-          <TabsTrigger value="list" className="gap-1.5"><List className="h-4 w-4" />List</TabsTrigger>
-          <TabsTrigger value="calendar" className="gap-1.5"><CalendarDays className="h-4 w-4" />Calendar</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : groups.length === 0 ? (
+        <EmptyState icon={CalendarCheck} title="No holidays yet" description="Add your first holiday — it can cover a single day or a range, for everyone or specific teams." />
+      ) : (
+        <div className="divide-y rounded-xl border bg-card">
+          {groups.map((g) => (
+            <div key={g.id} className="flex items-center gap-3 px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <CalendarCheck className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{g.name}</p>
+                <p className="text-xs text-muted-foreground">{dateLabel(g)}</p>
+              </div>
+              <div className="hidden items-center gap-1.5 sm:flex">
+                <Badge variant="outline" className="gap-1"><Users className="h-3 w-3" /> {audienceLabel(g)}</Badge>
+                <Badge variant="outline" className={g.is_paid ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' : 'border-amber-300 text-amber-700 dark:text-amber-400'}>{g.is_paid ? 'Paid' : 'Unpaid'}</Badge>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" aria-label="Delete holiday"><Trash2 className="h-4 w-4" /></Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove “{g.name}”?</AlertDialogTitle>
+                    <AlertDialogDescription>This deletes the holiday and the leaves it auto-assigned to staff for those dates.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => remove(g)}>Remove</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ))}
+        </div>
+      )}
 
-        <TabsContent value="list" className="mt-4">
-          {error ? (
-            <ErrorState title="Couldn't load holidays" description={error} onRetry={reload} className="py-12" />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={holidays}
-              rowKey={(h) => h.id}
-              isLoading={loading}
-              initialSort={{ columnId: 'date', direction: 'asc' }}
-              rowActions={canManage ? (h) => (
-                <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit" onClick={() => openEdit(h)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete “{h.name}”?</AlertDialogTitle>
-                        <AlertDialogDescription>This removes the holiday and its assignments. Settlements computed afterwards will no longer treat it as a holiday.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(h)}>Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ) : undefined}
-              actionsHeader={canManage ? 'Actions' : undefined}
-            />
-          )}
-        </TabsContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add holiday</DialogTitle>
+            <DialogDescription>One day or a period. Selected staff get an auto paid-holiday leave.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>From</Label>
+                <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); if (!toDate || toDate < e.target.value) setToDate(e.target.value); }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>To</Label>
+                <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div><Label className="text-sm">Paid holiday</Label><p className="text-[10px] text-muted-foreground">No salary deduction for these days</p></div>
+              <Switch checked={isPaid} onCheckedChange={setIsPaid} aria-label="Paid holiday" />
+            </div>
 
-        <TabsContent value="calendar" className="mt-4">
-          <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
-            <Card>
-              <CardContent className="p-3">
-                <Calendar
-                  mode="single"
-                  month={calMonth}
-                  onMonthChange={setCalMonth}
-                  modifiers={{ holiday: holidayDates }}
-                  modifiersClassNames={{ holiday: 'bg-violet-100 text-violet-700 font-semibold dark:bg-violet-500/20 dark:text-violet-300 rounded-md' }}
-                  className="p-0"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">{format(calMonth, 'MMMM yyyy')}</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {monthOccurrences.length === 0 && <p className="text-sm text-muted-foreground">No holidays this month.</p>}
-                {monthOccurrences.map((o) => (
-                  <div key={`${o.holiday.id}-${o.date}`} className="flex items-center justify-between gap-3 rounded-lg border p-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{o.holiday.name}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(o.date), 'EEE, dd MMM')} · {o.holiday.org_wide ? 'All staff' : scopeLabel(o.holiday as HolidayWithAssignments)}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {!o.holiday.is_paid && <Badge variant="outline" className="text-muted-foreground">Unpaid</Badge>}
-                      <TypeBadge type={o.holiday.type as HolidayType} />
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Applies to everyone</Label>
+                <Switch checked={appliesAll} onCheckedChange={setAppliesAll} aria-label="Applies to everyone" />
+              </div>
+              {!appliesAll && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Departments</p>
+                    <div className="max-h-28 space-y-1 overflow-auto">
+                      {depts.length === 0 ? <p className="text-xs text-muted-foreground">None</p> : depts.map((d) => (
+                        <label key={d.id} className="flex items-center gap-2 text-sm"><Checkbox checked={deptSel.has(d.id)} onCheckedChange={() => toggle(deptSel, setDeptSel, d.id)} /> {d.name}</label>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Outlets</p>
+                    <div className="max-h-28 space-y-1 overflow-auto">
+                      {outlets.length === 0 ? <p className="text-xs text-muted-foreground">None</p> : outlets.map((o) => (
+                        <label key={o.id} className="flex items-center gap-2 text-sm"><Checkbox checked={outletSel.has(o.id)} onCheckedChange={() => toggle(outletSel, setOutletSel, o.id)} /> {o.name}</label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Roles</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {ROLES.map((r) => (
+                        <label key={r} className="flex items-center gap-2 text-sm capitalize"><Checkbox checked={roleSel.has(r)} onCheckedChange={() => toggle(roleSel, setRoleSel, r)} /> {r}</label>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Staff matching <span className="font-medium">any</span> of the chosen departments, outlets or roles get the holiday.</p>
+                </div>
+              )}
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
-
-      {canManage && (
-        <HolidayDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          editing={editing}
-          outlets={outlets}
-          staffList={staffList}
-          onSave={(input, targets) => (editing ? updateHoliday(editing.id, input, targets) : createHoliday(input, targets))}
-        />
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save & assign'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
