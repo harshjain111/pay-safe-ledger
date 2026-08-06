@@ -50,7 +50,6 @@ const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
 const Shifts = lazy(() => import("./pages/Shifts"));
-const ShiftAssignment = lazy(() => import("./pages/ShiftAssignment"));
 const WeekOff = lazy(() => import("./pages/WeekOff"));
 const BiometricEnrolment = lazy(() => import("./pages/BiometricEnrolment"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -168,7 +167,6 @@ function AppRoutes() {
         <Route path="/my-attendance" element={<MyAttendance />} />
         <Route path="/grievance" element={<Grievance />} />
         <Route path="/shifts" element={<Shifts />} />
-        <Route path="/shift-assignment" element={<ShiftAssignment />} />
         <Route path="/week-off" element={<WeekOff />} />
         <Route path="/roster" element={<Roster />} />
         <Route path="/biometric-enrolment" element={<BiometricEnrolment />} />

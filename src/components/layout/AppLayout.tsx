@@ -147,7 +147,6 @@ function roleNavSections(
         items: [
           { title: 'Attendance', href: '/attendance', icon: Clock },
           { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Shift Assignment', href: '/shift-assignment', icon: CalendarRange },
           { title: 'Week Off', href: '/week-off', icon: CalendarDays },
           { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
           { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
@@ -226,7 +225,6 @@ function roleNavSections(
         items: [
           { title: 'Attendance', href: '/attendance', icon: Clock },
           { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Shift Assignment', href: '/shift-assignment', icon: CalendarRange },
           { title: 'Week Off', href: '/week-off', icon: CalendarDays },
           { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
           { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },

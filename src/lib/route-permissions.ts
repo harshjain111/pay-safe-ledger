@@ -37,7 +37,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { prefix: '/petty-cash', permission: 'pettycash.manage' },
   { prefix: '/bulk-attendance', permission: 'attendance.manage' },
   { prefix: '/shifts', permission: 'roster.manage' },
-  { prefix: '/shift-assignment', permission: 'roster.manage' },
   { prefix: '/week-off', permission: 'roster.manage' },
   { prefix: '/roster', permission: 'roster.manage' },
   { prefix: '/biometric-enrolment', permission: 'attendance.manage' },
