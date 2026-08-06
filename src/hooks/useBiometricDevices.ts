@@ -17,11 +17,12 @@ export interface BiometricDevice {
 
 /** A device counts as online if it was seen within this window. The eTimeTrackLite
  *  connector polls every 15 minutes (it's a pull integration, not a live push
- *  device), so the window is 20 min to span one poll cycle + buffer — otherwise a
- *  healthy connector would flicker offline between polls. We derive this from
- *  last_seen_at rather than the stored status flag, so a source that silently
- *  drops off (no poll for >20 min) reads as offline. */
-export const ONLINE_WINDOW_MS = 20 * 60 * 1000;
+ *  device), so the window spans a couple of poll cycles + buffer — otherwise a
+ *  healthy connector would flicker offline between polls. The sync cron runs
+ *  every 15 min, so 40 min tolerates one missed/slow run before reading offline.
+ *  We derive this from last_seen_at rather than the stored status flag, so a
+ *  source that silently drops off reads as offline. */
+export const ONLINE_WINDOW_MS = 40 * 60 * 1000;
 
 export function isDeviceOnline(lastSeenAt: string | null): boolean {
   if (!lastSeenAt) return false;

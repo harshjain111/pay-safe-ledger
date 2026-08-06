@@ -778,20 +778,19 @@ serve(async (req) => {
         const { error } = await db.from("attendance_sessions").upsert(sessions.slice(i, i + 500), { onConflict: "staff_id,check_in_at", ignoreDuplicates: false });
         if (error) { if (errB.length < 3) errB.push(error.message); } else up += Math.min(500, sessions.length - i);
       }
-      // The connector just polled the device successfully — mark it live so the
-      // Hardware screen shows "seen just now" instead of a stale timestamp. Also
-      // refresh each physical device seen in this pull to its latest punch time.
+      // The connector just polled the device server successfully — that proves
+      // the devices are REACHABLE/live right now, regardless of when anyone last
+      // punched. Mark every device seen in this pull (and the default row) live
+      // with last_seen_at = NOW + status online. (Using the last punch time here
+      // was the bug that made live devices read as "offline".)
       const nowIso = new Date().toISOString();
       await db.from("biometric_devices").update({ last_seen_at: nowIso, status: "online" }).eq("id", "e551e551-0000-0000-0000-000000000001");
-      const devLastSeen = new Map<string, string>();
-      for (const r of rows) {
-        const serial = col(r, "Serial Number"); const iso = logDateToIso(col(r, "Log Date"));
-        if (serial && iso) { const cur = devLastSeen.get(serial); if (!cur || iso > cur) devLastSeen.set(serial, iso); }
+      const serialsSeen = new Set<string>();
+      for (const r of rows) { const serial = col(r, "Serial Number"); if (serial) serialsSeen.add(serial); }
+      for (const serial of serialsSeen) {
+        await db.from("biometric_devices").update({ last_seen_at: nowIso, status: "online" }).eq("serial", serial);
       }
-      for (const [serial, iso] of devLastSeen) {
-        await db.from("biometric_devices").update({ last_seen_at: iso }).eq("serial", serial);
-      }
-      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaffDay.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB, devicesTouched: devLastSeen.size });
+      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaffDay.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB, devicesTouched: serialsSeen.size });
     }
 
     // Populate biometric hardware + enrolments from the connector (so the Devices +
