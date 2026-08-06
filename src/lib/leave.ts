@@ -206,25 +206,31 @@ export async function computeLeaveBalancesForStaff(
   const startMonth = await fetchLeaveYearStartMonth();
   const ly = leaveYearFor(now, startMonth);
 
-  const [types, staffRes, recordsRes, openingRes, ovrRes] = await Promise.all([
+  const { data: staffRow } = await supabase.from('staff').select('department_id, outlet_id, user_id').eq('id', staffId).maybeSingle();
+  const staffDept = (staffRow as { department_id?: string | null } | null)?.department_id ?? null;
+  const staffOutlet = (staffRow as { outlet_id?: string | null } | null)?.outlet_id ?? null;
+  const staffUserId = (staffRow as { user_id?: string | null } | null)?.user_id ?? null;
+
+  const [types, recordsRes, openingRes, ovrRes, rolesRes] = await Promise.all([
     fetchLeaveTypes(true),
-    supabase.from('staff').select('department_id, outlet_id').eq('id', staffId).maybeSingle(),
     supabase.from('leave_records').select('leave_type_id').eq('staff_id', staffId).eq('status', 'approved').gte('leave_date', ly.fromISO).lte('leave_date', ly.toISO),
     supabase.from('leave_balances').select('leave_type_id, opening').eq('staff_id', staffId).eq('year', ly.fyStartYear),
-    supabase.from('leave_type_overrides' as never).select('leave_type_id, scope, department_id, outlet_id, quota_override, is_exempt, is_active'),
+    supabase.from('leave_type_overrides' as never).select('leave_type_id, scope, department_id, outlet_id, role_type, quota_override, is_exempt, is_active'),
+    staffUserId ? supabase.from('user_roles').select('role').eq('user_id', staffUserId) : Promise.resolve({ data: [] as { role: string }[] }),
   ]);
 
-  const staffDept = (staffRes.data as { department_id?: string | null } | null)?.department_id ?? null;
-  const staffOutlet = (staffRes.data as { outlet_id?: string | null } | null)?.outlet_id ?? null;
+  const staffRoles = new Set(((rolesRes.data ?? []) as { role: string }[]).map((r) => r.role));
 
-  type Ovr = { leave_type_id: string; scope: string; department_id: string | null; outlet_id: string | null; quota_override: number | null; is_exempt: boolean; is_active?: boolean };
+  type Ovr = { leave_type_id: string; scope: string; department_id: string | null; outlet_id: string | null; role_type: string | null; quota_override: number | null; is_exempt: boolean; is_active?: boolean };
   const overrides = ((ovrRes.data ?? []) as unknown as Ovr[]).filter((o) => o.is_active !== false);
   const overrideFor = (typeId: string): Ovr | null => {
     const cands = overrides.filter((o) => o.leave_type_id === typeId && (
       (o.scope === 'department' && o.department_id && o.department_id === staffDept) ||
-      (o.scope === 'outlet' && o.outlet_id && o.outlet_id === staffOutlet)
+      (o.scope === 'outlet' && o.outlet_id && o.outlet_id === staffOutlet) ||
+      (o.scope === 'role' && o.role_type && staffRoles.has(o.role_type))
     ));
-    return cands.find((o) => o.scope === 'department') ?? cands[0] ?? null; // department wins
+    // Precedence: department > outlet > role.
+    return cands.find((o) => o.scope === 'department') ?? cands.find((o) => o.scope === 'outlet') ?? cands[0] ?? null;
   };
 
   const usedByType = new Map<string, number>();
