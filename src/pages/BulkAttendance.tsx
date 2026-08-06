@@ -29,21 +29,21 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/lib/toast';
 
-type Code = 'FD' | 'HD' | 'A' | 'WO' | 'LWP';
-const CODES: Code[] = ['HD', 'FD', 'A', 'WO', 'LWP'];
+type Code = 'FD' | 'HD' | 'A' | 'WO' | 'LV';
+const CODES: Code[] = ['FD', 'HD', 'A', 'WO', 'LV'];
 const CODE_LABEL: Record<Code, string> = {
   FD: 'Full Day',
   HD: 'Half Day',
   A: 'Absent',
   WO: 'Week Off',
-  LWP: 'Leave w/o Pay',
+  LV: 'Leave',
 };
 const CODE_COLOR: Record<Code, string> = {
   FD: 'text-emerald-700 dark:text-emerald-400',
   HD: 'text-amber-700 dark:text-amber-400',
   A: 'text-rose-700 dark:text-rose-400',
   WO: 'text-slate-600 dark:text-slate-300',
-  LWP: 'text-violet-700 dark:text-violet-400',
+  LV: 'text-violet-700 dark:text-violet-400',
 };
 
 interface Branch { id: string; name: string }
@@ -52,13 +52,45 @@ interface StaffRow {
   department: string | null; designation: string | null; outlet_id: string | null;
 }
 
-interface CellState { current: Code; pending: Code | null }
+interface CellState {
+  current: Code; pending: Code | null;
+  checkIn: string | null;      // ISO
+  checkOut: string | null;     // ISO
+  worked: number | null;       // minutes
+  designated: number | null;   // scheduled minutes for the day (roster/shift)
+  late: boolean;               // checked in after scheduled start + grace
+  earlyOut: boolean;           // checked out before scheduled end − grace
+  leaveType: string | null;    // approved leave type name that day
+  hasLeave: boolean;           // an approved leave exists (LV selectable)
+}
 
 const IST = '+05:30';
 const FULL_DAY_MIN = 480;
 const HALF_DAY_MIN = 240;
 
 const pad = (n: number) => String(n).padStart(2, '0');
+
+// IST wall-clock HH:MM[:SS] on `date` → UTC ISO (for comparing with punch times).
+function scheduledIso(date: string, time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCMinutes(d.getUTCMinutes() + h * 60 + (m || 0) - (5 * 60 + 30));
+  return d.toISOString();
+}
+// Duration in minutes between two IST time strings (handles overnight).
+function shiftMinutes(inT: string, outT: string): number {
+  const [ih, im] = inT.split(':').map(Number);
+  const [oh, om] = outT.split(':').map(Number);
+  let d = (oh * 60 + (om || 0)) - (ih * 60 + (im || 0));
+  if (d <= 0) d += 24 * 60;
+  return d;
+}
+const fmtTime = (iso: string | null) => (iso ? format(new Date(iso), 'HH:mm') : '—');
+const fmtDur = (min: number | null | undefined) => {
+  if (min == null) return '—';
+  const h = Math.floor(min / 60), m = Math.round(min % 60);
+  return h > 0 ? `${h}h ${pad(m)}m` : `${m}m`;
+};
 
 export default function BulkAttendance() {
   const { user, can } = useAuth();
@@ -122,53 +154,86 @@ export default function BulkAttendance() {
         return;
       }
 
-      const [sessRes, rosRes, leaveRes] = await Promise.all([
+      const [sessRes, rosRes, leaveRes, asnRes, shiftRes, ruleRes, typeRes] = await Promise.all([
         supabase.from('attendance_sessions')
-          .select('staff_id, work_date, status, worked_minutes')
+          .select('staff_id, work_date, status, worked_minutes, check_in_at, check_out_at')
           .in('staff_id', ids).gte('work_date', from).lte('work_date', to),
         supabase.from('staff_roster')
           .select('staff_id, roster_date, shift_id, is_off')
           .in('staff_id', ids).gte('roster_date', from).lte('roster_date', to),
         supabase.from('leave_records')
-          .select('staff_id, leave_date, leave_type, status')
+          .select('staff_id, leave_date, leave_type, leave_type_id, status')
           .in('staff_id', ids).gte('leave_date', from).lte('leave_date', to)
           .eq('status', 'approved'),
+        supabase.from('staff_shift_assignments' as never).select('staff_id, shift_id').in('staff_id', ids),
+        supabase.from('shifts').select('id, check_in_time, check_out_time'),
+        supabase.from('discipline_rules' as never).select('grace_minutes_in, grace_minutes_out').order('updated_at', { ascending: false }).limit(1),
+        supabase.from('leave_types').select('id, name'),
       ]);
 
-      const sessMap = new Map<string, { status: string; worked: number }>();
+      // Sessions: earliest check-in, latest check-out, summed worked minutes.
+      const sessMap = new Map<string, { status: string; worked: number; checkIn: string | null; checkOut: string | null }>();
       for (const s of (sessRes.data ?? []) as any[]) {
         const k = `${s.staff_id}|${s.work_date}`;
-        const cur = sessMap.get(k) ?? { status: s.status, worked: 0 };
-        if (s.status === 'completed') {
-          cur.status = 'completed';
-          cur.worked += Number(s.worked_minutes ?? 0);
-        }
+        const cur = sessMap.get(k) ?? { status: s.status, worked: 0, checkIn: null, checkOut: null };
+        if (s.status === 'completed') { cur.status = 'completed'; cur.worked += Number(s.worked_minutes ?? 0); }
+        if (s.check_in_at && (!cur.checkIn || s.check_in_at < cur.checkIn)) cur.checkIn = s.check_in_at;
+        if (s.check_out_at && (!cur.checkOut || s.check_out_at > cur.checkOut)) cur.checkOut = s.check_out_at;
         sessMap.set(k, cur);
       }
-      const rosMap = new Map<string, { is_off: boolean }>();
-      for (const r of (rosRes.data ?? []) as any[]) {
-        rosMap.set(`${r.staff_id}|${r.roster_date}`, { is_off: r.is_off });
-      }
-      const leaveMap = new Map<string, { type: string }>();
-      for (const l of (leaveRes.data ?? []) as any[]) {
-        leaveMap.set(`${l.staff_id}|${l.leave_date}`, { type: l.leave_type });
-      }
+      const rosMap = new Map<string, { is_off: boolean; shift_id: string | null }>();
+      for (const r of (rosRes.data ?? []) as any[]) rosMap.set(`${r.staff_id}|${r.roster_date}`, { is_off: r.is_off, shift_id: r.shift_id });
+      const typeName = new Map<string, string>(((typeRes.data ?? []) as any[]).map((t) => [t.id, t.name]));
+      const leaveMap = new Map<string, string>();
+      for (const l of (leaveRes.data ?? []) as any[]) leaveMap.set(`${l.staff_id}|${l.leave_date}`, (l.leave_type_id && typeName.get(l.leave_type_id)) || l.leave_type || 'Leave');
+      const asnByStaff = new Map<string, string>();
+      for (const a of (asnRes.data ?? []) as any[]) if (a.shift_id) asnByStaff.set(a.staff_id, a.shift_id);
+      const shiftById = new Map<string, { in: string; out: string }>(((shiftRes.data ?? []) as any[]).map((s) => [s.id, { in: s.check_in_time, out: s.check_out_time }]));
+      const rule = ((ruleRes.data ?? []) as any[])[0] ?? {};
+      const graceIn = Number(rule.grace_minutes_in ?? 10);
+      const graceOut = Number(rule.grace_minutes_out ?? 10);
 
       const next: Record<string, Record<string, CellState>> = {};
       for (const st of rows) {
         next[st.id] = {};
         for (const d of dates) {
           const k = `${st.id}|${d}`;
-          let code: Code = 'A';
-          const lv = leaveMap.get(k);
+          const lv = leaveMap.get(k) ?? null;
           const ros = rosMap.get(k);
           const sess = sessMap.get(k);
-          if (lv && (lv.type === 'unpaid' || lv.type === 'lwp')) code = 'LWP';
+
+          // Scheduled shift for the day: roster's shift, else the staff's assigned shift.
+          const shiftId = ros?.shift_id ?? asnByStaff.get(st.id) ?? null;
+          const sched = shiftId ? shiftById.get(shiftId) : undefined;
+          const designated = sched ? shiftMinutes(sched.in, sched.out) : null;
+
+          let late = false, earlyOut = false;
+          if (sched && sess?.checkIn) {
+            const schedInISO = scheduledIso(d, sched.in);
+            late = new Date(sess.checkIn).getTime() > new Date(schedInISO).getTime() + graceIn * 60000;
+          }
+          if (sched && sess?.checkOut && designated) {
+            const [ih, im] = sched.in.split(':').map(Number);
+            const [oh, om] = sched.out.split(':').map(Number);
+            const overnight = (oh * 60 + (om || 0)) - (ih * 60 + (im || 0)) <= 0;
+            let schedOutMs = new Date(scheduledIso(d, sched.out)).getTime();
+            if (overnight) schedOutMs += 24 * 3600000; // shift ends next calendar day
+            earlyOut = new Date(sess.checkOut).getTime() < schedOutMs - graceOut * 60000;
+          }
+
+          let code: Code = 'A';
+          if (lv) code = 'LV';
           else if (sess && sess.status === 'completed' && sess.worked >= FULL_DAY_MIN - 30) code = 'FD';
           else if (sess && sess.status === 'completed' && sess.worked >= HALF_DAY_MIN - 30) code = 'HD';
           else if (ros?.is_off) code = 'WO';
           else code = 'A';
-          next[st.id][d] = { current: code, pending: null };
+
+          next[st.id][d] = {
+            current: code, pending: null,
+            checkIn: sess?.checkIn ?? null, checkOut: sess?.checkOut ?? null,
+            worked: sess?.status === 'completed' ? sess.worked : (sess?.checkIn ? 0 : null),
+            designated, late, earlyOut, leaveType: lv, hasLeave: !!lv,
+          };
         }
       }
       setGrid(next);
@@ -233,9 +298,12 @@ export default function BulkAttendance() {
           if (!st) continue;
           const newCode = cell.pending;
 
-          // Always reset day first: clear sessions, clear leave for that date.
+          // Reset the day's sessions. Leave records are only cleared when the new
+          // code is NOT 'Leave' (LV keeps the pre-approved leave).
           await supabase.from('attendance_sessions').delete().eq('staff_id', sid).eq('work_date', date);
-          await supabase.from('leave_records').delete().eq('staff_id', sid).eq('leave_date', date);
+          if (newCode !== 'LV') {
+            await supabase.from('leave_records').delete().eq('staff_id', sid).eq('leave_date', date);
+          }
 
           if (newCode === 'FD' || newCode === 'HD') {
             const worked = newCode === 'FD' ? FULL_DAY_MIN : HALF_DAY_MIN;
@@ -261,19 +329,11 @@ export default function BulkAttendance() {
             const { error } = await supabase.from('staff_roster')
               .upsert({ staff_id: sid, roster_date: date, shift_id: null, is_off: true }, { onConflict: 'staff_id,roster_date' });
             if (error) throw error;
-          } else if (newCode === 'LWP') {
-            const { error } = await supabase.from('leave_records').insert({
-              staff_id: sid,
-              leave_date: date,
-              leave_type: 'unpaid',
-              deduction_days: 1,
-              status: 'approved',
-              remarks: 'Bulk adjustment (LWP)',
-              created_by: user?.id ?? null,
-              approved_by: user?.id ?? null,
-              approved_at: new Date().toISOString(),
-            });
-            if (error) throw error;
+          } else if (newCode === 'LV') {
+            // Leave — the approved leave is kept (must be assigned beforehand).
+            // Just make sure the day isn't marked a week-off.
+            await supabase.from('staff_roster')
+              .upsert({ staff_id: sid, roster_date: date, shift_id: null, is_off: false }, { onConflict: 'staff_id,roster_date' });
           } else {
             // A — clear roster off if previously set
             await supabase.from('staff_roster')
@@ -355,10 +415,12 @@ export default function BulkAttendance() {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <div className="space-y-1 text-xs">
-                      <p className="font-semibold">Codes</p>
+                      <p className="font-semibold">Each cell shows the day's punches</p>
+                      <p>Check-in → check-out (red = late in / early out), status, and worked vs rostered duration (red if short).</p>
+                      <p className="pt-1 font-semibold">Mark codes</p>
                       <p><span className="font-medium">FD</span> Full Day · <span className="font-medium">HD</span> Half Day</p>
                       <p><span className="font-medium">A</span> Absent · <span className="font-medium">WO</span> Week Off</p>
-                      <p><span className="font-medium">LWP</span> Leave without Pay</p>
+                      <p><span className="font-medium">LV</span> Leave (must be approved first)</p>
                     </div>
                   </TooltipContent>
                 </Tooltip>
@@ -494,12 +556,40 @@ function AttendanceGrid({
               <td className="border-b border-r px-2 py-1.5 text-muted-foreground">{s.designation || '—'}</td>
               {dates.map((d) => {
                 const cell = grid[s.id]?.[d];
-                if (!cell) return <td key={d} className="border-b border-r" />;
+                if (!cell) return <td key={d} className="min-w-[104px] border-b border-r" />;
                 const display = cell.pending ?? cell.current;
                 const isPending = !!cell.pending && cell.pending !== cell.current;
+                const problems: string[] = [];
+                if (cell.late) problems.push('Late in');
+                if (cell.earlyOut) problems.push('Early out');
+                if (cell.designated && cell.worked != null && cell.worked < cell.designated - 15) problems.push('Short');
+                const short = !!(cell.designated && cell.worked != null && cell.worked < cell.designated);
                 return (
-                  <td key={d} className={cn('border-b border-r p-0.5 text-center', isWeekend(d) && 'bg-muted/40', isPending && 'bg-amber-100/60 dark:bg-amber-900/30')}>
-                    <CellSelect value={display} onChange={(v) => onCellChange(s.id, d, v)} />
+                  <td key={d} className={cn('min-w-[104px] border-b border-r p-1 align-top', isWeekend(d) && 'bg-muted/40', isPending && 'bg-amber-100/60 dark:bg-amber-900/30')}>
+                    <div className="flex flex-col items-center gap-0.5">
+                      {cell.leaveType ? (
+                        <span className="max-w-[96px] truncate text-[11px] font-medium text-violet-700 dark:text-violet-400" title={cell.leaveType}>{cell.leaveType}</span>
+                      ) : cell.checkIn ? (
+                        <>
+                          <div className="text-[11px] leading-tight">
+                            <span className={cn('font-mono', cell.late && 'font-semibold text-rose-600 dark:text-rose-400')}>{fmtTime(cell.checkIn)}</span>
+                            <span className="text-muted-foreground"> → </span>
+                            <span className={cn('font-mono', cell.earlyOut && 'font-semibold text-rose-600 dark:text-rose-400')}>{fmtTime(cell.checkOut)}</span>
+                          </div>
+                          <span className={cn('text-[10px] leading-none', problems.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                            {problems.length ? problems.join(' · ') : 'On time'}
+                          </span>
+                          {cell.worked != null && (
+                            <span className={cn('text-[10px] font-medium leading-none', short ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                              {fmtDur(cell.worked)}{cell.designated ? ` / ${fmtDur(cell.designated)}` : ''}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">{display === 'WO' ? 'Week off' : 'Absent'}</span>
+                      )}
+                      <CellSelect value={display} hasLeave={cell.hasLeave} leaveType={cell.leaveType} onChange={(v) => onCellChange(s.id, d, v)} />
+                    </div>
                   </td>
                 );
               })}
@@ -511,22 +601,22 @@ function AttendanceGrid({
   );
 }
 
-function CellSelect({ value, onChange }: { value: Code; onChange: (v: Code) => void }) {
+function CellSelect({ value, hasLeave, leaveType, onChange }: { value: Code; hasLeave: boolean; leaveType: string | null; onChange: (v: Code) => void }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as Code)}>
       <SelectTrigger
         className={cn(
-          'h-7 w-[60px] border-transparent bg-transparent px-1 py-0 text-xs font-semibold shadow-none hover:border-border focus:ring-1',
+          'h-6 w-[66px] border-transparent bg-transparent px-1 py-0 text-[11px] font-semibold shadow-none hover:border-border focus:ring-1',
           CODE_COLOR[value],
         )}
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="min-w-[140px] bg-popover">
+      <SelectContent className="min-w-[160px] bg-popover">
         {CODES.map((c) => (
-          <SelectItem key={c} value={c}>
+          <SelectItem key={c} value={c} disabled={c === 'LV' && !hasLeave}>
             <span className={cn('font-semibold', CODE_COLOR[c])}>{c}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{CODE_LABEL[c]}</span>
+            <span className="ml-2 text-xs text-muted-foreground">{c === 'LV' ? (leaveType ?? 'Leave — assign first') : CODE_LABEL[c]}</span>
           </SelectItem>
         ))}
       </SelectContent>
