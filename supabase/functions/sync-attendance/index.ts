@@ -51,7 +51,9 @@ serve(async (req) => {
   try {
     if (full) {
       // Wide re-pull (~5 weeks) then a clean rebuild of every biometric day.
-      const pull = await call({ backfill: true, days: 35 }, 90000);
+      // healCron: reload the pg_cron Vault secret from the connector's env so the
+      // scheduled 15-min sync recovers automatically (this is a user-initiated call).
+      const pull = await call({ backfill: true, days: 35, healCron: true }, 90000);
       if (!pull?.ok) return json({ ok: false, full: true, reason: String(pull?.error || pull?.reason || unreachable(false)) });
       const cons = await call({ rebuildByGap: true }, 120000);
       return json({
@@ -64,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    const data = await call({ backfill: true, days: 3 }, 18000);
+    const data = await call({ backfill: true, days: 3, healCron: true }, 18000);
     if (data?.ok) return json({ ok: true, upserted: data.upserted ?? 0, sessionsBuilt: data.sessionsBuilt ?? 0, rows: data.rows ?? 0 });
     return json({ ok: false, reason: String(data?.error || data?.reason || unreachable(false)) });
   } catch (e) {

@@ -637,6 +637,24 @@ serve(async (req) => {
     // Columns: Download Date | UserId | User Name | Log Date | Device Name |
     //          Serial Number | Att State (Check-In/Check-Out) | Verify Mode | GPS
     const rows = parseCsv(csvText);
+    // Month-boundary safety: DeviceLogList reports a SINGLE month, so a small
+    // "last N days" window (the 15-min cron sends days=3) near the 1st silently
+    // drops the tail of the previous month — including overnight shifts that
+    // start on the 31st. When the window underflows day 1, fetch that tail too
+    // and prepend it. Best-effort; the primary (current-month) pull already ran.
+    const startDay = now.getUTCDate() - backDays;
+    if (backDays > 0 && startDay < 1) {
+      const pmo = mo === 1 ? 12 : mo - 1, pyr = mo === 1 ? yr - 1 : yr;
+      const pmDays = new Date(Date.UTC(pyr, pmo, 0)).getUTCDate();
+      const p = new URLSearchParams(params);
+      p.set("ddlYear", String(pyr)); p.set("ddlMonth", pad(pmo));
+      p.set("ddlFromDate", pad(Math.max(1, pmDays + startDay))); p.set("ddlToDate", pad(pmDays));
+      try {
+        const r2 = await get(`${BASE}${REPORT_PATH}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Referer: `${BASE}${REPORT_PATH}` }, body: p.toString() }, jar);
+        const t2 = await r2.res.text();
+        if (/UserId|Log ?Date|Employee Code/i.test(t2.slice(0, 500))) rows.unshift(...parseCsv(t2));
+      } catch (_) { /* best-effort; primary month already captured */ }
+    }
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.90.1");
     const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data: staff } = await db.from("staff").select("id, employee_id");
@@ -790,6 +808,12 @@ serve(async (req) => {
       for (const serial of serialsSeen) {
         await db.from("biometric_devices").update({ last_seen_at: nowIso, status: "online" }).eq("serial", serial);
       }
+      // Self-heal the scheduled sync: when a logged-in user triggers this pull
+      // (sync-attendance sets healCron), (re)load the cron secret into Vault from
+      // our OWN env so the 15-min pg_cron job keeps authenticating even after a DB
+      // reset wiped vault.secrets. The pg_cron job itself never sets healCron, so
+      // this only runs on user-initiated syncs (login / refresh / Hard resync).
+      if (body?.healCron) { try { await db.rpc("set_etl_cron_secret", { p_secret: CRON_SECRET }); } catch (_) { /* best-effort */ } }
       return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaffDay.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB, devicesTouched: serialsSeen.size });
     }
 
