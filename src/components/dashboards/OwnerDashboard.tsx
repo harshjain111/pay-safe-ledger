@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Amount } from '@/components/ui/amount';
 import { DashboardCard } from './DashboardCard';
+import { SalaryReviewDueCard } from './SalaryReviewDueCard';
 import { QuickActionsCard, QuickAction } from './QuickActionsCard';
 import { LeaveBalancesCard } from './LeaveBalancesCard';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
@@ -183,6 +184,9 @@ export function OwnerDashboard() {
           </Link>
         </div>
       </PageHeader>
+
+      {/* PHASE 4 — salary reviews due (admin/HR/owner; fires the crossing notification) */}
+      <SalaryReviewDueCard />
 
       {/* Band 1 — KPI strip (max 3 across so 6 cards wrap to 2 rows and titles fit) */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ export function ConfirmDestructive({
   onConfirm,
   loading = false,
   proceedLabel = 'Proceed',
+  children,
+  canProceed = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,6 +33,10 @@ export function ConfirmDestructive({
   onConfirm: () => void | Promise<void>;
   loading?: boolean;
   proceedLabel?: string;
+  /** Extra fields (e.g. a mandatory reason) rendered above the confirm input. */
+  children?: ReactNode;
+  /** When false, Proceed stays disabled even after typing the confirm text. */
+  canProceed?: boolean;
 }) {
   const required = confirmText ?? recordName;
   const [typed, setTyped] = useState('');
@@ -51,6 +57,7 @@ export function ConfirmDestructive({
             {description && <span className="block">{description}</span>}
           </DialogDescription>
         </DialogHeader>
+        {children}
         <div className="space-y-1.5">
           <p className="text-xs text-muted-foreground">
             Type <span className="font-mono font-semibold text-foreground">{required}</span> to confirm:
@@ -61,7 +68,7 @@ export function ConfirmDestructive({
           <Button variant="outline" disabled={loading} onClick={() => onOpenChange(false)}>Go Back</Button>
           <Button
             variant="destructive"
-            disabled={loading || typed !== required}
+            disabled={loading || typed !== required || !canProceed}
             onClick={() => onConfirm()}
           >
             {loading ? 'Working…' : proceedLabel}

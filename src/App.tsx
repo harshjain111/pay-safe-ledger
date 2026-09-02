@@ -27,9 +27,10 @@ const Approvals = lazy(() => import("./pages/Approvals"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const ProcessPayroll = lazy(() => import("./pages/ProcessPayroll"));
+const FinalizedPayroll = lazy(() => import("./pages/FinalizedPayroll"));
+const SalaryIncrements = lazy(() => import("./pages/SalaryIncrements"));
 const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
 const SalarySlips = lazy(() => import("./pages/SalarySlips"));
-const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
 const Payouts = lazy(() => import("./pages/Payouts"));
 const Reports = lazy(() => import("./pages/Reports"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
@@ -150,8 +151,8 @@ function AppRoutes() {
         {/* PHASE 2 — new payroll/settlements paths. Elements are the current
             pages until their rebuild phase replaces them. */}
         <Route path="/payroll/process" element={<ProcessPayroll />} />
-        <Route path="/payroll/finalized" element={<Navigate to="/payroll/process" replace />} />
-        <Route path="/payroll/increments" element={<SalariesAdvances />} />
+        <Route path="/payroll/finalized" element={<FinalizedPayroll />} />
+        <Route path="/payroll/increments" element={<SalaryIncrements />} />
         <Route path="/payroll/salary-slips" element={<SalarySlips />} />
         <Route path="/settlements/payouts" element={<Payouts />} />
         <Route path="/settlements/arrears" element={<Arrears />} />
