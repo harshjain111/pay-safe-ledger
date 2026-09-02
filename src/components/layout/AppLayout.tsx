@@ -100,7 +100,7 @@ function getNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number },
+  counts: { pendingRequests: number; approvedAdvances: number },
   can: (permission: string) => boolean,
   canSwitch: boolean,
 ): NavSection[] {
@@ -120,12 +120,12 @@ function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; pendingExpenses: number; approvedExpenses: number },
+  counts: { pendingRequests: number; approvedAdvances: number },
   canSwitch: boolean,
 ): NavSection[] {
   // Pending items awaiting approval — surfaced as ONE badge on the merged
-  // "Approvals" item (advances + expenses).
-  const pendingApprovals = counts.pendingRequests + counts.pendingExpenses;
+  // "Approvals" item (advances).
+  const pendingApprovals = counts.pendingRequests;
 
   // Any non-owner staff-linked user (admin / accountant / manager) who has
   // toggled into the personal "employee" view gets the self-service nav — they
@@ -201,7 +201,7 @@ function roleNavSections(
       title: 'Settlements',
       items: [
         { title: 'Advances', href: '/settlements/advances', icon: HandCoins },
-        { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedExpenses },
+        { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedAdvances },
         { title: 'Arrears', href: '/settlements/arrears', icon: Coins },
         { title: 'Transaction Log', href: '/settlements/log', icon: History },
         ...(opts.ledger === false ? [] : [{ title: 'Ledger', href: '/ledger', icon: FileText }]),
@@ -274,7 +274,7 @@ function roleNavSections(
         title: 'Settlements',
         items: [
           { title: 'Advances', href: '/settlements/advances', icon: HandCoins },
-          { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedExpenses },
+          { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedAdvances },
           { title: 'Transaction Log', href: '/settlements/log', icon: History },
           { title: 'Ledger', href: '/ledger', icon: FileText },
         ],

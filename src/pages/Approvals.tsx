@@ -47,33 +47,29 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Search, Check, X, Eye, Loader2, Wallet, Receipt, KeyRound } from 'lucide-react';
+import { ClipboardList, Search, Check, X, Eye, Loader2, Wallet, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/lib/toast';
-import type { PaymentRequest, Expense, ExpenseCategory, RequestStatus, LoginResetRequest } from '@/types/database';
-import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
+import type { PaymentRequest, RequestStatus, LoginResetRequest } from '@/types/database';
 import { approveAdvanceRequest, rejectAdvanceRequest } from '@/lib/advance-approvals';
 import { approveLoginResetRequest, rejectLoginResetRequest } from '@/lib/login-reset';
-import { ApproveExpenseDialog } from '@/components/expenses/ApproveExpenseDialog';
-import { RejectExpenseDialog } from '@/components/expenses/RejectExpenseDialog';
 import { RaiseLoginResetDialog } from '@/components/approvals/RaiseLoginResetDialog';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
 import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 
-// A single row in the unified approvals queue — either an advance request or an
-// expense claim, normalized to a common shape (the raw record is kept for the
-// reused mutations + ledger preview).
+// A single row in the unified approvals queue — an advance request or a
+// login-reset request, normalized to a common shape (the raw record is kept for
+// the reused mutations + ledger preview).
 interface ApprovalItem {
-  kind: 'advance' | 'expense' | 'login_reset';
+  kind: 'advance' | 'login_reset';
   id: string;
   requestedBy: string;
   staffUserId: string | null;
   details: string;
-  category?: ExpenseCategory;
   date: string;
   amount: number;
   status: string;
-  raw: PaymentRequest | Expense | LoginResetRequest;
+  raw: PaymentRequest | LoginResetRequest;
 }
 
 type StatusBucket = 'pending' | 'approved' | 'rejected';
@@ -105,21 +101,15 @@ function statusVariant(status: string): 'warning' | 'info' | 'destructive' | 'su
  */
 function LedgerImpactPreview({ item }: { item: ApprovalItem }) {
   const amt = `₹${item.amount.toLocaleString('en-IN')}`;
-  const rows =
-    item.kind === 'expense'
-      ? [
-          { label: `${item.category ? EXPENSE_CATEGORY_LABELS[item.category] : 'Expense'} (expense head)`, dr: amt, cr: '' },
-          { label: `Staff Payable — ${item.requestedBy}`, dr: '', cr: amt },
-        ]
-      : [
-          { label: `Staff Advances — ${item.requestedBy}`, dr: amt, cr: '' },
-          { label: 'Cash / Bank', dr: '', cr: amt },
-        ];
+  const rows = [
+    { label: `Staff Advances — ${item.requestedBy}`, dr: amt, cr: '' },
+    { label: 'Cash / Bank', dr: '', cr: amt },
+  ];
 
   return (
     <div className="rounded-lg border bg-muted/30 p-3">
       <p className="mb-2 text-xs font-semibold text-muted-foreground">
-        Ledger impact {item.kind === 'expense' ? '(posted on approval)' : '(posted when paid out)'}
+        Ledger impact (posted when paid out)
       </p>
       <table className="w-full text-sm">
         <thead>
@@ -157,7 +147,6 @@ export default function Approvals() {
     isAccountant,
     accountingMode,
     canApproveRequests,
-    canApproveExpenses,
   } = useAuth();
 
   // Who can open this screen — mirrors the sidebar visibility for "Approvals".
@@ -167,21 +156,19 @@ export default function Approvals() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'advance' | 'expense' | 'login_reset'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'advance' | 'login_reset'>('all');
   const [search, setSearch] = useState('');
 
   // Per-row processing (advance inline approve/reject).
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // Advance dialogs (built here); expense dialogs are reused from the Expenses module.
+  // Advance dialogs (built here).
   const [advanceApprove, setAdvanceApprove] = useState<ApprovalItem | null>(null);
   const [advanceReject, setAdvanceReject] = useState<ApprovalItem | null>(null);
   // Separate reason state per reject flow — a single shared field would let a
   // reason typed for one request type bleed into another. (P3-M6)
   const [advanceRejectReason, setAdvanceRejectReason] = useState('');
   const [loginResetRejectReason, setLoginResetRejectReason] = useState('');
-  const [expenseApprove, setExpenseApprove] = useState<Expense | null>(null);
-  const [expenseReject, setExpenseReject] = useState<Expense | null>(null);
   const [loginResetApprove, setLoginResetApprove] = useState<ApprovalItem | null>(null);
   const [loginResetReject, setLoginResetReject] = useState<ApprovalItem | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
@@ -195,7 +182,7 @@ export default function Approvals() {
     setIsLoading(true);
     setHasError(false);
     try {
-      const [advancesRes, expensesRes, loginResetsRes] = await Promise.all([
+      const [advancesRes, loginResetsRes] = await Promise.all([
         supabase
           .from('payment_requests')
           .select(`
@@ -208,18 +195,12 @@ export default function Approvals() {
           `)
           .order('created_at', { ascending: false }),
         supabase
-          .from('expenses')
-          .select('*, staff:staff_public(*)')
-          .neq('status', 'draft')
-          .order('created_at', { ascending: false }),
-        supabase
           .from('login_reset_requests')
           .select('*, staff:staff_id ( id, user_id, full_name, employee_id )')
           .order('created_at', { ascending: false }),
       ]);
 
       if (advancesRes.error) throw advancesRes.error;
-      if (expensesRes.error) throw expensesRes.error;
       if (loginResetsRes.error) throw loginResetsRes.error;
 
       const advances: ApprovalItem[] = ((advancesRes.data || []) as unknown as PaymentRequest[]).map((r) => ({
@@ -232,19 +213,6 @@ export default function Approvals() {
         amount: Number(r.amount),
         status: r.status,
         raw: r,
-      }));
-
-      const expenses: ApprovalItem[] = ((expensesRes.data || []) as unknown as Expense[]).map((e) => ({
-        kind: 'expense',
-        id: e.id,
-        requestedBy: e.staff?.full_name || 'Staff',
-        staffUserId: e.staff?.user_id ?? null,
-        details: e.description,
-        category: e.category,
-        date: e.expense_date || e.created_at,
-        amount: Number(e.amount),
-        status: e.status,
-        raw: e,
       }));
 
       const loginResets: ApprovalItem[] = ((loginResetsRes.data || []) as unknown as LoginResetRequest[]).map((r) => ({
@@ -260,7 +228,7 @@ export default function Approvals() {
       }));
 
       // Most-recent first across all types.
-      const merged = [...advances, ...expenses, ...loginResets].sort(
+      const merged = [...advances, ...loginResets].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
       setItems(merged);
@@ -295,9 +263,7 @@ export default function Approvals() {
     item.status === 'pending' &&
     (item.kind === 'advance'
       ? canApproveRequests
-      : item.kind === 'expense'
-        ? canApproveExpenses
-        : isOwner); // login resets are owner-only (the reset edge function is owner-only)
+      : isOwner); // login resets are owner-only (the reset edge function is owner-only)
 
   const afterMutation = () => {
     refetchNotificationCounts();
@@ -369,16 +335,14 @@ export default function Approvals() {
   };
 
   // Approve/Reject dispatch by type — advances and login resets use shared libs
-  // (inline confirm/reason dialogs); expenses reuse the existing expense dialogs.
+  // (inline confirm/reason dialogs).
   const onApprove = (item: ApprovalItem) => {
     if (item.kind === 'advance') setAdvanceApprove(item);
-    else if (item.kind === 'login_reset') setLoginResetApprove(item);
-    else setExpenseApprove(item.raw as Expense);
+    else setLoginResetApprove(item);
   };
   const onReject = (item: ApprovalItem) => {
     if (item.kind === 'advance') setAdvanceReject(item);
-    else if (item.kind === 'login_reset') setLoginResetReject(item);
-    else setExpenseReject(item.raw as Expense);
+    else setLoginResetReject(item);
   };
 
   if (!canView) {
@@ -427,12 +391,10 @@ export default function Approvals() {
     <span className="inline-flex items-center gap-1.5 text-xs font-medium">
       {item.kind === 'advance' ? (
         <Wallet className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-      ) : item.kind === 'login_reset' ? (
-        <KeyRound className="h-3.5 w-3.5 text-sky-500 shrink-0" />
       ) : (
-        <Receipt className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+        <KeyRound className="h-3.5 w-3.5 text-sky-500 shrink-0" />
       )}
-      {item.kind === 'advance' ? 'Advance' : item.kind === 'login_reset' ? 'Login Reset' : 'Expense'}
+      {item.kind === 'advance' ? 'Advance' : 'Login Reset'}
     </span>
   );
 
@@ -444,12 +406,7 @@ export default function Approvals() {
       header: 'Details',
       cellClassName: 'max-w-[280px]',
       cell: (i) => (
-        <>
-          <span className="block truncate" title={i.details}>{i.details || '—'}</span>
-          {i.kind === 'expense' && i.category && (
-            <span className="text-[11px] text-muted-foreground">{EXPENSE_CATEGORY_LABELS[i.category]}</span>
-          )}
-        </>
+        <span className="block truncate" title={i.details}>{i.details || '—'}</span>
       ),
     },
     {
@@ -478,7 +435,7 @@ export default function Approvals() {
     <div className="space-y-4 sm:space-y-6 pb-6">
       <PageHeader
         title="Approvals"
-        description="Review and clear advance, expense and login-reset requests from one place."
+        description="Review and clear advance and login-reset requests from one place."
       >
         {pendingCount > 0 && (
           <span className="rounded-full bg-destructive/15 px-3 py-1 text-sm font-semibold text-destructive">
@@ -511,7 +468,6 @@ export default function Approvals() {
             <SelectContent className="bg-popover">
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="advance">Advances</SelectItem>
-              <SelectItem value="expense">Expenses</SelectItem>
               <SelectItem value="login_reset">Login Resets</SelectItem>
             </SelectContent>
           </Select>
@@ -583,12 +539,6 @@ export default function Approvals() {
                     <p className="text-xs text-muted-foreground">Date</p>
                     <p>{format(new Date(drawerItem.date), 'dd MMM yyyy')}</p>
                   </div>
-                  {drawerItem.kind === 'expense' && drawerItem.category && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Category</p>
-                      <p>{EXPENSE_CATEGORY_LABELS[drawerItem.category]}</p>
-                    </div>
-                  )}
                 </div>
 
                 <div>
@@ -686,24 +636,6 @@ export default function Approvals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Expense dialogs — reused from the Expenses module (same business logic) */}
-      {expenseApprove && (
-        <ApproveExpenseDialog
-          expense={expenseApprove}
-          open={!!expenseApprove}
-          onOpenChange={(o) => { if (!o) setExpenseApprove(null); }}
-          onSuccess={() => { setExpenseApprove(null); setDrawerItem(null); afterMutation(); }}
-        />
-      )}
-      {expenseReject && (
-        <RejectExpenseDialog
-          expense={expenseReject}
-          open={!!expenseReject}
-          onOpenChange={(o) => { if (!o) setExpenseReject(null); }}
-          onSuccess={() => { setExpenseReject(null); setDrawerItem(null); afterMutation(); }}
-        />
-      )}
 
       {/* Login reset — approve confirmation (performs the actual credential reset) */}
       <AlertDialog open={!!loginResetApprove} onOpenChange={(o) => !o && processingId === null && setLoginResetApprove(null)}>

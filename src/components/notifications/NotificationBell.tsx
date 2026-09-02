@@ -110,9 +110,6 @@ export function NotificationBell() {
     // Navigate based on reference type
     if (notification.reference_type && notification.reference_id) {
       switch (notification.reference_type) {
-        case 'expense':
-          navigate('/expenses');
-          break;
         case 'payment_request':
           navigate('/requests');
           break;

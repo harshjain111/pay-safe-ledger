@@ -11,7 +11,6 @@ import {
   ClipboardList,
   CreditCard,
   UserPlus,
-  Receipt,
   Banknote,
   TrendingUp,
   FileText,
@@ -23,16 +22,16 @@ export function AdminDashboard() {
   const { stats, isLoading } = useDashboardStats();
   const currentMonth = format(new Date(), 'MMMM yyyy');
 
-  const totalPendingApprovals = stats.pendingExpenses + stats.pendingRequests;
-  const totalPendingApprovalsAmount = stats.totalPendingExpensesAmount + stats.totalPendingRequestsAmount;
-  
-  const totalPendingPayouts = stats.approvedExpenses + stats.approvedRequests;
-  const totalPendingPayoutsAmount = stats.totalApprovedExpensesAmount + stats.totalApprovedRequestsAmount;
+  const totalPendingApprovals = stats.pendingRequests;
+  const totalPendingApprovalsAmount = stats.totalPendingRequestsAmount;
+
+  const totalPendingPayouts = stats.approvedRequests;
+  const totalPendingPayoutsAmount = stats.totalApprovedRequestsAmount;
 
   const quickActions: QuickAction[] = [
     {
       label: 'Approve / Reject Requests',
-      description: 'Review pending expense & advance requests',
+      description: 'Review pending advance requests',
       icon: ClipboardList,
       href: '/requests?status=pending',
       variant: 'primary',
@@ -44,13 +43,6 @@ export function AdminDashboard() {
       description: 'Create advance request for any staff',
       icon: Banknote,
       href: '/requests/new',
-      variant: 'accent',
-    },
-    {
-      label: 'Request Expense',
-      description: 'Submit expense for any staff member',
-      icon: Receipt,
-      href: '/expenses/new',
       variant: 'accent',
     },
     {
@@ -69,7 +61,7 @@ export function AdminDashboard() {
     },
     {
       label: 'Execute Payouts',
-      description: 'Pay approved advances & expenses',
+      description: 'Pay approved advances',
       icon: CreditCard,
       href: '/payouts',
       variant: 'accent',
@@ -134,15 +126,6 @@ export function AdminDashboard() {
         <h2 className="text-base sm:text-lg font-semibold text-foreground">Action Required</h2>
         <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           <ActionTile
-            title="Expense Requests Pending"
-            count={stats.pendingExpenses}
-            amount={stats.totalPendingExpensesAmount}
-            subtitle="Expense claims awaiting approval"
-            icon={Receipt}
-            href="/expenses?status=pending"
-            variant="warning"
-          />
-          <ActionTile
             title="Advance Requests Pending"
             count={stats.pendingRequests}
             amount={stats.totalPendingRequestsAmount}
@@ -196,15 +179,6 @@ export function AdminDashboard() {
           title="Navigation"
           description="Quick access to modules"
           actions={[
-            {
-              label: 'Review Expenses',
-              description: 'All expense claims',
-              icon: Receipt,
-              href: '/expenses',
-              variant: 'accent',
-              badge: stats.pendingExpenses || undefined,
-              badgeVariant: 'destructive',
-            },
             {
               label: 'View Ledger',
               description: 'All financial transactions',

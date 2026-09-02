@@ -858,9 +858,9 @@ export default function StaffForm() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {role === 'staff' && 'Can view own data, submit expenses and payment requests'}
-                  {role === 'accountant' && 'Can record payments, reimburse expenses, export reports (no salary visibility)'}
-                  {role === 'admin' && 'Can approve expenses and requests, record payments (no salary visibility)'}
+                  {role === 'staff' && 'Can view own data and submit payment requests'}
+                  {role === 'accountant' && 'Can record payments and export reports (no salary visibility)'}
+                  {role === 'admin' && 'Can approve requests and record payments (no salary visibility)'}
                 </p>
                 {/* Show warning for non-owners */}
                 {!isOwner && (

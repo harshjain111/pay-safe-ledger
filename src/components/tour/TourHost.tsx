@@ -16,7 +16,7 @@ const STEPS: TourStep[] = [
   {
     target: 'quick-actions',
     title: 'Raise requests',
-    body: 'Need a salary advance, want to claim an expense, or apply for leave? These buttons do it.',
+    body: 'Need a salary advance or want to apply for leave? These buttons do it.',
   },
   {
     target: 'notifications',

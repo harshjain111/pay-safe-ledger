@@ -18,7 +18,6 @@ import {
   Plus,
   ChevronRight,
   CheckCircle,
-  Receipt,
   Banknote,
   Users,
   UserPlus,
@@ -55,8 +54,8 @@ export function AccountantDashboard() {
     }
   };
 
-  const totalPendingPayouts = stats.approvedExpenses + stats.approvedRequests;
-  const totalPendingPayoutsAmount = stats.totalApprovedExpensesAmount + stats.totalApprovedRequestsAmount;
+  const totalPendingPayouts = stats.approvedRequests;
+  const totalPendingPayoutsAmount = stats.totalApprovedRequestsAmount;
 
   const quickActions: QuickAction[] = [
     {
@@ -73,13 +72,6 @@ export function AccountantDashboard() {
       description: 'Create advance request for any staff',
       icon: Banknote,
       href: '/requests/new',
-      variant: 'accent',
-    },
-    {
-      label: 'Request Expense',
-      description: 'Submit expense for any staff member',
-      icon: Receipt,
-      href: '/expenses/new',
       variant: 'accent',
     },
     {
@@ -102,7 +94,7 @@ export function AccountantDashboard() {
     <div className="space-y-6 md:space-y-8">
       <PageHeader
         title="Accounting Dashboard"
-        description="Execute payouts for approved requests and expenses"
+        description="Execute payouts for approved requests"
       >
         <div className="flex flex-wrap gap-2">
           <Link to="/staff/new">
@@ -165,15 +157,6 @@ export function AccountantDashboard() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Payments to Process</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <ActionTile
-            title="Approved Expenses to Reimburse"
-            count={stats.approvedExpenses}
-            amount={stats.totalApprovedExpensesAmount}
-            subtitle="Expense reimbursements pending"
-            icon={Receipt}
-            href="/payouts?type=expense"
-            variant="warning"
-          />
           <ActionTile
             title="Approved Advances to Pay"
             count={stats.approvedRequests}

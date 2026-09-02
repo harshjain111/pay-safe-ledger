@@ -103,7 +103,7 @@ export function CreateEventDialog({ open, onOpenChange, onSuccess }: CreateEvent
          <DialogHeader>
            <DialogTitle className="text-base sm:text-lg">Create Event</DialogTitle>
            <DialogDescription className="text-xs sm:text-sm">
-             Create an event or party that expenses can be linked to
+             Create an event or party that records can be linked to
            </DialogDescription>
          </DialogHeader>
  

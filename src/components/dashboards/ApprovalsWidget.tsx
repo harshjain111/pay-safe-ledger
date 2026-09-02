@@ -13,29 +13,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  ClipboardList, 
-  ChevronRight, 
-  Receipt, 
+import {
+  ClipboardList,
+  ChevronRight,
   Banknote,
-  Clock,
   CheckCircle,
   AlertCircle,
   ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { EXPENSE_CATEGORY_LABELS, type ExpenseCategory } from '@/types/database';
 
 interface PendingApproval {
   id: string;
-  type: 'expense' | 'request';
+  type: 'request';
   staffName: string;
   staffId: string;
   amount: number;
   description: string;
-  category?: string;
   date: string;
 }
 
@@ -49,11 +44,9 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [pendingItems, setPendingItems] = useState<PendingApproval[]>([]);
   const [counts, setCounts] = useState({
-    expenses: 0,
     requests: 0,
   });
   const [totals, setTotals] = useState({
-    expenses: 0,
     requests: 0,
   });
 
@@ -65,28 +58,6 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
     try {
       setIsLoading(true);
       const items: PendingApproval[] = [];
-
-      // Fetch pending expenses
-      const { data: expenses, error: expError } = await supabase
-        .from('expenses')
-        .select('id, amount, description, category, created_at, staff:staff_id(full_name)')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
-
-      if (expError) throw expError;
-
-      expenses?.forEach((exp: any) => {
-        items.push({
-          id: exp.id,
-          type: 'expense',
-          staffName: exp.staff?.full_name || 'Unknown',
-          staffId: exp.staff_id,
-          amount: exp.amount,
-          description: exp.description,
-          category: EXPENSE_CATEGORY_LABELS[exp.category as ExpenseCategory],
-          date: exp.created_at,
-        });
-      });
 
       // Fetch pending requests
       const { data: requests, error: reqError } = await supabase
@@ -111,11 +82,9 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
 
       setPendingItems(items);
       setCounts({
-        expenses: expenses?.length || 0,
         requests: requests?.length || 0,
       });
       setTotals({
-        expenses: expenses?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
         requests: requests?.reduce((sum, r) => sum + toAmount(r.amount), 0) || 0,
       });
     } catch (error) {
@@ -125,8 +94,8 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
     }
   };
 
-  const totalCount = counts.expenses + counts.requests;
-  const totalAmount = totals.expenses + totals.requests;
+  const totalCount = counts.requests;
+  const totalAmount = totals.requests;
 
   const handleWidgetClick = () => {
     if (totalCount === 0) {
@@ -139,7 +108,7 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
   if (variant === 'compact') {
     return (
       <>
-        <Card 
+        <Card
           className="rounded-2xl shadow-card border-0 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={handleWidgetClick}
         >
@@ -164,12 +133,6 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
               {totalCount > 0 ? (
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex gap-1">
-                    {counts.expenses > 0 && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Receipt className="h-3 w-3" />
-                        {counts.expenses}
-                      </Badge>
-                    )}
                     {counts.requests > 0 && (
                       <Badge variant="outline" className="text-xs gap-1">
                         <Banknote className="h-3 w-3" />
@@ -202,33 +165,11 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs defaultValue="all" className="mt-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="all">All ({totalCount})</TabsTrigger>
-                <TabsTrigger value="expenses">Expenses ({counts.expenses})</TabsTrigger>
-                <TabsTrigger value="requests">Requests ({counts.requests})</TabsTrigger>
-              </TabsList>
+            <ScrollArea className="h-[400px] mt-4">
+              <ApprovalItemsList items={pendingItems} />
+            </ScrollArea>
 
-              <ScrollArea className="h-[400px] mt-4">
-                <TabsContent value="all" className="mt-0">
-                  <ApprovalItemsList items={pendingItems} />
-                </TabsContent>
-                <TabsContent value="expenses" className="mt-0">
-                  <ApprovalItemsList items={pendingItems.filter(i => i.type === 'expense')} />
-                </TabsContent>
-                <TabsContent value="requests" className="mt-0">
-                  <ApprovalItemsList items={pendingItems.filter(i => i.type === 'request')} />
-                </TabsContent>
-              </ScrollArea>
-            </Tabs>
-
-            <div className="flex justify-between mt-4">
-              <Link to="/expenses">
-                <Button variant="outline" className="gap-2">
-                  <Receipt className="h-4 w-4" />
-                  Review Expenses
-                </Button>
-              </Link>
+            <div className="flex justify-end mt-4">
               <Link to="/requests">
                 <Button className="gap-2">
                   <Banknote className="h-4 w-4" />
@@ -284,7 +225,6 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
         ) : (
           <div className="space-y-3">
             {pendingItems.slice(0, 4).map((item) => {
-              const TypeIcon = item.type === 'expense' ? Receipt : Banknote;
               return (
                 <div
                   key={`${item.type}-${item.id}`}
@@ -292,7 +232,7 @@ export function ApprovalsWidget({ variant = 'compact' }: ApprovalsWidgetProps) {
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center shrink-0">
-                      <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                      <Banknote className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate">{item.staffName}</p>
@@ -336,7 +276,6 @@ function ApprovalItemsList({ items }: { items: PendingApproval[] }) {
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const TypeIcon = item.type === 'expense' ? Receipt : Banknote;
         return (
           <div
             key={`${item.type}-${item.id}`}
@@ -344,18 +283,13 @@ function ApprovalItemsList({ items }: { items: PendingApproval[] }) {
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-                <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                <Banknote className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
                 <p className="font-medium text-sm">{item.staffName}</p>
                 <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                   {item.description}
                 </p>
-                {item.category && (
-                  <Badge variant="outline" className="text-[10px] mt-1">
-                    {item.category}
-                  </Badge>
-                )}
               </div>
             </div>
             <div className="text-right">

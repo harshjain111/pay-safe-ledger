@@ -77,9 +77,12 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
     expect(ROLE_PERMISSIONS.hr).not.toContain('settlements.run');
     expect(ROLE_PERMISSIONS.hr).not.toContain('payouts.execute');
   });
-  it('only hr (and owner via ALL) holds the sheet-lock and payslip permissions by default', () => {
+  it('sheet-lock stays HR-only; payslips.download is HR + Admin (client decision, Phase 5)', () => {
     for (const role of ['admin', 'accountant', 'staff', 'ca'] as const) {
       expect(ROLE_PERMISSIONS[role]).not.toContain('settlements.lock');
+    }
+    expect(ROLE_PERMISSIONS.admin).toContain('payslips.download');
+    for (const role of ['accountant', 'staff', 'ca'] as const) {
       expect(ROLE_PERMISSIONS[role]).not.toContain('payslips.download');
     }
   });

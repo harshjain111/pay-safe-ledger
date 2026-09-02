@@ -28,11 +28,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import type { PaymentRequest, Expense } from '@/types/database';
 
 type RecentItem = {
   id: string;
-  type: 'advance' | 'expense';
+  type: 'advance';
   amount: number;
   status: string;
   created_at: string;
@@ -67,33 +66,17 @@ export function StaffDashboard() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Fetch recent expenses
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('id, amount, status, created_at, description')
-        .eq('staff_id', staffData.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
       // Combine and sort
-      const combined: RecentItem[] = [
-        ...(requests || []).map((r) => ({
+      const combined: RecentItem[] = (requests || [])
+        .map((r) => ({
           id: r.id,
           type: 'advance' as const,
           amount: r.amount,
           status: r.paid_at ? 'paid' : r.status,
           created_at: r.created_at,
           description: r.reason,
-        })),
-        ...(expenses || []).map((e) => ({
-          id: e.id,
-          type: 'expense' as const,
-          amount: e.amount,
-          status: e.status,
-          created_at: e.created_at,
-          description: e.description,
-        })),
-      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        }))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 6);
 
       setRecentItems(combined);
@@ -306,16 +289,6 @@ export function StaffDashboard() {
           </Button>
 
           <Button
-            onClick={() => navigate('/expenses/new')}
-            variant="secondary"
-            className="w-full h-16 text-lg font-semibold shadow-lg"
-            size="lg"
-          >
-            <Receipt className="mr-3 h-6 w-6" />
-            {t('request_expense')}
-          </Button>
-
-          <Button
             onClick={() => setShowLeaveForm(true)}
             variant="secondary"
             className="w-full h-16 text-lg font-semibold shadow-lg"
@@ -344,14 +317,8 @@ export function StaffDashboard() {
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          item.type === 'advance' ? 'bg-primary/10' : 'bg-secondary'
-                        }`}>
-                          {item.type === 'advance' ? (
-                            <Wallet className="h-5 w-5 text-primary" />
-                          ) : (
-                            <Receipt className="h-5 w-5 text-secondary-foreground" />
-                          )}
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center bg-primary/10">
+                          <Wallet className="h-5 w-5 text-primary" />
                         </div>
                         <div>
                           <p className="font-semibold">

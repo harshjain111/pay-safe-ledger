@@ -18,7 +18,7 @@ export interface FieldDef {
   type: FieldType;
 }
 
-export type SourceKey = 'attendance' | 'salary' | 'expenses' | 'ledger';
+export type SourceKey = 'attendance' | 'salary' | 'ledger';
 
 export interface SourceDef {
   key: SourceKey;
@@ -76,25 +76,6 @@ export const REPORT_SOURCES: SourceDef[] = [
       { key: 'advances_adjusted', label: 'Advance adj.', type: 'money' },
       { key: 'arrears', label: 'Arrears', type: 'money' },
       { key: 'status', label: 'Status', type: 'text' },
-    ],
-  },
-  {
-    key: 'expenses',
-    label: 'Expenses',
-    permission: 'expenses.view',
-    dateField: 'expense_date',
-    dateGranularity: 'day',
-    dims: { staff: true, department: true, branch: true },
-    fields: [
-      { key: 'expense_date', label: 'Date', type: 'date' },
-      { key: 'staff_name', label: 'Staff', type: 'text' },
-      { key: 'employee_id', label: 'Emp ID', type: 'text' },
-      { key: 'department', label: 'Department', type: 'text' },
-      { key: 'branch', label: 'Branch', type: 'text' },
-      { key: 'category', label: 'Category', type: 'text' },
-      { key: 'amount', label: 'Amount', type: 'money' },
-      { key: 'status', label: 'Status', type: 'text' },
-      { key: 'description', label: 'Description', type: 'text' },
     ],
   },
   {

@@ -8,17 +8,13 @@ export interface DashboardStats {
   // Counts
   activeStaff: number;
   staffMissingSalary: number;
-  pendingExpenses: number;
   pendingRequests: number;
-  approvedExpenses: number;
   approvedRequests: number;
   pendingSalarySettlements: number;
   completedPaymentsToday: number;
-  
+
   // Amounts
-  totalPendingExpensesAmount: number;
   totalPendingRequestsAmount: number;
-  totalApprovedExpensesAmount: number;
   totalApprovedRequestsAmount: number;
   totalPendingSalaryAmount: number;
   advancesOutstanding: number;
@@ -28,15 +24,11 @@ export interface DashboardStats {
 const EMPTY_STATS: DashboardStats = {
   activeStaff: 0,
   staffMissingSalary: 0,
-  pendingExpenses: 0,
   pendingRequests: 0,
-  approvedExpenses: 0,
   approvedRequests: 0,
   pendingSalarySettlements: 0,
   completedPaymentsToday: 0,
-  totalPendingExpensesAmount: 0,
   totalPendingRequestsAmount: 0,
-  totalApprovedExpensesAmount: 0,
   totalApprovedRequestsAmount: 0,
   totalPendingSalaryAmount: 0,
   advancesOutstanding: 0,
@@ -51,9 +43,7 @@ async function fetchDashboardStats(withSalary: boolean): Promise<DashboardStats>
   const [
     staffResult,
     missingSalaryResult,
-    pendingExpensesResult,
     pendingRequestsResult,
-    approvedExpensesResult,
     approvedRequestsResult,
     pendingSalariesResult,
     trialBalanceResult,
@@ -71,9 +61,7 @@ async function fetchDashboardStats(withSalary: boolean): Promise<DashboardStats>
       .eq('is_active', true)
       .or('monthly_salary.is.null,monthly_salary.eq.0'),
 
-    supabase.from('expenses').select('id, amount').eq('status', 'pending'),
     supabase.from('payment_requests').select('id, amount').eq('status', 'pending'),
-    supabase.from('expenses').select('id, amount').eq('status', 'approved'),
     supabase
       .from('payment_requests')
       .select('id, amount')
@@ -110,9 +98,7 @@ async function fetchDashboardStats(withSalary: boolean): Promise<DashboardStats>
 
   const staffMissingSalary = missingSalaryResult.count ?? 0;
 
-  const pendingExpenses = pendingExpensesResult.data || [];
   const pendingRequests = pendingRequestsResult.data || [];
-  const approvedExpenses = approvedExpensesResult.data || [];
   const approvedRequests = approvedRequestsResult.data || [];
   const pendingSalaries = pendingSalariesResult.data || [];
 
@@ -125,15 +111,11 @@ async function fetchDashboardStats(withSalary: boolean): Promise<DashboardStats>
   return {
     activeStaff: activeStaffCount,
     staffMissingSalary,
-    pendingExpenses: pendingExpenses.length,
     pendingRequests: pendingRequests.length,
-    approvedExpenses: approvedExpenses.length,
     approvedRequests: approvedRequests.length,
     pendingSalarySettlements: pendingSalaries.length,
     completedPaymentsToday: completedTodayResult.count ?? 0,
-    totalPendingExpensesAmount: pendingExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
     totalPendingRequestsAmount: pendingRequests.reduce((sum, r) => sum + Number(r.amount), 0),
-    totalApprovedExpensesAmount: approvedExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
     totalApprovedRequestsAmount: approvedRequests.reduce((sum, r) => sum + Number(r.amount), 0),
     totalPendingSalaryAmount: pendingSalaries.reduce((sum, s) => sum + Number(s.balance_payable || 0), 0),
     advancesOutstanding,

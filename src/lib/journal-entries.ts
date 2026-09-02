@@ -87,27 +87,6 @@ interface SalaryPayoutParams {
    paidByUserName?: string;
 }
 
-interface ExpenseApprovalParams {
-  staffId: string;
-  staffName: string;
-  expenseId: string;
-  amount: number;
-  category: ExpenseCategory;
-  description: string;
-  createdBy: string;
-}
-
-interface ExpensePayoutParams {
-  staffId: string;
-  staffName: string;
-  expenseId: string;
-  amount: number;
-  paymentMode: PaymentMode;
-  createdBy: string;
-   paidByUserId?: string;
-   paidByUserName?: string;
-}
-
 interface AdvancePaidParams {
   staffId: string;
   staffName: string;
@@ -143,16 +122,6 @@ const ACCOUNT_CODES = {
   OFFICE_SUPPLIES_EXPENSE: '5500',
   COMMUNICATION_EXPENSE: '5600',
   OTHER_EXPENSE: '5700',
-};
-
-const EXPENSE_CATEGORY_TO_ACCOUNT: Record<ExpenseCategory, string> = {
-  travel: ACCOUNT_CODES.TRAVEL_EXPENSE,
-  food: ACCOUNT_CODES.FOOD_EXPENSE,
-  logistics: ACCOUNT_CODES.LOGISTICS_EXPENSE,
-  equipment: ACCOUNT_CODES.EQUIPMENT_EXPENSE,
-  office_supplies: ACCOUNT_CODES.OFFICE_SUPPLIES_EXPENSE,
-  communication: ACCOUNT_CODES.COMMUNICATION_EXPENSE,
-  other: ACCOUNT_CODES.OTHER_EXPENSE,
 };
 
 const PAYMENT_MODE_TO_ACCOUNT: Record<PaymentMode, string> = {
@@ -614,151 +583,6 @@ export async function createSalaryPayoutEntry(params: SalaryPayoutParams): Promi
       transaction_type: 'salary_payout',
       reference_id: paymentRequestId || null,
       reference_type: 'payment_request',
-      staff_id: staffId,
-      is_immutable: true,
-      created_by: createdBy,
-      paid_by: paidByUserId || createdBy,
-      paid_by_user_name: paidByUserName || null,
-    })
-    .select()
-    .single();
-
-  if (journalError || !journalEntry) {
-    throw new Error(`Failed to create journal entry: ${journalError?.message}`);
-  }
-
-  // Create journal lines (account ids resolved above, before the header)
-  const lineInserts = resolvedLines.map((line) => ({
-    journal_entry_id: journalEntry.id,
-    ...line,
-  }));
-
-  const { error: linesError } = await supabase
-    .from('journal_lines')
-    .insert(lineInserts);
-
-  if (linesError) {
-    await supabase.from('journal_entries').delete().eq('id', journalEntry.id);
-    throw new Error(`Failed to create journal lines: ${linesError.message}`);
-  }
-
-  return journalEntry.id;
-}
-
-/**
- * EXPENSE APPROVAL
- * 
- * When an expense is approved (creates payable to staff):
- * 1. Debit: Expense Account (based on category)
- * 2. Credit: Staff Payable (we owe staff this amount)
- */
-export async function createExpenseApprovalEntry(params: ExpenseApprovalParams): Promise<string> {
-  const { 
-    staffId, 
-    staffName, 
-    expenseId, 
-    amount, 
-    category, 
-    description, 
-    createdBy 
-  } = params;
-
-  const expenseAccountCode = EXPENSE_CATEGORY_TO_ACCOUNT[category];
-
-  const lines: JournalLine[] = [
-    {
-      accountCode: expenseAccountCode,
-      debit: amount,
-      credit: 0,
-      description: `${category.replace('_', ' ')} expense - ${description}`,
-    },
-    {
-      accountCode: ACCOUNT_CODES.STAFF_PAYABLE,
-      debit: 0,
-      credit: amount,
-      staffId,
-      description: `Expense reimbursement payable to ${staffName}`,
-    },
-  ];
-
-  return createJournalEntry({
-    transactionType: 'expense_approval',
-    staffId,
-    description: `Expense approved: ${description}`,
-    referenceId: expenseId,
-    referenceType: 'expense',
-    createdBy,
-    lines,
-    isImmutable: false, // Can be modified until paid
-  });
-}
-
-/**
- * EXPENSE PAYOUT
- * 
- * When expense is reimbursed (cash movement):
- * 1. Debit: Staff Payable (clear liability)
- * 2. Credit: Bank/Cash (money goes out)
- */
-export async function createExpensePayoutEntry(params: ExpensePayoutParams): Promise<string> {
-  const { 
-    staffId, 
-    staffName, 
-    expenseId, 
-    amount, 
-    paymentMode, 
-    createdBy,
-    paidByUserId,
-    paidByUserName,
-  } = params;
-
-  const paymentAccountCode = PAYMENT_MODE_TO_ACCOUNT[paymentMode];
-
-  const lines: JournalLine[] = [
-    {
-      accountCode: ACCOUNT_CODES.STAFF_PAYABLE,
-      debit: amount,
-      credit: 0,
-      staffId,
-      description: `Expense reimbursed to ${staffName}`,
-    },
-    {
-      accountCode: paymentAccountCode,
-      debit: 0,
-      credit: amount,
-      description: `Paid via ${paymentMode.replace('_', ' ')}`,
-    },
-  ];
-
-  if (amount <= 0) throw new Error('Expense amount must be greater than zero for payout');
-
-  // Validate balance
-  validateBalance(lines);
-
-  // Resolve account ids up front so a missing/invalid code fails BEFORE the header.
-  const resolvedLines = await Promise.all(
-    lines.map(async (line) => ({
-      account_id: await getAccountId(line.accountCode),
-      staff_id: line.staffId || null,
-      debit: line.debit,
-      credit: line.credit,
-      description: line.description || null,
-    }))
-  );
-
-  // Generate reference number
-  const referenceNo = await generateReferenceNo('expense_payout');
-
-  // Create journal entry header with paid_by fields
-  const { data: journalEntry, error: journalError } = await supabase
-    .from('journal_entries')
-    .insert({
-      entry_date: new Date().toISOString().split('T')[0],
-      reference_no: referenceNo,
-      description: `Expense reimbursed to ${staffName}`,
-      transaction_type: 'expense_payout',
-      reference_id: expenseId || null,
-      reference_type: 'expense',
       staff_id: staffId,
       is_immutable: true,
       created_by: createdBy,

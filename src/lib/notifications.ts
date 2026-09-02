@@ -114,17 +114,6 @@ export const NotificationEvents = {
     );
   },
   
-  expenseSubmitted: async (staffName: string, amount: number, description: string, expenseId: string) => {
-    await sendNotificationsByRole(
-      { owners: true, admins: true },
-      'New Expense Submitted',
-      `${staffName} has submitted an expense of ₹${amount.toLocaleString('en-IN')} for "${description.slice(0, 50)}${description.length > 50 ? '...' : ''}".`,
-      'info',
-      'expense',
-      expenseId
-    );
-  },
-  
   // Approval events
   advanceApproved: async (staffUserId: string, staffName: string, amount: number, requestId: string) => {
     // Notify staff
@@ -160,40 +149,6 @@ export const NotificationEvents = {
     // Telegram to owner
   },
   
-  expenseApproved: async (staffUserId: string, staffName: string, amount: number, expenseId: string) => {
-    // Notify staff
-    await sendNotification(
-      staffUserId,
-      'Expense Approved',
-      `Your expense of ₹${amount.toLocaleString('en-IN')} has been approved and is awaiting reimbursement.`,
-      'success',
-      'expense',
-      expenseId
-    );
-    // Notify accountants for reimbursement
-    await sendNotificationsByRole(
-      { accountants: true },
-      'Expense Ready for Reimbursement',
-      `An expense of ₹${amount.toLocaleString('en-IN')} for ${staffName} has been approved and is ready for reimbursement.`,
-      'info',
-      'expense',
-      expenseId
-    );
-    // Telegram to owner
-  },
-  
-  expenseRejected: async (staffUserId: string, staffName: string, amount: number, reason: string, expenseId: string) => {
-    await sendNotification(
-      staffUserId,
-      'Expense Rejected',
-      `Your expense of ₹${amount.toLocaleString('en-IN')} has been rejected. Reason: ${reason}`,
-      'error',
-      'expense',
-      expenseId
-    );
-    // Telegram to owner
-  },
-  
   // Payment events
   advancePaid: async (staffUserId: string, staffName: string, amount: number, requestId: string) => {
     await sendNotification(
@@ -203,18 +158,6 @@ export const NotificationEvents = {
       'success',
       'payment_request',
       requestId
-    );
-    // Telegram to owner
-  },
-  
-  expenseReimbursed: async (staffUserId: string, staffName: string, amount: number, expenseId: string) => {
-    await sendNotification(
-      staffUserId,
-      'Expense Reimbursed',
-      `Your expense of ₹${amount.toLocaleString('en-IN')} has been reimbursed.`,
-      'success',
-      'expense',
-      expenseId
     );
     // Telegram to owner
   },

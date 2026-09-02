@@ -23,7 +23,6 @@ import {
   Calculator,
   Plus,
   ClipboardList,
-  Receipt,
   CreditCard,
   Banknote,
   TrendingUp,
@@ -75,11 +74,11 @@ export function OwnerDashboard() {
   const bio = useBiometricEnrolment();
   const breaksEnabled = useBreaksEnabled();
 
-  const totalPendingApprovals = stats.pendingExpenses + stats.pendingRequests;
-  const totalPendingApprovalsAmount = stats.totalPendingExpensesAmount + stats.totalPendingRequestsAmount;
+  const totalPendingApprovals = stats.pendingRequests;
+  const totalPendingApprovalsAmount = stats.totalPendingRequestsAmount;
 
-  const totalPendingPayouts = stats.approvedExpenses + stats.approvedRequests + stats.pendingSalarySettlements;
-  const totalPendingPayoutsAmount = stats.totalApprovedExpensesAmount + stats.totalApprovedRequestsAmount + stats.totalPendingSalaryAmount;
+  const totalPendingPayouts = stats.approvedRequests + stats.pendingSalarySettlements;
+  const totalPendingPayoutsAmount = stats.totalApprovedRequestsAmount + stats.totalPendingSalaryAmount;
 
   const allQuickActions: QuickAction[] = [
     {
@@ -93,7 +92,7 @@ export function OwnerDashboard() {
     },
     {
       label: 'Approve Requests',
-      description: 'Review pending expense & advance requests',
+      description: 'Review pending advance requests',
       icon: ClipboardList,
       href: '/approvals',
       variant: 'primary',
@@ -102,7 +101,7 @@ export function OwnerDashboard() {
     },
     {
       label: 'Execute Payouts',
-      description: 'Pay approved requests & expenses',
+      description: 'Pay approved advance requests',
       icon: Wallet,
       href: '/payouts',
       variant: 'accent',
@@ -275,10 +274,9 @@ export function OwnerDashboard() {
       <div className="space-y-2 sm:space-y-3">
         <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-foreground">Action Required</h2>
         <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-          {actionTile({ label: 'Pending Approvals', count: totalPendingApprovals, amount: totalPendingApprovalsAmount, subtitle: `${stats.pendingExpenses} expenses, ${stats.pendingRequests} advances`, icon: ClipboardList, href: '/approvals' })}
+          {actionTile({ label: 'Pending Approvals', count: totalPendingApprovals, amount: totalPendingApprovalsAmount, subtitle: `${stats.pendingRequests} advances`, icon: ClipboardList, href: '/approvals' })}
           {actionTile({ label: 'Salary Settlements Due', count: stats.pendingSalarySettlements, amount: stats.totalPendingSalaryAmount, subtitle: 'Pending salary payments', icon: Calculator, href: '/settlements?status=pending' })}
           {actionTile({ label: 'Payouts Pending', count: totalPendingPayouts, amount: totalPendingPayoutsAmount, subtitle: 'Approved and ready to pay', icon: CreditCard, href: '/payouts?status=approved' })}
-          {actionTile({ label: 'Pending Expenses', count: stats.pendingExpenses, amount: stats.totalPendingExpensesAmount, subtitle: 'Expense claims awaiting approval', icon: Receipt, href: '/expenses?status=pending' })}
           {actionTile({ label: 'Pending Advances', count: stats.pendingRequests, amount: stats.totalPendingRequestsAmount, subtitle: 'Advance requests awaiting approval', icon: Banknote, href: '/approvals' })}
           {actionTile({ label: 'Staff Missing Salary', count: stats.staffMissingSalary, subtitle: 'Staff without salary setup', icon: UserPlus, href: '/staff?salary=missing' })}
         </div>
@@ -297,7 +295,7 @@ export function OwnerDashboard() {
           actions={[
             {
               label: 'View Reports',
-              description: 'Generate payroll & expense reports',
+              description: 'Generate payroll reports',
               icon: TrendingUp,
               href: '/reports',
               variant: 'muted',
@@ -308,15 +306,6 @@ export function OwnerDashboard() {
               icon: FileText,
               href: '/ledger',
               variant: 'muted',
-            },
-            {
-              label: 'Review Expenses',
-              description: 'All expense claims',
-              icon: Receipt,
-              href: '/expenses',
-              variant: 'accent',
-              badge: stats.pendingExpenses || undefined,
-              badgeVariant: 'destructive',
             },
           ]}
         />

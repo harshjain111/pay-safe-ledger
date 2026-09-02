@@ -1,28 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, TrendingDown, TrendingUp, Wallet, Receipt, Clock } from 'lucide-react';
-import type { Staff, Expense } from '@/types/database';
+import { AlertCircle, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import type { Staff } from '@/types/database';
 
 interface StaffFinancials {
   monthlySalary: number;
   advancesOutstanding: number;
   currentBalance: number;
-  pendingExpenses: number;
-  approvedExpensesTotal: number;
 }
 
 interface StaffFinancialSummaryProps {
   staff: Staff | null;
   financials: StaffFinancials | null;
-  approvedExpenses?: Expense[];
   isLoading?: boolean;
 }
 
 export function StaffFinancialSummary({
   staff,
   financials,
-  approvedExpenses = [],
   isLoading = false,
 }: StaffFinancialSummaryProps) {
   if (!staff) {
@@ -118,42 +114,6 @@ export function StaffFinancialSummary({
             />
           </div>
         </div>
-
-        {/* Approved Expenses (if any) */}
-        {approvedExpenses.length > 0 && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-success/5 border border-success/10">
-            <div className="p-2 rounded-lg bg-success/10">
-              <Receipt className="h-4 w-4 text-success" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">
-                Approved Expenses ({approvedExpenses.length})
-              </p>
-              <Amount 
-                value={financials?.approvedExpensesTotal || 0} 
-                size="md" 
-                className="text-success font-semibold"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Pending Expenses */}
-        {(financials?.pendingExpenses || 0) > 0 && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-            <div className="p-2 rounded-lg bg-muted">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Pending Expenses</p>
-              <Amount 
-                value={financials.pendingExpenses} 
-                size="md" 
-                className="text-muted-foreground font-semibold"
-              />
-            </div>
-          </div>
-        )}
 
         {/* Warning */}
         {(financials?.advancesOutstanding || 0) > 0 && (

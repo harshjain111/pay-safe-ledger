@@ -54,7 +54,6 @@ import {
 import { format } from 'date-fns';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ClearTransactionDataCard } from '@/components/settings/ClearTransactionDataCard';
-import { ManageCategoriesCard } from '@/components/settings/ManageCategoriesCard';
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { SelfCheckinCard } from '@/components/settings/SelfCheckinCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
@@ -430,9 +429,8 @@ export default function Settings() {
           )}
 
           {active.id === 'organisation' && (
-            <SettingsPanel title="Organisation" description="Company profile and expense categories.">
+            <SettingsPanel title="Organisation" description="Company profile.">
               <OrganizationProfileCard />
-              <ManageCategoriesCard />
             </SettingsPanel>
           )}
 

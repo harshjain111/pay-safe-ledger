@@ -358,7 +358,6 @@ export async function exportSummaryPDF(
   stats: {
     totalPayroll: number;
     totalAdvances: number;
-    totalExpenses: number;
     totalPayments: number;
     staffCount: number;
   },
@@ -369,7 +368,6 @@ export async function exportSummaryPDF(
     ['Monthly Payroll Liability', `₹${stats.totalPayroll.toLocaleString('en-IN')}`],
     ['Total Settlements Paid', `₹${stats.totalPayments.toLocaleString('en-IN')}`],
     ['Advances Outstanding', `₹${stats.totalAdvances.toLocaleString('en-IN')}`],
-    ['Expenses Reimbursed', `₹${stats.totalExpenses.toLocaleString('en-IN')}`],
   ];
   
   const doc = await exportToPDF({

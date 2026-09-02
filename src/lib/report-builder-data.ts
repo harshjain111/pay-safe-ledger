@@ -87,24 +87,6 @@ export async function fetchReportRows(sourceKey: SourceKey, filters: ReportFilte
         advances_adjusted: r.advances_adjusted ?? 0, arrears: r.arrears ?? 0, status: r.status ?? '',
       } as ReportRow;
     });
-  } else if (sourceKey === 'expenses') {
-    let q = supabase
-      .from('expenses')
-      .select('expense_date, staff_id, category, amount, status, description')
-      .gte('expense_date', filters.from)
-      .lte('expense_date', filters.to)
-      .neq('status', 'draft');
-    if (filters.staffId) q = q.eq('staff_id', filters.staffId);
-    const { data, error } = await q.order('expense_date', { ascending: false });
-    if (error) throw error;
-    rows = (data ?? []).map((r) => {
-      const m = meta(r.staff_id);
-      return {
-        expense_date: r.expense_date,
-        staff_name: m.name, employee_id: m.empId, department: m.dept, branch: m.branch,
-        category: r.category, amount: r.amount, status: r.status, description: r.description,
-      } as ReportRow;
-    });
   } else {
     let q = supabase
       .from('ledger_entries')

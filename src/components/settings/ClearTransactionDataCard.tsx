@@ -82,7 +82,6 @@ export function ClearTransactionDataCard() {
         ledgerEntriesResult,
         salarySettlementsResult,
         paymentRequestsResult,
-        expensesResult,
       ] = await Promise.all([
         supabase
           .from('journal_entries')
@@ -112,12 +111,6 @@ export function ClearTransactionDataCard() {
           .gte('created_at', fromDate)
           .lte('created_at', toDate + 'T23:59:59')
           .order('created_at', { ascending: false }),
-        supabase
-          .from('expenses')
-          .select('*, staff:staff_id(full_name)')
-          .gte('expense_date', fromDate)
-          .lte('expense_date', toDate)
-          .order('expense_date', { ascending: false }),
       ]);
 
       // Format data for Excel
@@ -180,18 +173,6 @@ export function ClearTransactionDataCard() {
         'Paid At': row.paid_at ? format(new Date(row.paid_at), 'dd-MMM-yyyy HH:mm') : '',
       }));
 
-      const formatExpenses = (data: any[]) => data.map(row => ({
-        'Staff Name': row.staff?.full_name || 'N/A',
-        'Expense Date': row.expense_date ? format(new Date(row.expense_date), 'dd-MMM-yyyy') : '',
-        'Category': row.category,
-        'Amount': row.amount || 0,
-        'Description': row.description,
-        'Status': row.status,
-        'Submitted At': row.submitted_at ? format(new Date(row.submitted_at), 'dd-MMM-yyyy HH:mm') : '',
-        'Approved At': row.approved_at ? format(new Date(row.approved_at), 'dd-MMM-yyyy HH:mm') : '',
-        'Reimbursed At': row.reimbursed_at ? format(new Date(row.reimbursed_at), 'dd-MMM-yyyy HH:mm') : '',
-      }));
-
       // Create workbook
       const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
@@ -203,7 +184,6 @@ export function ClearTransactionDataCard() {
         { name: 'Ledger Entries', data: formatLedgerEntries(ledgerEntriesResult.data || []) },
         { name: 'Salary Settlements', data: formatSalarySettlements(salarySettlementsResult.data || []) },
         { name: 'Payment Requests', data: formatPaymentRequests(paymentRequestsResult.data || []) },
-        { name: 'Expenses', data: formatExpenses(expensesResult.data || []) },
       ];
 
       // Add metadata sheet
@@ -217,7 +197,6 @@ export function ClearTransactionDataCard() {
         { Field: 'Ledger Entries Count', Value: ledgerEntriesResult.data?.length || 0 },
         { Field: 'Salary Settlements Count', Value: salarySettlementsResult.data?.length || 0 },
         { Field: 'Payment Requests Count', Value: paymentRequestsResult.data?.length || 0 },
-        { Field: 'Expenses Count', Value: expensesResult.data?.length || 0 },
       ];
 
       const metadataSheet = XLSX.utils.json_to_sheet(metadata);
@@ -467,7 +446,6 @@ export function ClearTransactionDataCard() {
                 <li>Ledger entries</li>
                 <li>Salary settlements</li>
                 <li>Payment requests (advances)</li>
-                <li>Expenses</li>
               </ul>
               <p className="text-xs font-medium text-destructive">
                 Staff records, user accounts, roles, and chart of accounts will NOT be deleted.

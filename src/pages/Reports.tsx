@@ -14,17 +14,16 @@ import { Amount } from '@/components/ui/amount';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   BarChart3, Download, CalendarIcon, FileSpreadsheet, FileText, Users, Wallet,
-  ArrowUpRight, Receipt, FileDown, Scale, Sparkles, ListOrdered, CalendarClock, Wrench,
+  ArrowUpRight, FileDown, Scale, Sparkles, ListOrdered, CalendarClock, Wrench,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { cn, toAmount } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import {
   exportLedgerPDF, exportSalaryRegisterPDF, exportPaymentRegisterPDF,
-  exportExpenseReportPDF, exportAdvanceReportPDF, exportSummaryPDF,
+  exportAdvanceReportPDF, exportSummaryPDF,
 } from '@/lib/pdf-export';
 import { TrialBalance } from '@/components/reports/TrialBalance';
-import { ExpenseExplorer } from '@/components/reports/ExpenseExplorer';
 import { AdvanceExplorer } from '@/components/reports/AdvanceExplorer';
 import { TransactionsExplorer } from '@/components/reports/TransactionsExplorer';
 import { AIInsights } from '@/components/reports/AIInsights';
@@ -32,7 +31,7 @@ import { AttendanceReports } from '@/components/reports/AttendanceReports';
 import { ReportBuilder } from '@/components/reports/ReportBuilder';
 import type { Staff } from '@/types/database';
 
-type ReportType = 'builder' | 'expenses' | 'advances' | 'transactions' | 'ai_insights' | 'attendance' | 'summary' | 'trial_balance' | 'ledger' | 'salary' | 'payment';
+type ReportType = 'builder' | 'advances' | 'transactions' | 'ai_insights' | 'attendance' | 'summary' | 'trial_balance' | 'ledger' | 'salary' | 'payment';
 
 interface DateRange { from: Date; to: Date; }
 
@@ -41,7 +40,7 @@ export default function Reports() {
   const { isOwner, isCA, isAccountant, isAdmin, canViewSalaries } = useAuth();
   const canSeeSalaryReports = canViewSalaries;
 
-  const [activeReport, setActiveReport] = useState<ReportType>('expenses');
+  const [activeReport, setActiveReport] = useState<ReportType>('advances');
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -52,7 +51,7 @@ export default function Reports() {
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [summaryStats, setSummaryStats] = useState({
-    totalPayroll: 0, totalAdvances: 0, totalExpenses: 0, totalPayments: 0, staffCount: 0,
+    totalPayroll: 0, totalAdvances: 0, totalPayments: 0, staffCount: 0,
   });
 
   const fetchStaff = useCallback(async () => {
@@ -64,13 +63,12 @@ export default function Reports() {
     // Salary is owner-only: non-owners never fetch monthly_salary, so payroll
     // figures never reach an accountant/admin/CA browser. They still get the
     // active-staff count (no compensation data) for the Active Staff tile.
-    const [staffData, settlements, advances, expenses] = await Promise.all([
+    const [staffData, settlements, advances] = await Promise.all([
       isOwner
         ? supabase.from('staff').select('id, monthly_salary').eq('is_active', true)
         : supabase.from('staff').select('id').eq('is_active', true),
       supabase.from('salary_settlements').select('balance_payable').eq('settlement_month', selectedMonth).eq('status', 'settled'),
       supabase.from('ledger_entries').select('debit, credit').eq('tag', 'advance').gte('entry_date', `${selectedMonth}-01`).lte('entry_date', `${selectedMonth}-31`),
-      supabase.from('expenses').select('amount').eq('status', 'reimbursed').gte('expense_date', `${selectedMonth}-01`).lte('expense_date', `${selectedMonth}-31`),
     ]);
 
     setSummaryStats({
@@ -78,7 +76,6 @@ export default function Reports() {
         ? (staffData.data as Array<{ monthly_salary?: number }> | null)?.reduce((sum, s) => sum + toAmount(s.monthly_salary), 0) || 0
         : 0,
       totalAdvances: advances.data?.reduce((sum, a) => sum + toAmount(a.debit) - toAmount(a.credit), 0) || 0,
-      totalExpenses: expenses.data?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
       totalPayments: settlements.data?.reduce((sum, s) => sum + toAmount(s.balance_payable), 0) || 0,
       staffCount: staffData.data?.length || 0,
     });
@@ -205,13 +202,10 @@ export default function Reports() {
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className={cn(
             "inline-flex w-max min-w-full sm:w-full sm:grid gap-1",
-            canSeeSalaryReports ? "sm:grid-cols-11" : "sm:grid-cols-10"
+            canSeeSalaryReports ? "sm:grid-cols-10" : "sm:grid-cols-9"
           )}>
             <TabsTrigger value="builder" className="flex items-center gap-1 px-3 whitespace-nowrap">
               <Wrench className="h-4 w-4" /><span className="text-xs sm:text-sm">Builder</span>
-            </TabsTrigger>
-            <TabsTrigger value="expenses" className="flex items-center gap-1 px-3 whitespace-nowrap">
-              <Receipt className="h-4 w-4" /><span className="text-xs sm:text-sm">Expenses</span>
             </TabsTrigger>
             <TabsTrigger value="advances" className="flex items-center gap-1 px-3 whitespace-nowrap">
               <ArrowUpRight className="h-4 w-4" /><span className="text-xs sm:text-sm">Advances</span>
@@ -306,7 +300,6 @@ export default function Reports() {
 
         {/* ===== NEW SMART TABS ===== */}
         <TabsContent value="builder" className="mt-4"><ReportBuilder /></TabsContent>
-        <TabsContent value="expenses" className="mt-4"><ExpenseExplorer /></TabsContent>
         <TabsContent value="advances" className="mt-4"><AdvanceExplorer /></TabsContent>
         <TabsContent value="transactions" className="mt-4"><TransactionsExplorer /></TabsContent>
         <TabsContent value="ai_insights" className="mt-4"><AIInsights /></TabsContent>
@@ -314,13 +307,12 @@ export default function Reports() {
 
         {/* ===== LEGACY TABS (kept for CA/accounting) ===== */}
         <TabsContent value="summary" className="mt-4">
-          <div className={cn("grid gap-3 sm:gap-4 grid-cols-2", canSeeSalaryReports ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+          <div className={cn("grid gap-3 sm:gap-4 grid-cols-2", canSeeSalaryReports ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
             <Card><CardHeader className="pb-2 p-3 sm:p-6"><CardDescription className="text-xs sm:text-sm">Active Staff</CardDescription><CardTitle className="text-xl sm:text-2xl">{summaryStats.staffCount}</CardTitle></CardHeader></Card>
             {canSeeSalaryReports && (
               <Card><CardHeader className="pb-2 p-3 sm:p-6"><CardDescription className="text-xs sm:text-sm">Monthly Payroll</CardDescription><CardTitle className="text-xl sm:text-2xl"><Amount value={summaryStats.totalPayroll} className="text-foreground" /></CardTitle></CardHeader></Card>
             )}
             <Card><CardHeader className="pb-2 p-3 sm:p-6"><CardDescription className="text-xs sm:text-sm">Advances Outstanding</CardDescription><CardTitle className="text-xl sm:text-2xl"><Amount value={summaryStats.totalAdvances} className="text-warning" /></CardTitle></CardHeader></Card>
-            <Card><CardHeader className="pb-2 p-3 sm:p-6"><CardDescription className="text-xs sm:text-sm">Expenses Reimbursed</CardDescription><CardTitle className="text-xl sm:text-2xl"><Amount value={summaryStats.totalExpenses} className="text-foreground" /></CardTitle></CardHeader></Card>
           </div>
         </TabsContent>
 

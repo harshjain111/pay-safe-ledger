@@ -51,7 +51,6 @@ const MODULES = [
   { value: 'all', label: 'All Modules' },
   { value: 'ledger_entries', label: 'Ledger' },
   { value: 'salary_settlements', label: 'Settlements' },
-  { value: 'expenses', label: 'Expenses' },
   { value: 'payment_requests', label: 'Payment Requests' },
 ];
 

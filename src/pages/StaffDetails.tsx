@@ -125,7 +125,7 @@ export default function StaffDetails() {
 
       if (error) {
         if (error.message.includes('foreign key constraint')) {
-          throw new Error('Cannot delete staff with financial records (ledger entries, expenses, settlements). Please deactivate instead.');
+          throw new Error('Cannot delete staff with financial records (ledger entries, settlements). Please deactivate instead.');
         }
         throw error;
       }

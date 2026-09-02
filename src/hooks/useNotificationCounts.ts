@@ -4,8 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface NotificationCounts {
   pendingRequests: number;
-  pendingExpenses: number;
-  approvedExpenses: number;
+  approvedAdvances: number;
   unreadNotifications: number;
 }
 
@@ -22,8 +21,7 @@ export function useNotificationCounts() {
   const { user, userRole, isOwner, isAdmin, isAccountant, staffData } = useAuth();
   const [counts, setCounts] = useState<NotificationCounts>({
     pendingRequests: 0,
-    pendingExpenses: 0,
-    approvedExpenses: 0,
+    approvedAdvances: 0,
     unreadNotifications: 0,
   });
 
@@ -48,30 +46,20 @@ export function useNotificationCounts() {
         pendingRequests = requests?.length || 0;
       }
 
-      // Pending expenses - for Owner/Admin who can approve
-      let pendingExpenses = 0;
-      if (isOwner || isAdmin) {
-        const { data: expenses } = await supabase
-          .from('expenses')
-          .select('id')
-          .eq('status', 'pending');
-        pendingExpenses = expenses?.length || 0;
-      }
-
-      // Approved expenses - for Accountant who can reimburse
-      let approvedExpenses = 0;
+      // Approved advances awaiting payout - for Accountant/Owner/Admin
+      let approvedAdvances = 0;
       if (isAccountant || isOwner || isAdmin) {
-        const { data: expenses } = await supabase
-          .from('expenses')
+        const { data: requests } = await supabase
+          .from('payment_requests')
           .select('id')
-          .eq('status', 'approved');
-        approvedExpenses = expenses?.length || 0;
+          .eq('status', 'approved')
+          .is('paid_at', null);
+        approvedAdvances = requests?.length || 0;
       }
 
       setCounts({
         pendingRequests,
-        pendingExpenses,
-        approvedExpenses,
+        approvedAdvances,
         unreadNotifications: notifications?.length || 0,
       });
     } catch (error) {
@@ -89,9 +77,9 @@ export function useNotificationCounts() {
 
   useEffect(() => {
     if (!user) return;
-    
+
     fetchCounts();
-    
+
     // Set up real-time subscription for notifications
     const channel = supabase
       .channel('notification-counts')
@@ -113,17 +101,6 @@ export function useNotificationCounts() {
           event: '*',
           schema: 'public',
           table: 'payment_requests',
-        },
-        () => {
-          fetchCounts();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expenses',
         },
         () => {
           fetchCounts();

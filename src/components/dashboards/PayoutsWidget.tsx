@@ -16,28 +16,24 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  CreditCard, 
-  ChevronRight, 
-  Receipt, 
-  Banknote, 
+import {
+  CreditCard,
+  ChevronRight,
+  Banknote,
   Wallet,
   Clock,
   CheckCircle,
-  AlertCircle,
   ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { EXPENSE_CATEGORY_LABELS, type ExpenseCategory } from '@/types/database';
 
 interface PendingItem {
   id: string;
-  type: 'expense' | 'request' | 'salary';
+  type: 'request' | 'salary';
   staffName: string;
   staffId: string;
   amount: number;
   description: string;
-  category?: string;
   date: string;
 }
 
@@ -53,12 +49,10 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [counts, setCounts] = useState({
-    expenses: 0,
     requests: 0,
     salary: 0,
   });
   const [totals, setTotals] = useState({
-    expenses: 0,
     requests: 0,
     salary: 0,
   });
@@ -67,28 +61,6 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
     try {
       setIsLoading(true);
       const items: PendingItem[] = [];
-
-      // Fetch approved expenses (not reimbursed)
-      const { data: expenses, error: expError } = await supabase
-        .from('expenses')
-        .select('id, amount, description, category, approved_at, staff:staff_id(full_name)')
-        .eq('status', 'approved')
-        .order('approved_at', { ascending: true });
-
-      if (expError) throw expError;
-
-      expenses?.forEach((exp: any) => {
-        items.push({
-          id: exp.id,
-          type: 'expense',
-          staffName: exp.staff?.full_name || 'Unknown',
-          staffId: exp.staff_id,
-          amount: exp.amount,
-          description: exp.description,
-          category: EXPENSE_CATEGORY_LABELS[exp.category as ExpenseCategory],
-          date: exp.approved_at,
-        });
-      });
 
       // Fetch approved but unpaid requests
       const { data: requests, error: reqError } = await supabase
@@ -139,12 +111,10 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
 
       setPendingItems(items);
       setCounts({
-        expenses: expenses?.length || 0,
         requests: requests?.length || 0,
         salary: salaryData.length,
       });
       setTotals({
-        expenses: expenses?.reduce((sum, e) => sum + toAmount(e.amount), 0) || 0,
         requests: requests?.reduce((sum, r) => sum + toAmount(r.amount), 0) || 0,
         salary: salaryData.reduce((sum, s) => sum + toAmount(s.balance_payable), 0),
       });
@@ -159,12 +129,11 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
     fetchPendingPayouts();
   }, [fetchPendingPayouts]);
 
-  const totalCount = counts.expenses + counts.requests + (showSalary ? counts.salary : 0);
-  const totalAmount = totals.expenses + totals.requests + (showSalary ? totals.salary : 0);
+  const totalCount = counts.requests + (showSalary ? counts.salary : 0);
+  const totalAmount = totals.requests + (showSalary ? totals.salary : 0);
 
   const getTypeIcon = (type: PendingItem['type']) => {
     switch (type) {
-      case 'expense': return Receipt;
       case 'request': return Banknote;
       case 'salary': return Wallet;
     }
@@ -181,7 +150,7 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
   if (variant === 'compact') {
     return (
       <>
-        <Card 
+        <Card
           className="rounded-2xl shadow-card border-0 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={handleWidgetClick}
         >
@@ -206,12 +175,6 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
               {totalCount > 0 ? (
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex gap-1">
-                    {counts.expenses > 0 && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Receipt className="h-3 w-3" />
-                        {counts.expenses}
-                      </Badge>
-                    )}
                     {counts.requests > 0 && (
                       <Badge variant="outline" className="text-xs gap-1">
                         <Banknote className="h-3 w-3" />
@@ -251,9 +214,8 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
             </DialogHeader>
 
             <Tabs defaultValue="all" className="mt-4">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className={`grid w-full ${showSalary ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="all">All ({totalCount})</TabsTrigger>
-                <TabsTrigger value="expenses">Expenses ({counts.expenses})</TabsTrigger>
                 <TabsTrigger value="requests">Advances ({counts.requests})</TabsTrigger>
                 {showSalary && <TabsTrigger value="salary">Salary ({counts.salary})</TabsTrigger>}
               </TabsList>
@@ -261,9 +223,6 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
               <ScrollArea className="h-[400px] mt-4">
                 <TabsContent value="all" className="mt-0">
                   <PayoutItemsList items={pendingItems} />
-                </TabsContent>
-                <TabsContent value="expenses" className="mt-0">
-                  <PayoutItemsList items={pendingItems.filter(i => i.type === 'expense')} />
                 </TabsContent>
                 <TabsContent value="requests" className="mt-0">
                   <PayoutItemsList items={pendingItems.filter(i => i.type === 'request')} />
@@ -329,13 +288,6 @@ export function PayoutsWidget({ variant = 'compact', showSalary = false }: Payou
           <div className="space-y-3">
             {/* Summary badges */}
             <div className="flex gap-2 flex-wrap">
-              {counts.expenses > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
-                  <Receipt className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">{counts.expenses} Expenses</span>
-                  <Amount value={totals.expenses} size="sm" className="text-muted-foreground" />
-                </div>
-              )}
               {counts.requests > 0 && (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50 border">
                   <Banknote className="h-4 w-4 text-accent-foreground" />
@@ -406,7 +358,7 @@ function PayoutItemsList({ items }: { items: PendingItem[] }) {
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const TypeIcon = item.type === 'expense' ? Receipt : item.type === 'request' ? Banknote : Wallet;
+        const TypeIcon = item.type === 'request' ? Banknote : Wallet;
         return (
           <div
             key={`${item.type}-${item.id}`}
@@ -421,11 +373,6 @@ function PayoutItemsList({ items }: { items: PendingItem[] }) {
                 <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                   {item.description}
                 </p>
-                {item.category && (
-                  <Badge variant="outline" className="text-[10px] mt-1">
-                    {item.category}
-                  </Badge>
-                )}
               </div>
             </div>
             <div className="text-right">
