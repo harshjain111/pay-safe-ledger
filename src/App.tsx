@@ -28,6 +28,8 @@ const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const ProcessPayroll = lazy(() => import("./pages/ProcessPayroll"));
 const FinalizedPayroll = lazy(() => import("./pages/FinalizedPayroll"));
+const AdvancesPage = lazy(() => import("./pages/AdvancesPage"));
+const TransactionLog = lazy(() => import("./pages/TransactionLog"));
 const SalaryIncrements = lazy(() => import("./pages/SalaryIncrements"));
 const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
 const SalarySlips = lazy(() => import("./pages/SalarySlips"));
@@ -156,8 +158,8 @@ function AppRoutes() {
         <Route path="/payroll/salary-slips" element={<SalarySlips />} />
         <Route path="/settlements/payouts" element={<Payouts />} />
         <Route path="/settlements/arrears" element={<Arrears />} />
-        <Route path="/settlements/advances" element={<Navigate to="/salaries-advances" replace />} />
-        <Route path="/settlements/log" element={<Navigate to="/ledger" replace />} />
+        <Route path="/settlements/advances" element={<AdvancesPage />} />
+        <Route path="/settlements/log" element={<TransactionLog />} />
 
         {/* PHASE 2 — redirects so no bookmark 404s (code deleted in Phase 8).
             /shifts intentionally stays live: the client is keeping Shifts. */}

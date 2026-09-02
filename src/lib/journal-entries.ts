@@ -113,7 +113,8 @@ interface AdvancePaidParams {
   staffName: string;
   amount: number;
   paymentMode: PaymentMode;
-  paymentRequestId: string;
+  /** Optional — a direct advance (Advances page) has no payment request. */
+  paymentRequestId?: string;
   createdBy: string;
    paidByUserId?: string;
    paidByUserName?: string;

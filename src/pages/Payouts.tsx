@@ -1,67 +1,45 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { Ban, Banknote, CheckCircle2, CreditCard, Loader2, Wallet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { queryKeys } from '@/lib/query-keys';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { EmptyState } from '@/components/layout/EmptyState';
-import { ListSkeleton } from '@/components/layout/ListSkeleton';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { Amount } from '@/components/ui/amount';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Wallet, 
-  Receipt, 
-  CreditCard, 
-  Loader2,
-  CheckCircle2,
-  Banknote,
-  ArrowRight,
-  Ban
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { toast } from '@/hooks/use-toast';
-import { 
-  createSalaryPayoutEntry, 
-  createAdvancePaidEntry,
-  createExpensePayoutEntry 
-} from '@/lib/journal-entries';
-import type { PaymentMode, VoucherType, Expense, PaymentRequest, StaffPublic } from '@/types/database';
-import { EXPENSE_CATEGORY_LABELS } from '@/types/database';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Amount } from '@/components/ui/amount';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  PageHeader, DataTable, EmptyState, InlineNote, RowMenu,
+  type DataTableColumn,
+} from '@/components/patterns';
+import { toast } from '@/lib/toast';
+import { createAdvancePaidEntry, createSalaryPayoutEntry } from '@/lib/journal-entries';
 import { CancelApprovalDialog } from '@/components/expenses/CancelApprovalDialog';
+import type { PaymentMode, PaymentRequest, StaffPublic } from '@/types/database';
+
+// ---------------------------------------------------------------------------
+// PHASE 6 — /settlements/payouts "Advance Payouts". Advances (and the salary
+// payouts queued by Process Payroll) only: the expense branch and the
+// petty-cash payment mode are REMOVED — petty cash is being dropped, and its
+// mode used to write petty_cash_transactions on advance payouts, which would
+// crash after Phase 8's table drop.
+// ---------------------------------------------------------------------------
 
 const PAYMENT_MODES: { value: PaymentMode; label: string }[] = [
   { value: 'cash', label: 'Cash' },
   { value: 'upi', label: 'UPI' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'cheque', label: 'Cheque' },
-  { value: 'petty_cash', label: 'Petty Cash' },
 ];
-
-interface ApprovedExpense extends Expense {
-  staff: StaffPublic;
-}
 
 interface ApprovedRequest extends Omit<PaymentRequest, 'payout_type' | 'settlement_id'> {
   staff: StaffPublic;
@@ -71,262 +49,164 @@ interface ApprovedRequest extends Omit<PaymentRequest, 'payout_type' | 'settleme
 
 type PayoutItem = {
   id: string;
-  type: 'expense' | 'advance' | 'salary';
+  type: 'advance' | 'salary';
   staffName: string;
   staffId: string;
   employeeId: string;
   staffUserId?: string | null;
   amount: number;
   description: string;
-  category?: string;
   date: string;
-  referenceMonth?: string;
-  settlementId?: string;
+  settlementId?: string | null;
   approvedByUserName?: string | null;
 };
 
 export default function Payouts() {
-  const { user, staffData, isOwner, isAdmin, isAccountant, isStaff, canRecordSalaryPayments } = useAuth();
+  const { user, staffData, isOwner, isAdmin, canRecordSalaryPayments, can } = useAuth();
   const queryClient = useQueryClient();
+  const canExecutePayout = can('payouts.execute');
 
-  // Access check - Staff cannot execute payouts
-  const canExecutePayout = isOwner || isAdmin || isAccountant;
-  
-  const [activeTab, setActiveTab] = useState<'all' | 'expenses' | 'advances' | 'salary'>('all');
-  const [approvedExpenses, setApprovedExpenses] = useState<ApprovedExpense[]>([]);
-  const [approvedAdvances, setApprovedAdvances] = useState<ApprovedRequest[]>([]);
-  const [pendingSalaries, setPendingSalaries] = useState<ApprovedRequest[]>([]);
+  const [items, setItems] = useState<PayoutItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Payout dialog state
   const [selectedItem, setSelectedItem] = useState<PayoutItem | null>(null);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pettyCashBalance, setPettyCashBalance] = useState<number>(0);
   const [cancelItem, setCancelItem] = useState<PayoutItem | null>(null);
-
-  const fetchPettyCashBalance = useCallback(async () => {
-    try {
-      const { data, error } = await (supabase.from as any)('petty_cash_transactions')
-        .select('balance_after')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (!error && data && data.length > 0) {
-        setPettyCashBalance(data[0].balance_after);
-      }
-    } catch (e) {
-      console.error('Failed to fetch petty cash balance:', e);
-    }
-  }, []);
 
   const fetchApprovedItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch approved expenses (not yet reimbursed)
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select(`
-          *,
-          staff:staff_id(*)
-        `)
-        .eq('status', 'approved')
-        .order('approved_at', { ascending: true });
+      const built: PayoutItem[] = [];
 
-      if (expensesError) throw expensesError;
-      setApprovedExpenses((expensesData || []) as unknown as ApprovedExpense[]);
-
-      // Fetch approved ADVANCE requests (payout_type = 'advance' or null, not yet paid)
       const { data: advanceData, error: advanceError } = await supabase
         .from('payment_requests')
-        .select(`
-          *,
-          staff:staff_id(*)
-        `)
+        .select('*, staff:staff_id(*)')
         .eq('status', 'approved')
         .is('paid_at', null)
         .or('payout_type.is.null,payout_type.eq.advance')
         .order('approved_at', { ascending: true });
-
       if (advanceError) throw advanceError;
-      setApprovedAdvances((advanceData || []) as unknown as ApprovedRequest[]);
+      for (const request of (advanceData ?? []) as unknown as ApprovedRequest[]) {
+        built.push({
+          id: request.id,
+          type: 'advance',
+          staffName: request.staff?.full_name || 'Unknown',
+          staffId: request.staff_id,
+          employeeId: request.staff?.employee_id || '',
+          staffUserId: request.staff?.user_id,
+          amount: request.amount,
+          description: `Advance: ${request.reason}`,
+          date: request.approved_at || request.created_at,
+          approvedByUserName: request.approved_by_user_name,
+        });
+      }
 
-      // Fetch pending SALARY payout requests (Owner only, payout_type = 'salary')
       if (canRecordSalaryPayments) {
         const { data: salaryData, error: salaryError } = await supabase
           .from('payment_requests')
-          .select(`
-            *,
-            staff:staff_id(*)
-          `)
+          .select('*, staff:staff_id(*)')
           .eq('status', 'approved')
           .eq('payout_type', 'salary')
           .is('paid_at', null)
           .order('approved_at', { ascending: true });
-
         if (salaryError) throw salaryError;
-        setPendingSalaries((salaryData || []) as unknown as ApprovedRequest[]);
+        for (const salary of (salaryData ?? []) as unknown as ApprovedRequest[]) {
+          built.push({
+            id: salary.id,
+            type: 'salary',
+            staffName: salary.staff?.full_name || 'Unknown',
+            staffId: salary.staff_id,
+            employeeId: salary.staff?.employee_id || '',
+            staffUserId: salary.staff?.user_id,
+            amount: salary.amount,
+            description: salary.reason,
+            date: salary.approved_at || salary.created_at,
+            settlementId: salary.settlement_id,
+            approvedByUserName: salary.approved_by_user_name,
+          });
+        }
       }
+
+      built.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      setItems(built);
     } catch (error) {
       console.error('Error fetching approved items:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load approved items',
-        variant: 'destructive',
-      });
+      toast.error('Failed to load approved payouts');
     } finally {
       setIsLoading(false);
     }
   }, [canRecordSalaryPayments]);
 
   useEffect(() => {
-    if (canExecutePayout) {
-      fetchApprovedItems();
-      fetchPettyCashBalance();
-    } else {
-      setIsLoading(false);
-    }
-  }, [canExecutePayout, fetchApprovedItems, fetchPettyCashBalance]);
+    if (canExecutePayout) fetchApprovedItems();
+    else setIsLoading(false);
+  }, [canExecutePayout, fetchApprovedItems]);
 
   const handleExecutePayout = async () => {
     if (!selectedItem || !user) return;
-
     setIsProcessing(true);
     try {
-      let journalEntryId = '';
-      
-      // Maker-checker: the payer is always the logged-in user (no manual
-      // selection), so the person who records the payment is the one on record.
+      // Maker-checker: the payer is always the logged-in user.
       const paidByUserId = user.id;
       const paidByUserName = getUserDisplayName(user, staffData);
       const paidAt = new Date().toISOString();
 
-      // Salary payouts MUST carry their settlement link; without it the payout
-      // journal clears the payable while the salary_settlements row stays
-      // "unpaid" and could be paid again. Refuse rather than orphan it. (P2-H4)
+      // Salary payouts MUST carry their settlement link (P2-H4).
       if (selectedItem.type === 'salary' && !selectedItem.settlementId) {
         throw new Error('This salary payout is missing its settlement link and cannot be paid. Please regenerate the salary settlement.');
       }
 
-      // CLAIM-FIRST: flip the row to its paid state BEFORE posting any journal,
-      // gated on its still-unpaid state, so a double-click or a second payer can
-      // never post the money-out journal twice (double payout). (P2-C1)
-      if (selectedItem.type === 'expense') {
-        const { data: claimed, error: claimErr } = await supabase
-          .from('expenses')
-          .update({
-            status: 'reimbursed',
-            reimbursed_at: paidAt,
-            reimbursed_by: paidByUserId,
-            reimbursed_by_user_name: paidByUserName,
-          })
-          .eq('id', selectedItem.id)
-          .eq('status', 'approved')
-          .select('id');
-        if (claimErr) throw claimErr;
-        if (!claimed || claimed.length === 0) throw new Error('This item was already paid.');
-      } else {
-        // advance or salary -> payment_requests, gated on paid_at IS NULL
-        const { data: claimed, error: claimErr } = await supabase
-          .from('payment_requests')
-          .update({
-            paid_at: paidAt,
-            paid_by: paidByUserId,
-            paid_by_user_name: paidByUserName,
-          })
-          .eq('id', selectedItem.id)
-          .eq('status', 'approved')
-          .is('paid_at', null)
-          .select('id');
-        if (claimErr) throw claimErr;
-        if (!claimed || claimed.length === 0) throw new Error('This item was already paid.');
-      }
+      // CLAIM-FIRST (P2-C1): flip the row to paid BEFORE posting any journal so
+      // a double-click or second payer can never post the money-out twice.
+      const { data: claimed, error: claimErr } = await supabase
+        .from('payment_requests')
+        .update({ paid_at: paidAt, paid_by: paidByUserId, paid_by_user_name: paidByUserName })
+        .eq('id', selectedItem.id)
+        .eq('status', 'approved')
+        .is('paid_at', null)
+        .select('id');
+      if (claimErr) throw claimErr;
+      if (!claimed || claimed.length === 0) throw new Error('This item was already paid.');
 
-      // We own the row now. Post the double-entry journal under a rollback guard:
-      // if it fails, release the claim so the item returns to the payout queue.
+      let journalEntryId = '';
       try {
-
-      // ========================================
-      // DOUBLE-ENTRY ACCOUNTING: PAYOUT ENTRIES
-      // ========================================
-      // All payouts follow the same pattern:
-      // - Debit: Staff Payable / Staff Advances (clear liability/reduce receivable)
-      // - Credit: Bank/Cash (money goes out)
-      // 
-      // This ensures staff balance goes to ZERO after payout
-
-      if (selectedItem.type === 'salary') {
-        // SALARY PAYOUT
-        // Debit: Staff Payable (clear the liability created during settlement)
-        // Credit: Bank/Cash (money out)
-        
-        // Extract month from description (format: "Salary for MMMM yyyy")
-        const monthMatch = selectedItem.description.match(/Salary for (.+)/);
-        const settlementMonth = monthMatch ? monthMatch[1] : format(new Date(), 'MMMM yyyy');
-
-        journalEntryId = await createSalaryPayoutEntry({
-          staffId: selectedItem.staffId,
-          staffName: selectedItem.staffName,
-          settlementMonth,
-          netPayable: selectedItem.amount,
-          paymentMode,
-          settlementId: selectedItem.settlementId || '',
-          paymentRequestId: selectedItem.id,
-          createdBy: user.id,
-          paidByUserId,
-          paidByUserName,
-        });
-
-      } else if (selectedItem.type === 'advance') {
-        // ADVANCE PAYOUT
-        // Debit: Staff Advances (staff now owes us this amount)
-        // Credit: Bank/Cash (money out)
-        
-        journalEntryId = await createAdvancePaidEntry({
-          staffId: selectedItem.staffId,
-          staffName: selectedItem.staffName,
-          amount: selectedItem.amount,
-          paymentMode,
-          paymentRequestId: selectedItem.id,
-          createdBy: user.id,
-          paidByUserId,
-          paidByUserName,
-        });
-
-      } else {
-        // EXPENSE PAYOUT
-        // Debit: Staff Payable (clear the liability created during approval)
-        // Credit: Bank/Cash (money out)
-        
-        journalEntryId = await createExpensePayoutEntry({
-          staffId: selectedItem.staffId,
-          staffName: selectedItem.staffName,
-          expenseId: selectedItem.id,
-          amount: selectedItem.amount,
-          paymentMode,
-          createdBy: user.id,
-          paidByUserId,
-          paidByUserName,
-        });
-      }
+        if (selectedItem.type === 'salary') {
+          const monthMatch = selectedItem.description.match(/Salary for (.+)/);
+          const settlementMonth = monthMatch ? monthMatch[1] : format(new Date(), 'MMMM yyyy');
+          journalEntryId = await createSalaryPayoutEntry({
+            staffId: selectedItem.staffId,
+            staffName: selectedItem.staffName,
+            settlementMonth,
+            netPayable: selectedItem.amount,
+            paymentMode,
+            settlementId: selectedItem.settlementId || '',
+            paymentRequestId: selectedItem.id,
+            createdBy: user.id,
+            paidByUserId,
+            paidByUserName,
+          });
+        } else {
+          journalEntryId = await createAdvancePaidEntry({
+            staffId: selectedItem.staffId,
+            staffName: selectedItem.staffName,
+            amount: selectedItem.amount,
+            paymentMode,
+            paymentRequestId: selectedItem.id,
+            createdBy: user.id,
+            paidByUserId,
+            paidByUserName,
+          });
+        }
       } catch (journalErr) {
         // Journal failed — release the claim so the item can be retried.
-        if (selectedItem.type === 'expense') {
-          await supabase
-            .from('expenses')
-            .update({ status: 'approved', reimbursed_at: null, reimbursed_by: null, reimbursed_by_user_name: null })
-            .eq('id', selectedItem.id);
-        } else {
-          await supabase
-            .from('payment_requests')
-            .update({ paid_at: null, paid_by: null, paid_by_user_name: null })
-            .eq('id', selectedItem.id);
-        }
+        await supabase
+          .from('payment_requests')
+          .update({ paid_at: null, paid_by: null, paid_by_user_name: null })
+          .eq('id', selectedItem.id);
         throw journalErr;
       }
 
-      // Reconcile the salary settlement now that the payout journal exists. AFTER
-      // the rollback guard on purpose: a failure here leaves a valid payout with
-      // an unreconciled settlement (recoverable), not a rolled-back posted journal.
+      // Reconcile the salary settlement now that the payout journal exists.
       if (selectedItem.type === 'salary' && selectedItem.settlementId) {
         await supabase
           .from('salary_settlements')
@@ -340,58 +220,19 @@ export default function Payouts() {
           .eq('id', selectedItem.settlementId);
       }
 
-      // Record petty cash transaction if paid via petty cash
-      if (paymentMode === 'petty_cash' && user) {
-        const newPcBalance = pettyCashBalance - selectedItem.amount;
-        const pcType = selectedItem.type === 'expense' ? 'expense_payment' : 'advance_payment';
-        await (supabase.from as any)('petty_cash_transactions').insert({
-          transaction_type: pcType,
-          amount: selectedItem.amount,
-          balance_after: newPcBalance,
-          reference_type: selectedItem.type === 'expense' ? 'expense' : 'payment_request',
-          reference_id: selectedItem.id,
-          notes: `${selectedItem.description} - ${selectedItem.staffName}`,
-          created_by: user.id,
-        });
-        setPettyCashBalance(newPcBalance);
-      }
-
-      // (Status was already flipped in the claim-first step above, before the
-      // journal was posted — see the claim block at the top of this handler.)
-
-      // Notify the staff member
       if (selectedItem.staffUserId) {
-        const typeLabel = selectedItem.type === 'expense' 
-          ? 'Expense Reimbursed' 
-          : selectedItem.type === 'advance' 
-            ? 'Advance Paid' 
-            : 'Salary Paid';
-        
-        const message = selectedItem.type === 'expense'
-          ? `Your expense of ₹${selectedItem.amount.toLocaleString('en-IN')} has been reimbursed.`
-          : selectedItem.type === 'advance'
-            ? `Your advance request of ₹${selectedItem.amount.toLocaleString('en-IN')} has been paid.`
-            : `Your salary of ₹${selectedItem.amount.toLocaleString('en-IN')} has been paid.`;
-
         await supabase.rpc('create_notification', {
           _user_id: selectedItem.staffUserId,
-          _title: typeLabel,
-          _message: message,
+          _title: selectedItem.type === 'advance' ? 'Advance Paid' : 'Salary Paid',
+          _message: `Your ${selectedItem.type} of ₹${selectedItem.amount.toLocaleString('en-IN')} has been paid.`,
           _type: 'success',
           _reference_type: 'journal_entry',
           _reference_id: journalEntryId,
         });
       }
 
-      toast({
-        title: 'Payout Successful',
-        description: `₹${selectedItem.amount.toLocaleString('en-IN')} paid to ${selectedItem.staffName}. Balance cleared.`,
-      });
+      toast.success(`₹${selectedItem.amount.toLocaleString('en-IN')} paid to ${selectedItem.staffName}.`);
 
-
-
-
-      // Refresh balance-derived views now that the payout changed a staff balance
       const payoutStaffId = selectedItem.staffId;
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.staffBalance.byStaff(payoutStaffId) });
@@ -401,405 +242,141 @@ export default function Payouts() {
       setSelectedItem(null);
       setPaymentMode('cash');
       fetchApprovedItems();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error executing payout:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to execute payout. Please try again.',
-        variant: 'destructive',
-      });
+      toast.error(error instanceof Error ? error.message : 'Failed to execute payout. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const openPayoutDialog = (item: PayoutItem) => {
-    setSelectedItem(item);
-    setPaymentMode('cash');
-  };
-
-  // Convert data to unified PayoutItem format
-  const getPayoutItems = (): PayoutItem[] => {
-    const items: PayoutItem[] = [];
-
-    // Add expenses
-    if (activeTab === 'all' || activeTab === 'expenses') {
-      approvedExpenses.forEach(expense => {
-        items.push({
-          id: expense.id,
-          type: 'expense',
-          staffName: expense.staff?.full_name || 'Unknown',
-          staffId: expense.staff_id,
-          employeeId: expense.staff?.employee_id || '',
-          staffUserId: expense.staff?.user_id,
-          amount: expense.amount,
-          description: `Expense: ${expense.description}`,
-          category: EXPENSE_CATEGORY_LABELS[expense.category],
-          date: expense.approved_at || expense.expense_date,
-          approvedByUserName: expense.approved_by_user_name,
-        });
-      });
-    }
-
-    // Add advance requests
-    if (activeTab === 'all' || activeTab === 'advances') {
-      approvedAdvances.forEach(request => {
-        items.push({
-          id: request.id,
-          type: 'advance',
-          staffName: request.staff?.full_name || 'Unknown',
-          staffId: request.staff_id,
-          employeeId: request.staff?.employee_id || '',
-          staffUserId: request.staff?.user_id,
-          amount: request.amount,
-          description: `Advance: ${request.reason}`,
-          date: request.approved_at || request.created_at,
-          approvedByUserName: request.approved_by_user_name,
-        });
-      });
-    }
-
-    // Add salary payout requests (Owner only)
-    if ((activeTab === 'all' || activeTab === 'salary') && canRecordSalaryPayments) {
-      pendingSalaries.forEach(salary => {
-        // Extract reference month from reason (format: "Salary for MMMM yyyy")
-        const monthMatch = salary.reason.match(/Salary for (.+)/);
-        const refMonth = monthMatch ? monthMatch[1] : '';
-        
-        items.push({
-          id: salary.id,
-          type: 'salary',
-          staffName: salary.staff?.full_name || 'Unknown',
-          staffId: salary.staff_id,
-          employeeId: salary.staff?.employee_id || '',
-          staffUserId: salary.staff?.user_id,
-          amount: salary.amount,
-          description: salary.reason,
-          date: salary.approved_at || salary.created_at,
-          settlementId: salary.settlement_id,
-          approvedByUserName: salary.approved_by_user_name,
-        });
-      });
-    }
-
-    return items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const payoutItems = getPayoutItems();
-  const totalPending = approvedExpenses.length + approvedAdvances.length + (canRecordSalaryPayments ? pendingSalaries.length : 0);
-
-  // Access denied for staff
-  if (isStaff || !canExecutePayout) {
-    return (
-      <EmptyState
-        icon={Wallet}
-        title="Access Denied"
-        description="Only authorized personnel can execute payouts."
-      />
-    );
+  if (!canExecutePayout) {
+    return <EmptyState icon={Wallet} title="Access denied" instruction="Only users with the payout permission can execute payouts — ask an owner." />;
   }
 
-  const getTypeIcon = (type: PayoutItem['type']) => {
-    switch (type) {
-      case 'expense': return Receipt;
-      case 'advance': return Banknote;
-      case 'salary': return Wallet;
-    }
-  };
-
-  const getTypeBadgeVariant = (type: PayoutItem['type']) => {
-    switch (type) {
-      case 'expense': return 'outline';
-      case 'advance': return 'secondary';
-      case 'salary': return 'default';
-    }
-  };
-
-  const getTypeLabel = (type: PayoutItem['type']) => {
-    switch (type) {
-      case 'expense': return 'Expense';
-      case 'advance': return 'Advance';
-      case 'salary': return 'Salary';
-    }
-  };
+  const columns: DataTableColumn<PayoutItem>[] = [
+    { key: 'emp', header: 'Employee', width: 210, render: (i) => (
+      <div>
+        <p className="truncate font-medium leading-tight">{i.staffName}</p>
+        <p className="truncate text-[11px] leading-tight text-muted-foreground">{i.employeeId}</p>
+      </div>
+    ) },
+    { key: 'type', header: 'Type', align: 'center', render: (i) => (
+      <Badge variant={i.type === 'salary' ? 'default' : 'secondary'}>{i.type === 'salary' ? 'Salary' : 'Advance'}</Badge>
+    ) },
+    { key: 'desc', header: 'Description', render: (i) => <span className="block max-w-[22rem] truncate" title={i.description}>{i.description}</span> },
+    { key: 'approved', header: 'Approved', render: (i) => (
+      <div>
+        <p className="leading-tight">{i.date ? format(new Date(i.date), 'dd MMM yyyy') : '—'}</p>
+        {i.approvedByUserName && <p className="text-[11px] leading-tight text-muted-foreground">by {i.approvedByUserName}</p>}
+      </div>
+    ) },
+    { key: 'amount', header: 'Amount', align: 'right', bold: true, render: (i) => i.amount.toLocaleString('en-IN') },
+    {
+      key: 'menu', header: '', align: 'center',
+      render: (i) => (
+        <RowMenu items={[
+          { label: 'Pay', icon: CreditCard, onSelect: () => { setSelectedItem(i); setPaymentMode('cash'); } },
+          ...(i.type === 'advance' && (isOwner || isAdmin)
+            ? [{ label: 'Cancel Approval', icon: Ban, destructive: true, onSelect: () => setCancelItem(i) }]
+            : []),
+        ]} />
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-6">
-      <PageHeader
-        title="Payouts"
-        description="Execute approved payments"
+    <div className="space-y-4">
+      <PageHeader title="Advance Payouts" count={isLoading ? undefined : items.length} />
+
+      <InlineNote>
+        Executing a payout posts the immutable money-out journal and marks the request paid. Advances recover
+        automatically through monthly installments at payroll.
+      </InlineNote>
+
+      <DataTable
+        columns={columns}
+        rows={items}
+        rowKey={(i) => `${i.type}-${i.id}`}
+        stickyColumns={1}
+        loading={isLoading}
+        defaultPageSize={50}
+        empty={<EmptyState icon={Banknote} title="No pending payouts" instruction="Approve advances on Approval Requests, or finalize payroll, to queue payouts here." />}
       />
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-        <Card>
-          <CardContent className="p-4 md:pt-6">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="p-2 md:p-3 rounded-lg bg-primary/10">
-                <Receipt className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-muted-foreground">Expenses</p>
-                <p className="text-xl md:text-2xl font-bold">{approvedExpenses.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 md:pt-6">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="p-2 md:p-3 rounded-lg bg-accent/50">
-                <Banknote className="h-4 w-4 md:h-5 md:w-5 text-accent-foreground" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-muted-foreground">Advances</p>
-                <p className="text-xl md:text-2xl font-bold">{approvedAdvances.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        {canRecordSalaryPayments && (
-          <Card className="col-span-2 md:col-span-1">
-            <CardContent className="p-4 md:pt-6">
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="p-2 md:p-3 rounded-lg bg-secondary">
-                  <Wallet className="h-4 w-4 md:h-5 md:w-5 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs md:text-sm text-muted-foreground">Salaries</p>
-                  <p className="text-xl md:text-2xl font-bold">{pendingSalaries.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
-          <TabsTrigger value="all" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">
-            All ({totalPending})
-          </TabsTrigger>
-          <TabsTrigger value="expenses" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">
-            Expenses ({approvedExpenses.length})
-          </TabsTrigger>
-          <TabsTrigger value="advances" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">
-            Advances ({approvedAdvances.length})
-          </TabsTrigger>
-          {canRecordSalaryPayments && (
-            <TabsTrigger value="salary" className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3">
-              Salary ({pendingSalaries.length})
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-6">
-          {isLoading ? (
-            <ListSkeleton variant="cards" rows={5} />
-          ) : payoutItems.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="No pending payouts"
-              description="All approved items have been paid. Check the Requests page to approve new items."
-            />
-          ) : (
-            <div className="grid gap-3 sm:gap-4">
-              {payoutItems.map((item) => {
-                const TypeIcon = getTypeIcon(item.type);
-                return (
-                  <Card key={`${item.type}-${item.id}`} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex flex-col gap-3">
-                        {/* Top row: Type badge + Amount */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="p-1.5 sm:p-2 rounded-lg bg-muted shrink-0">
-                              <TypeIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                <Badge variant={getTypeBadgeVariant(item.type)} className="text-[10px] sm:text-xs">
-                                  {getTypeLabel(item.type)}
-                                </Badge>
-                                {item.category && (
-                                  <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                    {item.category}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="font-medium text-sm sm:text-base mt-0.5">{item.staffName}</p>
-                            </div>
-                          </div>
-                          <Amount value={item.amount} className="text-base sm:text-lg font-semibold shrink-0" />
-                        </div>
-                        
-                        {/* Description */}
-                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-                          {item.description}
-                        </p>
-                        
-                        {/* Bottom row: Approved info + Pay button */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-col">
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">
-                              Approved: {item.date ? format(new Date(item.date), 'dd MMM') : '-'}
-                            </p>
-                            {item.approvedByUserName && (
-                              <p className="text-[10px] sm:text-xs text-muted-foreground italic">
-                                by {item.approvedByUserName}
-                              </p>
-                            )}
-                          </div>
-                          {(isOwner || isAdmin) && item.type !== 'salary' && (
-                            <Button 
-                              onClick={() => setCancelItem(item)}
-                              size="sm"
-                              variant="outline"
-                              className="shrink-0 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 text-destructive hover:text-destructive border-destructive/30"
-                              title="Cancel Approval"
-                            >
-                              <Ban className="mr-1 h-3.5 w-3.5" />
-                              Cancel
-                            </Button>
-                          )}
-                          <Button 
-                            onClick={() => openPayoutDialog(item)}
-                            size="sm"
-                            className="shrink-0 text-xs sm:text-sm h-8 sm:h-9 px-3 sm:px-4"
-                          >
-                            <CreditCard className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            Pay
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
 
       {/* Payout Confirmation Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
         <DialogContent className="max-w-[90vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Execute Payout</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              Confirm payment details
-            </DialogDescription>
+            <DialogTitle>Execute Payout</DialogTitle>
+            <DialogDescription>Confirm payment details</DialogDescription>
           </DialogHeader>
 
           {selectedItem && (
-            <div className="space-y-3 sm:space-y-4">
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between items-center">
+            <div className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Type</span>
-                  <Badge variant={getTypeBadgeVariant(selectedItem.type)} className="text-[10px] sm:text-xs">
-                    {getTypeLabel(selectedItem.type)}
+                  <Badge variant={selectedItem.type === 'salary' ? 'default' : 'secondary'}>
+                    {selectedItem.type === 'salary' ? 'Salary' : 'Advance'}
                   </Badge>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Staff</span>
-                  <span className="font-medium text-right truncate max-w-[150px] sm:max-w-[200px]">{selectedItem.staffName}</span>
+                  <span className="max-w-[200px] truncate text-right font-medium">{selectedItem.staffName}</span>
                 </div>
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-muted-foreground shrink-0">Description</span>
-                  <span className="text-right line-clamp-2 text-[10px] sm:text-xs">{selectedItem.description}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="shrink-0 text-muted-foreground">Description</span>
+                  <span className="line-clamp-2 text-right text-xs">{selectedItem.description}</span>
                 </div>
-                {selectedItem.approvedByUserName && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Approved By</span>
-                    <span className="font-medium text-right">{selectedItem.approvedByUserName}</span>
-                  </div>
-                )}
                 <Separator />
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Amount</span>
-                  <Amount value={selectedItem.amount} className="text-base sm:text-lg font-bold text-primary" />
+                  <Amount value={selectedItem.amount} className="text-lg font-bold text-primary" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs sm:text-sm">Payment Mode</Label>
+                <Label>Payment Mode</Label>
                 <Select value={paymentMode} onValueChange={(v) => setPaymentMode(v as PaymentMode)}>
-                  <SelectTrigger className="text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
                     {PAYMENT_MODES.map((mode) => (
-                      <SelectItem key={mode.value} value={mode.value}>
-                        {mode.label}
-                      </SelectItem>
+                      <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {paymentMode === 'petty_cash' && selectedItem && (
-                  <div className={`mt-2 p-2 rounded-lg text-xs ${
-                    pettyCashBalance < selectedItem.amount 
-                      ? 'bg-destructive/10 text-destructive' 
-                      : 'bg-muted/50 text-muted-foreground'
-                  }`}>
-                    <p>Petty Cash Balance: ₹{pettyCashBalance.toLocaleString('en-IN')}</p>
-                    {pettyCashBalance < selectedItem.amount && (
-                      <p className="font-medium mt-1">Insufficient petty cash balance!</p>
-                    )}
-                  </div>
-                )}
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs sm:text-sm">Payment Made By</Label>
+              <div className="space-y-1">
+                <Label>Payment Made By</Label>
                 <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm">
                   {getUserDisplayName(user, staffData)}
                 </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  Recorded automatically as the logged-in user for the audit trail.
-                </p>
-              </div>
-
-              <div className="p-2 sm:p-3 rounded-lg bg-muted/50 text-[10px] sm:text-sm text-muted-foreground">
-                <p>
-                  Creates an immutable ledger entry and marks as paid.
-                </p>
+                <p className="text-xs text-muted-foreground">Recorded automatically as the logged-in user for the audit trail.</p>
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
             <Button variant="outline" onClick={() => setSelectedItem(null)} disabled={isProcessing} className="w-full sm:w-auto">
-              Cancel
+              Go Back
             </Button>
-            <Button onClick={handleExecutePayout} disabled={isProcessing || (paymentMode === 'petty_cash' && !!selectedItem && pettyCashBalance < selectedItem.amount)} className="w-full sm:w-auto">
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Confirm
-                </>
-              )}
+            <Button onClick={handleExecutePayout} disabled={isProcessing} className="w-full sm:w-auto">
+              {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</>) : (<><CheckCircle2 className="mr-2 h-4 w-4" /> Confirm</>)}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Approval Dialog */}
+      {/* Cancel Approval Dialog (advances only) */}
       <CancelApprovalDialog
         open={!!cancelItem}
         onOpenChange={(open) => !open && setCancelItem(null)}
-        onSuccess={() => {
-          setCancelItem(null);
-          fetchApprovedItems();
-        }}
+        onSuccess={() => { setCancelItem(null); fetchApprovedItems(); }}
         item={cancelItem ? {
           id: cancelItem.id,
-          type: cancelItem.type as 'expense' | 'advance',
+          type: 'advance',
           staffName: cancelItem.staffName,
           staffId: cancelItem.staffId,
           staffUserId: cancelItem.staffUserId,

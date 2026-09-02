@@ -514,6 +514,31 @@ export async function persistGroupSettlement(
   await supabase.from('salary_arrears').update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
     .eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending');
 
+  // Record per-loan recoveries and reduce balances (PHASE 6). Loans whose
+  // balance reaches zero close. This was the missing half of loan recovery:
+  // the journal deducted the EMI but nothing ever decremented
+  // staff_loans.remaining_balance, so an EMI would deduct forever.
+  for (const emi of calc.loanEmis) {
+    try {
+      const amount = toAmount(emi.amount);
+      if (amount <= 0) continue;
+      await supabase.from('salary_settlement_loan_deductions').insert({
+        settlement_id: settlementRecord.id,
+        loan_id: emi.loan.id,
+        amount,
+      } as never);
+      const remaining = Math.max(0, toAmount(emi.loan.remaining_balance) - amount);
+      await supabase
+        .from('staff_loans')
+        .update({ remaining_balance: remaining, ...(remaining <= 0 ? { status: 'closed' } : {}) } as never)
+        .eq('id', emi.loan.id);
+    } catch (e) {
+      // The journal already carries the deduction; a tracking failure must not
+      // roll back a posted settlement. Surface it for reconciliation instead.
+      console.error('Loan recovery tracking failed for loan', emi.loan.id, e);
+    }
+  }
+
   // Freeze the month's approved leave records — mirrors the per-staff screen.
   const monthStartStr = `${month}-01`;
   const monthEndDate = new Date(parseISO(monthStartStr).getFullYear(), parseISO(monthStartStr).getMonth() + 1, 0);
