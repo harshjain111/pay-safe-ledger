@@ -9,6 +9,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FilterBar } from '@/components/layout/filter-bar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from '@/lib/toast';
 import { listWeekOff, saveWeekOff } from '@/lib/shift-roster-service';
 import type { WeekOffState } from '@/lib/shift-roster';
@@ -28,6 +38,7 @@ export default function WeekOff() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
   const [search, setSearch] = useState('');
   const [defaultDay, setDefaultDay] = useState<string>('0'); // Sunday
   const [bulkDay, setBulkDay] = useState<string>('0');
@@ -88,19 +99,41 @@ export default function WeekOff() {
     setSelected(new Set());
   };
 
-  const save = async () => {
+  const save = () => {
     if (dirty.size === 0) { toast.message('No changes'); return; }
+    // PHASE 0: a bulk weekly-off change alters how absences deduct for everyone
+    // touched — confirm with the exact count before writing anything.
+    setConfirmSave(true);
+  };
+
+  const doSave = async () => {
+    const changedCount = dirty.size;
     setSaving(true);
     try {
       // For each changed staff, write all 7 weekdays (picked day = WEEK_OFF).
       const rows: { staff_id: string; weekday: number; state: WeekOffState }[] = [];
+      const changes: { staff_id: string; weekly_off_day: number | null }[] = [];
       for (const sid of dirty) {
         const day = offDay.get(sid) ?? null;
+        changes.push({ staff_id: sid, weekly_off_day: day });
         for (let wd = 0; wd < 7; wd++) rows.push({ staff_id: sid, weekday: wd, state: (day === wd ? 'WEEK_OFF' : 'WORKING') });
       }
       await saveWeekOff(rows); // also dual-writes staff.weekly_off_day
-      toast.success(`Saved weekly off for ${dirty.size} staff.`);
+
+      // Audit the bulk change (SECURITY DEFINER RPC; the staff table itself has
+      // no audit trigger, and this is a pay-affecting change).
+      try {
+        await supabase.rpc('log_bulk_attendance_adjustment', {
+          _action: 'weekly_off_bulk_update',
+          _scope: { staff_count: changedCount, changes },
+        });
+      } catch (auditErr) {
+        console.error('Failed to write week-off audit entry:', auditErr);
+      }
+
+      toast.success(`Saved weekly off for ${changedCount} staff.`);
       setDirty(new Set());
+      setConfirmSave(false);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to save'); }
     finally { setSaving(false); }
   };
@@ -188,6 +221,25 @@ export default function WeekOff() {
           </div>
         </div>
       )}
+
+      <AlertDialog open={confirmSave} onOpenChange={(open) => !open && !saving && setConfirmSave(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change weekly off for {dirty.size} staff?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This updates the weekly off for {dirty.size} staff member{dirty.size === 1 ? '' : 's'}. Weekly offs
+              decide which days count as paid offs and which absences are deducted from salary. The change is
+              recorded in the activity log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Go Back</AlertDialogCancel>
+            <AlertDialogAction disabled={saving} onClick={(e) => { e.preventDefault(); doSave(); }}>
+              {saving ? 'Saving…' : 'Proceed'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

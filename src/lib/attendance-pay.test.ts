@@ -173,6 +173,54 @@ describe('computeDayBreakdown', () => {
     expect(bd.absentDeductionDays).toBe(0);
   });
 
+  // ==========================================================================
+  // PHASE 0 (Attendo rebuild) — documentation of the live absence bug.
+  //
+  // In this org's production data the shifts table is empty, staff_roster is
+  // therefore empty, all staff have weekly_off_day NULL, and
+  // hr_pay_rules.unscheduled_is_off defaults to TRUE. Under those conditions
+  // the classifier's fall-through (no holiday -> no roster row ->
+  // unscheduledIsOff) marks EVERY day a paid off-day, so a month of zero
+  // check-ins deducts nothing. These tests pin the current behaviour so the
+  // bug is documented — the FIX is data (weekly offs / roster) plus turning
+  // unscheduled_is_off off, never a silent change to this function.
+  // ==========================================================================
+  describe('phase 0 — absence bug documentation', () => {
+    const fullMonthNoData = {
+      ...base,
+      dateOfJoining: '2026-06-01',
+      dateOfLeaving: null,
+      attendance: [], // zero check-ins ALL month
+      roster: [],
+      leaves: [],
+    };
+
+    it('BUG (current behaviour): no roster + no weekly off + unscheduled_is_off=true -> a month of zero check-ins deducts nothing', () => {
+      const bd = computeDayBreakdown({ ...fullMonthNoData, weeklyOffDay: null, unscheduledIsOff: true });
+      expect(bd.windowDays).toBe(30);
+      expect(bd.offDays).toBe(30); // every single day classified as a paid off
+      expect(bd.workingDays).toBe(0);
+      expect(bd.absentDays).toBe(0);
+      expect(bd.absentDeductionDays).toBe(0); // nothing deducted despite zero attendance
+    });
+
+    it('STILL BUGGED: setting a weekly off alone does not help while unscheduled_is_off stays true (the unscheduled branch wins first)', () => {
+      const bd = computeDayBreakdown({ ...fullMonthNoData, weeklyOffDay: 1 /* Monday */, unscheduledIsOff: true });
+      expect(bd.offDays).toBe(30);
+      expect(bd.absentDeductionDays).toBe(0);
+    });
+
+    it('FIXED DATA: weekly off set AND unscheduled_is_off=false -> absences deduct; offs follow the calendar (June 2026 has 5 Mondays)', () => {
+      const bd = computeDayBreakdown({ ...fullMonthNoData, weeklyOffDay: 1 /* Monday */, unscheduledIsOff: false });
+      // June 2026: Mondays are the 1st, 8th, 15th, 22nd, 29th -> 5 week-offs,
+      // matching the client rule that offs follow the month's calendar.
+      expect(bd.offDays).toBe(5);
+      expect(bd.workingDays).toBe(25);
+      expect(bd.absentDays).toBe(25);
+      expect(bd.absentDeductionDays).toBe(25); // the zero-attendance month finally deducts
+    });
+  });
+
   it('ignores open (active/on_break) sessions — a scheduled day with only an open session is absent', () => {
     const bd = computeDayBreakdown({
       ...base,

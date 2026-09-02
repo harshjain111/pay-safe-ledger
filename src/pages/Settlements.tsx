@@ -26,6 +26,7 @@ import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX, Downl
 import { EmptyState } from '@/components/layout/EmptyState';
 import { format, subMonths, getDaysInMonth, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { PayrollDataIntegrityBanner } from '@/components/payroll/PayrollDataIntegrityBanner';
 import { EnhancedSettlementConfirmDialog } from '@/components/settlements/EnhancedSettlementConfirmDialog';
 import { ZeroPaymentConfirmDialog } from '@/components/settlements/ZeroPaymentConfirmDialog';
 import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustmentInput';
@@ -896,6 +897,13 @@ export default function Settlements() {
           <span className="hidden sm:inline">Back</span>
         </Button>
       </PageHeader>
+
+      {selectedMonth && (
+        <PayrollDataIntegrityBanner
+          from={format(parseISO(selectedMonth + '-01'), 'yyyy-MM-dd')}
+          to={format(new Date(parseISO(selectedMonth + '-01').getFullYear(), parseISO(selectedMonth + '-01').getMonth() + 1, 0), 'yyyy-MM-dd')}
+        />
+      )}
 
       <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
         {/* Selection Panel */}
