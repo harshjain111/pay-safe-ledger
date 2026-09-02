@@ -147,6 +147,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'expenses.view', 'expenses.create', 'expenses.edit', 'expenses.delete',
     'reports.view', 'audit.view',
     'settings.attendance.edit',
+    'payslips.download', // client-confirmed: Admin downloads payslips like HR
   ],
   accountant: [
     'dashboard.view',

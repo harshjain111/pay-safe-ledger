@@ -19,6 +19,7 @@ export function OrganizationProfileCard() {
   const name = orgDisplayName(profile);
   const details: Array<[string, string | null | undefined]> = [
     ['Legal name', profile?.legal_name],
+    ['Brand code', (profile as { brand_code?: string | null } | null)?.brand_code],
     ['Email', profile?.email],
     ['Phone', profile?.phone],
     ['Website', profile?.website],

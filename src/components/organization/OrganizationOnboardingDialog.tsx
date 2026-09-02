@@ -64,7 +64,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
     defaultValues: {
       trade_name: '', legal_name: '', email: '', website: '', phone: '',
       gstin: '', pan: '', address: '', city: '', state: '', pincode: '',
-      epf_number: '', esi_number: '',
+      epf_number: '', esi_number: '', brand_code: '',
     },
   });
 
@@ -85,6 +85,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
       pincode: profile?.pincode ?? '',
       epf_number: profile?.epf_number ?? '',
       esi_number: profile?.esi_number ?? '',
+      brand_code: profile?.brand_code ?? '',
     });
     setLogoFile(null);
     setLogoPreview(profile?.logo_url ?? null);
@@ -134,6 +135,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
           pincode: nullify(values.pincode),
           epf_number: nullify(values.epf_number),
           esi_number: nullify(values.esi_number),
+          brand_code: nullify(values.brand_code)?.toUpperCase() ?? null,
           logo_url: logoUrl,
           onboarded_at: profile?.onboarded_at ?? new Date().toISOString(),
         })
@@ -212,6 +214,9 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
                 <Input {...register('website')} placeholder="https://company.com" />
               </Field>
             </div>
+            <Field label="Brand code (payslips)" error={errors.brand_code?.message}>
+              <Input {...register('brand_code')} placeholder="e.g. K2H" className="uppercase" />
+            </Field>
             <Field label="GSTIN" error={errors.gstin?.message}>
               <Input {...register('gstin')} placeholder="e.g. 27AAPFU0939F1ZV" className="uppercase" />
             </Field>
