@@ -144,11 +144,13 @@ export default function UsersList() {
     switch (role) {
       case 'owner': return 'default';
       case 'admin': return 'secondary';
+      case 'hr': return 'secondary';
       default: return 'outline';
     }
   };
 
   const getRoleLabel = (role: AppRole) => {
+    if (role === 'hr') return 'HR';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 

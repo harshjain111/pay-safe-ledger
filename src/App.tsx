@@ -29,6 +29,7 @@ const Expenses = lazy(() => import("./pages/Expenses"));
 const NewExpense = lazy(() => import("./pages/NewExpense"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
+const SalarySlips = lazy(() => import("./pages/SalarySlips"));
 const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
 const Roster = lazy(() => import("./pages/Roster"));
 const Payouts = lazy(() => import("./pages/Payouts"));
@@ -148,6 +149,7 @@ function AppRoutes() {
         <Route path="/payouts" element={<Payouts />} />
         <Route path="/settlements" element={<Settlements />} />
         <Route path="/my-payslips" element={<MySalarySlips />} />
+        <Route path="/salary-slips" element={<SalarySlips />} />
         <Route path="/leave-records" element={<LeaveRecords />} />
         <Route path="/holidays" element={<Holidays />} />
         <Route path="/rights-templates" element={<RightsTemplates />} />

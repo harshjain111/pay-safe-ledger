@@ -66,4 +66,21 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
     expect(ROLE_PERMISSIONS.admin).toContain('approvals.approve');
     expect(ROLE_PERMISSIONS.staff).not.toContain('approvals.approve');
   });
+  it('hr runs people ops, downloads payslips and locks the sheet — but no payroll settings/data', () => {
+    expect(ROLE_PERMISSIONS.hr).toContain('payslips.download');
+    expect(ROLE_PERMISSIONS.hr).toContain('settlements.lock');
+    expect(ROLE_PERMISSIONS.hr).toContain('salaries.view'); // payslips expose pay
+    expect(ROLE_PERMISSIONS.hr).toContain('staff.edit');
+    expect(ROLE_PERMISSIONS.hr).toContain('leave.approve');
+    expect(ROLE_PERMISSIONS.hr).not.toContain('settings.payroll.edit');
+    expect(ROLE_PERMISSIONS.hr).not.toContain('settings.data.manage');
+    expect(ROLE_PERMISSIONS.hr).not.toContain('settlements.run');
+    expect(ROLE_PERMISSIONS.hr).not.toContain('payouts.execute');
+  });
+  it('only hr (and owner via ALL) holds the sheet-lock and payslip permissions by default', () => {
+    for (const role of ['admin', 'accountant', 'staff', 'ca'] as const) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain('settlements.lock');
+      expect(ROLE_PERMISSIONS[role]).not.toContain('payslips.download');
+    }
+  });
 });

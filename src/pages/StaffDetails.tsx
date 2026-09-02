@@ -160,6 +160,7 @@ export default function StaffDetails() {
       accountant: 'Accountant',
       staff: 'Staff',
       ca: 'Chartered Accountant',
+      hr: 'HR',
     };
     return labels[role] || role;
   };

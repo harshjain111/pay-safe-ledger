@@ -18,6 +18,7 @@ interface AuthContextType {
   isAccountant: boolean;
   isStaff: boolean;
   isCA: boolean;
+  isHR: boolean;
   permissions: Set<string>;
   can: (permission: string) => boolean;
   canManageStaff: boolean;
@@ -136,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching role:', roleError);
       }
 
-      const ROLE_PRIORITY = ['owner', 'accountant', 'admin', 'staff', 'ca'];
+      const ROLE_PRIORITY = ['owner', 'hr', 'accountant', 'admin', 'staff', 'ca'];
       const heldRoles = (roleRows ?? []).map((r) => (r as { role: string }).role);
       const primaryRole = ROLE_PRIORITY.find((r) => heldRoles.includes(r)) ?? heldRoles[0] ?? null;
       if (primaryRole) {
@@ -224,13 +225,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAccountant = userRole === 'accountant';
   const isStaff = userRole === 'staff';
   const isCA = userRole === 'ca';
+  const isHR = userRole === 'hr';
 
   // Permission helpers - STRICT SALARY CONFIDENTIALITY
   
   // Staff management - Owner has full access, Admin/Accountant can add/edit non-salary fields
   const canManageStaff = isOwner;
-  const canAddStaff = isOwner || isAdmin || isAccountant;
-  const canEditStaff = isOwner || isAdmin || isAccountant; // Non-salary fields only for non-owners
+  const canAddStaff = isOwner || isAdmin || isAccountant || isHR;
+  const canEditStaff = isOwner || isAdmin || isAccountant || isHR; // Non-salary fields only for non-owners (HR sees salary via salaries.view)
   
   // CRITICAL: Only Owner can view salary data
   // Staff can only view their OWN salary (handled at component level)
@@ -278,6 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAccountant,
     isStaff,
     isCA,
+    isHR,
     permissions,
     can,
     canManageStaff,

@@ -147,6 +147,7 @@ export default function Settlements() {
   const [isSettling, setIsSettling] = useState(false);
   const [calculation, setCalculation] = useState<SettlementCalculation | null>(null);
   const [isAlreadySettled, setIsAlreadySettled] = useState(false);
+  const [isSheetLocked, setIsSheetLocked] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
@@ -169,6 +170,15 @@ export default function Settlements() {
         });
 
       setIsAlreadySettled(settledData);
+
+      // Month-level salary sheet lock (set by HR on the Salary Slips page). The
+      // DB trigger enforces it regardless; this is the friendly client check.
+      const { data: lockRow, error: lockError } = await supabase
+        .from('salary_sheet_locks' as never)
+        .select('month')
+        .eq('month', selectedMonth)
+        .maybeSingle();
+      setIsSheetLocked(!lockError && !!lockRow);
 
       const { data: validationData, error } = await supabase
         .rpc('validate_settlement', {
@@ -873,7 +883,7 @@ export default function Settlements() {
 
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
   const daysInMonth = selectedMonth ? getDaysInMonth(parseISO(selectedMonth + '-01')) : 30;
-  const canSettle = calculation && !isAlreadySettled && validation?.valid !== false && finalDeductionDays >= 0;
+  const canSettle = calculation && !isAlreadySettled && !isSheetLocked && validation?.valid !== false && finalDeductionDays >= 0;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -955,6 +965,15 @@ export default function Settlements() {
                       Download Payslip
                     </Button>
                   )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {isSheetLocked && (
+              <Alert className="border-warning bg-warning/10">
+                <Lock className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning">
+                  The salary sheet for this month has been locked by HR. Settlements cannot be added or changed until it is unlocked from the Salary Slips page.
                 </AlertDescription>
               </Alert>
             )}

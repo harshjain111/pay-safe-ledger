@@ -336,6 +336,7 @@ export default function UserForm() {
                   <SelectContent>
                     <SelectItem value="owner">Owner</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="hr">HR</SelectItem>
                     <SelectItem value="accountant">Accountant</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     <SelectItem value="ca">CA / Auditor</SelectItem>
@@ -344,6 +345,7 @@ export default function UserForm() {
                 <p className="text-xs text-muted-foreground">
                   {role === 'owner' && 'Full access to all features including salary'}
                   {role === 'admin' && 'Can approve requests and execute payouts (no salary access)'}
+                  {role === 'hr' && 'Runs people ops: staff, attendance, leave, holidays; downloads all payslips and locks the monthly salary sheet'}
                   {role === 'accountant' && 'Can execute payouts and view ledger (no salary access)'}
                   {role === 'staff' && 'Can submit requests and view own data'}
                   {role === 'ca' && 'Read-only access to reports and audit log'}

@@ -4,7 +4,7 @@
 HR end to end: paying salaries and advances, tracking expenses and reimbursements,
 recording attendance and leave, and keeping the books with a built-in **double-entry
 ledger**. Users sign in with their phone number, and what they can see and do is governed
-by their role (owner, admin, accountant, staff, or CA). On mobile it can be installed to
+by their role (owner, admin, HR, accountant, staff, or CA). On mobile it can be installed to
 the home screen (add-to-home-screen), but it requires a network connection and does not
 run offline — there is no service-worker caching.
 
@@ -16,7 +16,10 @@ customer without touching feature code.
 ## Features
 
 - **Staff & users** — manage staff records, employee details, salary history, and
-  role-based user accounts (owner / admin / accountant / staff / CA).
+  role-based user accounts (owner / admin / HR / accountant / staff / CA). The HR
+  role runs day-to-day people ops, can download every staff member's payslip, and
+  locks the monthly salary sheet (one button; a DB trigger then freezes that
+  month's settlements until unlocked).
 - **Salaries & settlements** — monthly salary settlements with statutory PF/ESI
   handling, advances, and downloadable payslips (PDF).
 - **Expenses & advances** — submit, approve, and reimburse expenses; request and

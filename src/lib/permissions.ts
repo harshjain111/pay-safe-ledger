@@ -80,6 +80,8 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'salaries.edit', label: 'Assign / change salaries' },
       { key: 'settlements.run', label: 'Run salary settlements' },
       { key: 'payouts.execute', label: 'Execute payouts' },
+      { key: 'payslips.download', label: 'Download all payslips' },
+      { key: 'settlements.lock', label: 'Lock monthly salary sheet' },
     ],
   },
   {
@@ -169,6 +171,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave.view',
     'ledger.view',
     'reports.view', 'audit.view',
+  ],
+  // HR is the day-to-day people-ops operator: full staff/attendance/leave
+  // management, payslip downloads for everyone, and the monthly sheet lock.
+  // salaries.view is deliberate — payslips expose pay, so HR sees salaries.
+  hr: [
+    'dashboard.view',
+    'staff.view', 'staff.create', 'staff.edit',
+    'users.view',
+    'attendance.view', 'attendance.create', 'attendance.edit', 'attendance.manage',
+    'roster.manage', 'holidays.manage',
+    'leave.view', 'leave.record', 'leave.edit', 'leave.approve',
+    'advances.view',
+    'salaries.view', 'payslips.download', 'settlements.lock',
+    'reports.view',
+    'settings.attendance.edit',
   ],
 };
 

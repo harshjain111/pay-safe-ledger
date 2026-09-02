@@ -1,5 +1,5 @@
 // IMPORTANT: 'admin' role added for expense approval without salary visibility
-export type AppRole = 'owner' | 'admin' | 'accountant' | 'staff' | 'ca';
+export type AppRole = 'owner' | 'admin' | 'accountant' | 'staff' | 'ca' | 'hr';
 
 export type PaymentMode = 'cash' | 'upi' | 'bank_transfer' | 'cheque' | 'petty_cash';
 

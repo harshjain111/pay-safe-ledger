@@ -33,6 +33,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { prefix: '/payroll-groups', permission: 'settlements.run' },
   { prefix: '/arrears', permission: 'settlements.run' },
   { prefix: '/salaries-advances', permission: 'salaries.view' },
+  { prefix: '/salary-slips', permission: 'payslips.download' },
   { prefix: '/payouts', permission: 'payouts.execute' },
   { prefix: '/petty-cash', permission: 'pettycash.manage' },
   { prefix: '/bulk-attendance', permission: 'attendance.manage' },

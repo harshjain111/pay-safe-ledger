@@ -195,6 +195,7 @@ function roleNavSections(
         items: [
           { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
           { title: 'Settlements', href: '/settlements', icon: Calculator },
+          { title: 'Salary Slips', href: '/salary-slips', icon: FileText },
           { title: 'Payroll Groups', href: '/payroll-groups', icon: Users2 },
           { title: 'Arrears', href: '/arrears', icon: HandCoins },
           { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
@@ -277,6 +278,62 @@ function roleNavSections(
           { title: 'Ledger', href: '/ledger', icon: FileText },
           { title: 'Petty Cash', href: '/petty-cash', icon: Coins },
           { title: 'Expenses', href: '/expenses', icon: Receipt },
+        ],
+      },
+      {
+        title: 'Reports',
+        items: [
+          { title: 'Reports', href: '/reports', icon: BarChart3 },
+        ],
+      },
+      {
+        title: 'Account',
+        items: [
+          { title: 'Settings', href: '/settings', icon: Settings },
+        ],
+      },
+    ];
+  }
+
+  // HR - people operations: staff, attendance, shifts, leave, holidays,
+  // payslip downloads and the monthly salary sheet lock.
+  if (userRole === 'hr') {
+    return [
+      {
+        items: [
+          { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        ],
+      },
+      {
+        title: 'People',
+        items: [
+          { title: 'Staff', href: '/staff', icon: Briefcase },
+          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
+        ],
+      },
+      {
+        title: 'Attendance & Shifts',
+        items: [
+          { title: 'Attendance', href: '/attendance', icon: Clock },
+          { title: 'Shifts', href: '/shifts', icon: Briefcase },
+          { title: 'Week Off', href: '/week-off', icon: CalendarDays },
+          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
+          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
+        ],
+      },
+      {
+        title: 'Leave',
+        items: [
+          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
+          { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
+          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
+        ],
+      },
+      {
+        title: 'Payroll',
+        items: [
+          { title: 'Salary Slips', href: '/salary-slips', icon: FileText },
         ],
       },
       {
@@ -421,7 +478,7 @@ function AppSidebar() {
   // Non-owner staff-linked users (admin / accountant / manager) are also
   // employees — they can toggle into the personal "employee" view.
   const canSwitch = !isOwner && userRole !== 'staff' && userRole !== 'ca' && !!staffData;
-  const workLabel = userRole === 'accountant' ? 'Accounting' : userRole === 'admin' ? 'Admin' : 'Work';
+  const workLabel = userRole === 'accountant' ? 'Accounting' : userRole === 'admin' ? 'Admin' : userRole === 'hr' ? 'HR' : 'Work';
   const { data: orgProfile } = useOrganizationProfile();
   const orgName = orgDisplayName(orgProfile) || ORGANIZATION.name;
   const orgLogo = orgProfile?.logo_url || ORGANIZATION.logo;
@@ -457,7 +514,7 @@ function AppSidebar() {
   };
 
   const displayName = staffData?.full_name || user?.email || 'User';
-  const roleDisplay = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : '';
+  const roleDisplay = userRole ? (userRole === 'hr' ? 'HR' : userRole.charAt(0).toUpperCase() + userRole.slice(1)) : '';
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -695,7 +752,7 @@ function AppHeader() {
   };
 
   const displayName = staffData?.full_name || user?.email || 'User';
-  const roleDisplay = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : '';
+  const roleDisplay = userRole ? (userRole === 'hr' ? 'HR' : userRole.charAt(0).toUpperCase() + userRole.slice(1)) : '';
 
   const currentNavItem = allItems.find(item => 
     location.pathname === item.href || 
