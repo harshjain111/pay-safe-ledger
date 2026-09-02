@@ -29,6 +29,17 @@ interface RoutePermission {
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { prefix: '/users', permission: 'users.view' },
   { prefix: '/rights-templates', permission: 'users.manage' },
+  // PHASE 2 — new payroll paths keep the existing permission keys. Order
+  // matters: the specific /settlements/* rows must come before the bare
+  // /settlements prefix (the legacy per-staff screen).
+  { prefix: '/payroll/process', permission: 'settlements.run' },
+  { prefix: '/payroll/finalized', permission: 'settlements.run' },
+  { prefix: '/payroll/increments', permission: 'salaries.edit' },
+  { prefix: '/payroll/salary-slips', permission: 'payslips.download' },
+  { prefix: '/settlements/payouts', permission: 'payouts.execute' },
+  { prefix: '/settlements/arrears', permission: 'settlements.run' },
+  { prefix: '/settlements/advances', permission: 'payouts.execute' },
+  { prefix: '/settlements/log', permission: 'payouts.execute' },
   { prefix: '/settlements', permission: 'settlements.run' },
   { prefix: '/payroll-groups', permission: 'settlements.run' },
   { prefix: '/arrears', permission: 'settlements.run' },

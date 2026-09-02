@@ -138,7 +138,6 @@ function roleNavSections(
           { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
           { title: 'My Salary Slips', href: '/my-payslips', icon: FileText },
           { title: 'My Ledger', href: '/ledger', icon: FileText },
-          { title: 'My Expenses', href: '/expenses', icon: Receipt },
           { title: 'Request Advance', href: '/requests', icon: ClipboardList },
           { title: 'My Attendance', href: '/my-attendance', icon: Clock },
           { title: 'Raise a Concern', href: '/grievance', icon: MessageSquareWarning },
@@ -148,156 +147,106 @@ function roleNavSections(
     ];
   }
 
+  // ---------------------------------------------------------------------------
+  // PHASE 2 (Attendo rebuild): one management taxonomy — 5 titled groups plus
+  // standalone items — mirrored across the management roles. Removed from nav
+  // everywhere: Shifts, Duty Roster, Holidays, Petty Cash, Expenses, Payroll
+  // Groups (routes redirect; Shifts stays reachable by URL per the client).
+  // ---------------------------------------------------------------------------
+  const managementNav = (opts: { ledger?: boolean } = {}): NavSection[] => [
+    {
+      items: [
+        { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      title: 'Employees',
+      items: [
+        { title: 'Employees', href: '/staff', icon: Briefcase },
+        { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
+      ],
+    },
+    {
+      title: 'Attendance',
+      items: [
+        // Bulk Attendance Adjustments FIRST — it is where managers spend their time.
+        { title: 'Bulk Attendance Adjustments', href: '/bulk-attendance', icon: Users2 },
+        { title: 'Attendance', href: '/attendance', icon: Clock },
+        { title: 'Week Off', href: '/week-off', icon: CalendarDays },
+      ],
+    },
+    {
+      title: 'Leave',
+      items: [
+        { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+        { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
+        { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
+      ],
+    },
+    {
+      items: [
+        { title: 'Approval Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
+      ],
+    },
+    {
+      title: 'Payroll',
+      items: [
+        { title: 'Process Payroll', href: '/payroll/process', icon: Calculator },
+        { title: 'Finalized Payroll', href: '/payroll/finalized', icon: CalendarCheck },
+        { title: 'Salary Increments', href: '/payroll/increments', icon: Wallet },
+        { title: 'Salary Slips', href: '/payroll/salary-slips', icon: FileText },
+      ],
+    },
+    {
+      title: 'Settlements',
+      items: [
+        { title: 'Advances', href: '/settlements/advances', icon: HandCoins },
+        { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedExpenses },
+        { title: 'Arrears', href: '/settlements/arrears', icon: Coins },
+        { title: 'Transaction Log', href: '/settlements/log', icon: History },
+        ...(opts.ledger === false ? [] : [{ title: 'Ledger', href: '/ledger', icon: FileText }]),
+      ],
+    },
+    {
+      items: [
+        { title: 'Reports', href: '/reports', icon: BarChart3 },
+      ],
+    },
+    {
+      items: [
+        { title: 'Activity Log', href: '/audit-log', icon: History },
+      ],
+    },
+    {
+      title: 'Admin',
+      items: [
+        { title: 'Users', href: '/users', icon: Users },
+        { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
+        { title: 'Settings', href: '/settings', icon: Settings },
+      ],
+    },
+  ];
+
   // Owner - full access
   if (userRole === 'owner') {
-    return [
-      {
-        items: [
-          { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        ],
-      },
-      {
-        title: 'People',
-        items: [
-          { title: 'Staff', href: '/staff', icon: Briefcase },
-          { title: 'Users', href: '/users', icon: Users },
-          { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
-          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
-        ],
-      },
-      {
-        title: 'Attendance & Shifts',
-        items: [
-          { title: 'Attendance', href: '/attendance', icon: Clock },
-          { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Week Off', href: '/week-off', icon: CalendarDays },
-          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
-          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
-        ],
-      },
-      {
-        title: 'Leave',
-        items: [
-          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
-          { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
-          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
-        ],
-      },
-      {
-        title: 'Approvals',
-        items: [
-          { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
-        ],
-      },
-      {
-        title: 'Payroll',
-        items: [
-          { title: 'Salaries & Advances', href: '/salaries-advances', icon: Wallet },
-          { title: 'Settlements', href: '/settlements', icon: Calculator },
-          { title: 'Salary Slips', href: '/salary-slips', icon: FileText },
-          { title: 'Payroll Groups', href: '/payroll-groups', icon: Users2 },
-          { title: 'Arrears', href: '/arrears', icon: HandCoins },
-          { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
-        ],
-      },
-      {
-        title: 'Finance',
-        items: [
-          { title: 'Ledger', href: '/ledger', icon: FileText },
-          { title: 'Petty Cash', href: '/petty-cash', icon: Coins },
-          { title: 'Expenses', href: '/expenses', icon: Receipt },
-        ],
-      },
-      {
-        title: 'Reports',
-        items: [
-          { title: 'Reports', href: '/reports', icon: BarChart3 },
-          { title: 'Audit Log', href: '/audit-log', icon: History },
-        ],
-      },
-      {
-        title: 'Account',
-        items: [
-          { title: 'Settings', href: '/settings', icon: Settings },
-        ],
-      },
-    ];
+    return managementNav();
   }
 
-  // Admin - can approve, execute payouts (no salary), add staff
+  // Admin — same taxonomy; the permission filter in getNavSections() trims the
+  // payroll items the Administrator template lacks (settlements.run etc.).
   if (userRole === 'admin') {
-    return [
-      {
-        items: [
-          { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        ],
-      },
-      {
-        title: 'People',
-        items: [
-          { title: 'Staff', href: '/staff', icon: Briefcase },
-          { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
-          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
-        ],
-      },
-      {
-        title: 'Attendance & Shifts',
-        items: [
-          { title: 'Attendance', href: '/attendance', icon: Clock },
-          { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Week Off', href: '/week-off', icon: CalendarDays },
-          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
-          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
-        ],
-      },
-      {
-        title: 'Leave',
-        items: [
-          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
-          { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
-          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
-        ],
-      },
-      {
-        title: 'Approvals',
-        items: [
-          { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
-        ],
-      },
-      {
-        title: 'Payroll',
-        items: [
-          { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
-        ],
-      },
-      {
-        title: 'Finance',
-        items: [
-          { title: 'Ledger', href: '/ledger', icon: FileText },
-          { title: 'Petty Cash', href: '/petty-cash', icon: Coins },
-          { title: 'Expenses', href: '/expenses', icon: Receipt },
-        ],
-      },
-      {
-        title: 'Reports',
-        items: [
-          { title: 'Reports', href: '/reports', icon: BarChart3 },
-        ],
-      },
-      {
-        title: 'Account',
-        items: [
-          { title: 'Settings', href: '/settings', icon: Settings },
-        ],
-      },
-    ];
+    return managementNav();
   }
 
-  // HR - people operations: staff, attendance, shifts, leave, holidays,
-  // payslip downloads and the monthly salary sheet lock.
+  // HR — same taxonomy without the finance ledger; the permission filter trims
+  // the payroll/settlement items HR's template lacks.
   if (userRole === 'hr') {
+    return managementNav({ ledger: false });
+  }
+
+  // Accountant — work (accounting) view: finance-facing subset of the taxonomy.
+  // The personal "My Account" view is handled by the shared canSwitch branch above.
+  if (isAccountant) {
     return [
       {
         items: [
@@ -305,105 +254,43 @@ function roleNavSections(
         ],
       },
       {
-        title: 'People',
+        title: 'Employees',
         items: [
-          { title: 'Staff', href: '/staff', icon: Briefcase },
-          { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
-        ],
-      },
-      {
-        title: 'Attendance & Shifts',
-        items: [
-          { title: 'Attendance', href: '/attendance', icon: Clock },
-          { title: 'Shifts', href: '/shifts', icon: Briefcase },
-          { title: 'Week Off', href: '/week-off', icon: CalendarDays },
-          { title: 'Duty Roster', href: '/roster', icon: CalendarDays },
-          { title: 'Bulk Attendance', href: '/bulk-attendance', icon: Users2 },
+          { title: 'Employees', href: '/staff', icon: Briefcase },
         ],
       },
       {
         title: 'Leave',
         items: [
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
-          { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
-          { title: 'Holidays', href: '/holidays', icon: CalendarCheck },
         ],
       },
       {
-        title: 'Payroll',
         items: [
-          { title: 'Salary Slips', href: '/salary-slips', icon: FileText },
+          { title: 'Approval Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
         ],
       },
       {
-        title: 'Reports',
+        title: 'Settlements',
+        items: [
+          { title: 'Advances', href: '/settlements/advances', icon: HandCoins },
+          { title: 'Advance Payouts', href: '/settlements/payouts', icon: CreditCard, badge: counts.approvedExpenses },
+          { title: 'Transaction Log', href: '/settlements/log', icon: History },
+          { title: 'Ledger', href: '/ledger', icon: FileText },
+        ],
+      },
+      {
         items: [
           { title: 'Reports', href: '/reports', icon: BarChart3 },
         ],
       },
       {
-        title: 'Account',
+        title: 'Admin',
         items: [
           { title: 'Settings', href: '/settings', icon: Settings },
         ],
       },
     ];
-  }
-
-  // Accountant - work (accounting) view. The personal "My Account" view is
-  // handled by the shared canSwitch branch above.
-  if (isAccountant) {
-      return [
-        {
-          items: [
-            { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-          ],
-        },
-        {
-          title: 'People',
-          items: [
-            { title: 'Staff', href: '/staff', icon: Briefcase },
-          ],
-        },
-        {
-          title: 'Leave',
-          items: [
-            { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
-          ],
-        },
-        {
-          title: 'Approvals',
-          items: [
-            { title: 'Approvals', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
-          ],
-        },
-        {
-          title: 'Payroll',
-          items: [
-            { title: 'Payouts', href: '/payouts', icon: CreditCard, badge: counts.approvedExpenses },
-          ],
-        },
-        {
-          title: 'Finance',
-          items: [
-            { title: 'Ledger', href: '/ledger', icon: FileText },
-            { title: 'Expenses', href: '/expenses', icon: Receipt },
-          ],
-        },
-        {
-          title: 'Reports',
-          items: [
-            { title: 'Reports', href: '/reports', icon: BarChart3 },
-          ],
-        },
-        {
-          title: 'Account',
-          items: [
-            { title: 'Settings', href: '/settings', icon: Settings },
-          ],
-        },
-      ];
   }
 
   // Staff - personal view only — self-service, unchanged
@@ -414,7 +301,6 @@ function roleNavSections(
           { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
           { title: 'My Salary Slips', href: '/my-payslips', icon: FileText },
           { title: 'My Ledger', href: '/ledger', icon: FileText },
-          { title: 'My Expenses', href: '/expenses', icon: Receipt },
           { title: 'Request Advance', href: '/requests', icon: ClipboardList },
           { title: 'My Attendance', href: '/my-attendance', icon: Clock },
           { title: 'Raise a Concern', href: '/grievance', icon: MessageSquareWarning },
@@ -424,7 +310,7 @@ function roleNavSections(
     ];
   }
 
-  // CA - read-only access — regrouped into the management taxonomy
+  // CA - read-only access — the read-only subset of the taxonomy
   if (userRole === 'ca') {
     return [
       {
@@ -433,26 +319,29 @@ function roleNavSections(
         ],
       },
       {
-        title: 'Attendance & Shifts',
+        title: 'Attendance',
         items: [
           { title: 'Attendance', href: '/attendance', icon: Clock },
         ],
       },
       {
-        title: 'Finance',
+        title: 'Settlements',
         items: [
           { title: 'Ledger', href: '/ledger', icon: FileText },
         ],
       },
       {
-        title: 'Reports',
         items: [
           { title: 'Reports', href: '/reports', icon: BarChart3 },
-          { title: 'Audit Log', href: '/audit-log', icon: History },
         ],
       },
       {
-        title: 'Account',
+        items: [
+          { title: 'Activity Log', href: '/audit-log', icon: History },
+        ],
+      },
+      {
+        title: 'Admin',
         items: [
           { title: 'Settings', href: '/settings', icon: Settings },
         ],

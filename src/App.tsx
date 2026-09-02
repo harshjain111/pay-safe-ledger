@@ -25,29 +25,21 @@ const Requests = lazy(() => import("./pages/Requests"));
 const Grievance = lazy(() => import("./pages/Grievance"));
 const Approvals = lazy(() => import("./pages/Approvals"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
-const Expenses = lazy(() => import("./pages/Expenses"));
-const NewExpense = lazy(() => import("./pages/NewExpense"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
 const SalarySlips = lazy(() => import("./pages/SalarySlips"));
 const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
-const Roster = lazy(() => import("./pages/Roster"));
 const Payouts = lazy(() => import("./pages/Payouts"));
 const Reports = lazy(() => import("./pages/Reports"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeaveRecords = lazy(() => import("./pages/LeaveRecords"));
-const Holidays = lazy(() => import("./pages/Holidays"));
 const RightsTemplates = lazy(() => import("./pages/RightsTemplates"));
 const BulkAttendance = lazy(() => import("./pages/BulkAttendance"));
-const PayrollGroups = lazy(() => import("./pages/PayrollGroups"));
 const Arrears = lazy(() => import("./pages/Arrears"));
 const LeaveTypes = lazy(() => import("./pages/LeaveTypes"));
 const LeaveAssign = lazy(() => import("./pages/LeaveAssign"));
-const HolidayTemplates = lazy(() => import("./pages/HolidayTemplates"));
-const HolidayAssign = lazy(() => import("./pages/HolidayAssign"));
 const LeaveBalance = lazy(() => import("./pages/LeaveBalance"));
-const PettyCash = lazy(() => import("./pages/PettyCash"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyAttendance = lazy(() => import("./pages/MyAttendance"));
 const Shifts = lazy(() => import("./pages/Shifts"));
@@ -145,33 +137,47 @@ function AppRoutes() {
         <Route path="/requests" element={<Requests />} />
         <Route path="/requests/new" element={<NewRequest />} />
         <Route path="/approvals" element={<Approvals />} />
-        <Route path="/expenses" element={<Expenses />} />
-        <Route path="/expenses/new" element={<NewExpense />} />
-        <Route path="/payouts" element={<Payouts />} />
         <Route path="/settlements" element={<Settlements />} />
         <Route path="/my-payslips" element={<MySalarySlips />} />
-        <Route path="/salary-slips" element={<SalarySlips />} />
         <Route path="/leave-records" element={<LeaveRecords />} />
-        <Route path="/holidays" element={<Holidays />} />
         <Route path="/rights-templates" element={<RightsTemplates />} />
         <Route path="/bulk-attendance" element={<BulkAttendance />} />
-        <Route path="/payroll-groups" element={<PayrollGroups />} />
-        <Route path="/arrears" element={<Arrears />} />
         <Route path="/leave-types" element={<LeaveTypes />} />
         <Route path="/leave-assign" element={<LeaveAssign />} />
-        <Route path="/holiday-templates" element={<HolidayTemplates />} />
-        <Route path="/holiday-assign" element={<HolidayAssign />} />
         <Route path="/leave-balance" element={<LeaveBalance />} />
+
+        {/* PHASE 2 — new payroll/settlements paths. Elements are the current
+            pages until their rebuild phase replaces them. */}
+        <Route path="/payroll/process" element={<Settlements />} />
+        <Route path="/payroll/finalized" element={<Navigate to="/payroll/process" replace />} />
+        <Route path="/payroll/increments" element={<Navigate to="/salaries-advances" replace />} />
+        <Route path="/payroll/salary-slips" element={<SalarySlips />} />
+        <Route path="/settlements/payouts" element={<Payouts />} />
+        <Route path="/settlements/arrears" element={<Arrears />} />
+        <Route path="/settlements/advances" element={<Navigate to="/salaries-advances" replace />} />
+        <Route path="/settlements/log" element={<Navigate to="/ledger" replace />} />
+
+        {/* PHASE 2 — redirects so no bookmark 404s (code deleted in Phase 8).
+            /shifts intentionally stays live: the client is keeping Shifts. */}
+        <Route path="/payouts" element={<Navigate to="/settlements/payouts" replace />} />
+        <Route path="/arrears" element={<Navigate to="/settlements/arrears" replace />} />
+        <Route path="/salary-slips" element={<Navigate to="/payroll/salary-slips" replace />} />
+        <Route path="/payroll-groups" element={<Navigate to="/payroll/process" replace />} />
+        <Route path="/holidays" element={<Navigate to="/leave-records" replace />} />
+        <Route path="/holiday-templates" element={<Navigate to="/leave-records" replace />} />
+        <Route path="/holiday-assign" element={<Navigate to="/leave-records" replace />} />
+        <Route path="/roster" element={<Navigate to="/bulk-attendance" replace />} />
+        <Route path="/petty-cash" element={<Navigate to="/ledger" replace />} />
+        <Route path="/expenses" element={<Navigate to="/ledger" replace />} />
+        <Route path="/expenses/new" element={<Navigate to="/ledger" replace />} />
         <Route path="/salaries-advances" element={<SalariesAdvances />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />
-        <Route path="/petty-cash" element={<PettyCash />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-attendance" element={<MyAttendance />} />
         <Route path="/grievance" element={<Grievance />} />
         <Route path="/shifts" element={<Shifts />} />
         <Route path="/week-off" element={<WeekOff />} />
-        <Route path="/roster" element={<Roster />} />
         <Route path="/biometric-enrolment" element={<BiometricEnrolment />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/:category" element={<Settings />} />
