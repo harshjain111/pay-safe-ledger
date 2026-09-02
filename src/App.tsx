@@ -54,6 +54,7 @@ const Shifts = lazy(() => import("./pages/Shifts"));
 const WeekOff = lazy(() => import("./pages/WeekOff"));
 const BiometricEnrolment = lazy(() => import("./pages/BiometricEnrolment"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PatternsDemo = lazy(() => import("./pages/PatternsDemo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -174,6 +175,8 @@ function AppRoutes() {
         <Route path="/biometric-enrolment" element={<BiometricEnrolment />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/:category" element={<Settings />} />
+        {/* Phase 1 pattern gallery — dev builds only, not in any nav. */}
+        {import.meta.env.DEV && <Route path="/patterns" element={<PatternsDemo />} />}
       </Route>
 
       {/* Catch-all */}
