@@ -24,6 +24,8 @@ import { ArrowLeft, Edit, Trash2, Phone, Mail, Building2, Briefcase, Calendar, U
 import { StaffAttendanceSection } from '@/components/attendance/StaffAttendanceSection';
 import { StaffDocumentsCard } from '@/components/staff/StaffDocumentsCard';
 import { EmploymentHistoryCard } from '@/components/staff/EmploymentHistoryCard';
+import { SalaryHistoryCard } from '@/components/staff/SalaryHistoryCard';
+import { StaffStatusDialog, STAFF_STATUS_LABEL, type StaffStatus } from '@/components/staff/StaffStatusDialog';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import type { Staff, AppRole } from '@/types/database';
@@ -32,9 +34,11 @@ import { staffSelect } from '@/lib/staff-fields';
 export default function StaffDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { isOwner, canViewSalaries, canEditStaff } = useAuth();
-  
+  const { isOwner, isAdmin, isHR, canViewSalaries, canEditStaff } = useAuth();
+  const canChangeStatus = isOwner || isAdmin || isHR;
+
   const [staff, setStaff] = useState<Staff | null>(null);
+  const [statusDialog, setStatusDialog] = useState<{ open: boolean; next: StaffStatus }>({ open: false, next: 'active' });
   const [staffRole, setStaffRole] = useState<AppRole | null>(null);
   const [managerName, setManagerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -201,6 +205,18 @@ export default function StaffDetails() {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Link>
+            </Button>
+          )}
+          {canChangeStatus && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatusDialog({
+                open: true,
+                next: (staff.status as StaffStatus) === 'active' || staff.is_active !== false ? 'left' : 'active',
+              })}
+            >
+              {(staff.status as StaffStatus) === 'active' || staff.is_active !== false ? 'Mark as Left' : 'Reactivate'}
             </Button>
           )}
           {isOwner && (
@@ -439,6 +455,8 @@ export default function StaffDetails() {
         )}
 
         {/* Documents */}
+        <SalaryHistoryCard staffId={staff.id} staffName={staff.full_name} currentSalary={Number(staff.monthly_salary ?? 0)} />
+
         <StaffDocumentsCard staffId={staff.id} />
 
         {/* Employment History */}
@@ -447,6 +465,16 @@ export default function StaffDetails() {
         {/* Attendance records */}
         <StaffAttendanceSection staffId={staff.id} />
       </div>
+
+      <StaffStatusDialog
+        open={statusDialog.open}
+        onOpenChange={(o) => setStatusDialog((s) => ({ ...s, open: o }))}
+        staffId={staff.id}
+        staffName={staff.full_name}
+        nextStatus={statusDialog.next}
+        dateOfJoining={staff.date_of_joining}
+        onSaved={fetchStaffDetails}
+      />
     </div>
   );
 }

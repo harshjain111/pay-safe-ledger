@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { PageHeader, RowMenu, ColumnChooser, useColumnPrefs } from '@/components/patterns';
 import { ExportButton } from '@/components/common/ExportButton';
 import type { ExportColumn } from '@/lib/table-export';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -60,6 +60,7 @@ function getStatus(member: Staff): StaffStatus {
 }
 
 export default function StaffList() {
+  const navigate = useNavigate();
   const { canViewSalaries, isOwner, isAdmin, isAccountant, isHR, canEditStaff } = useAuth();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +79,19 @@ export default function StaffList() {
 
   const canAddStaff = isOwner || isAdmin || isAccountant || isHR;
   const canChangeStatus = isOwner || isAdmin || isHR;
+
+  // PHASE 7 — Attendo's "Edit Columns" on the desktop table (persisted per user).
+  const ALL_COLUMNS = [
+    { key: 'employee', label: 'Employee' },
+    { key: 'department', label: 'Department' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'outlet', label: 'Outlet' },
+    ...(canViewSalaries ? [{ key: 'salary', label: 'Salary' }] : []),
+    { key: 'status', label: 'Status' },
+    { key: 'dates', label: 'Joined / Left' },
+  ];
+  const { visibleKeys, save: saveColumns, reset: resetColumns } = useColumnPrefs('employees-list', ALL_COLUMNS.map((c) => c.key));
+  const col = (key: string) => visibleKeys.includes(key);
 
   useEffect(() => {
     fetchStaff();
@@ -210,20 +224,25 @@ export default function StaffList() {
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
-      <PageHeader title="Staff Management" description="Manage your team members">
-        <div className="flex items-center gap-2">
-          <ExportButton filename="staff" sheetName="Staff" rows={filteredStaff} columns={exportColumns} />
-          {canAddStaff && (
-            <Link to="/staff/new">
-              <Button className="text-sm sm:text-base px-3 sm:px-4">
-                <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Add Staff</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            </Link>
-          )}
-        </div>
-      </PageHeader>
+      <PageHeader
+        title="Employees"
+        count={filteredStaff.length}
+        actions={
+          <>
+            <ColumnChooser pageId="employees-list" columns={ALL_COLUMNS} visibleKeys={visibleKeys} onSave={saveColumns} onReset={resetColumns} />
+            <ExportButton filename="employees" sheetName="Employees" rows={filteredStaff} columns={exportColumns} />
+            {canAddStaff && (
+              <Link to="/staff/new">
+                <Button className="text-sm sm:text-base px-3 sm:px-4">
+                  <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Add Employee</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+              </Link>
+            )}
+          </>
+        }
+      />
 
       <Tabs value={view} onValueChange={(v) => setView(v as ViewKey)}>
         <TabsList className="grid w-full grid-cols-4 sm:w-auto sm:inline-grid">
@@ -315,35 +334,14 @@ export default function StaffList() {
                       </div>
                       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <StatusPill member={member} />
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="Staff actions" className="h-7 w-7 sm:h-8 sm:w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
-                            <DropdownMenuItem asChild>
-                              <Link to={`/staff/${member.id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </Link>
-                            </DropdownMenuItem>
-                            {canEditStaff && (
-                              <DropdownMenuItem asChild>
-                                <Link to={`/staff/${member.id}/edit`}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit
-                                </Link>
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem asChild>
-                              <Link to={`/ledger?staff=${member.id}`}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                View Ledger
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <RowMenu items={[
+                          { label: 'View Details', icon: Eye, onSelect: () => navigate(`/staff/${member.id}`) },
+                          ...(canEditStaff ? [{ label: 'Edit', icon: Edit, onSelect: () => navigate(`/staff/${member.id}/edit`) }] : []),
+                          { label: 'View Ledger', icon: FileText, onSelect: () => navigate(`/ledger?staff=${member.id}`) },
+                          ...(canChangeStatus && getStatus(member) === 'active'
+                            ? [{ label: 'Mark as Left', icon: MoreHorizontal, destructive: true, onSelect: () => requestStatusChange(member, 'left') }]
+                            : []),
+                        ]} />
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
@@ -371,38 +369,42 @@ export default function StaffList() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-secondary/50">
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Designation</TableHead>
-                      <TableHead>Outlet</TableHead>
-                      {canViewSalaries && <TableHead className="text-right">Salary</TableHead>}
-                      <TableHead>Status</TableHead>
-                      <TableHead>{view === 'left' || view === 'terminated' ? 'Date of Leaving' : 'Joined'}</TableHead>
+                      {col('employee') && <TableHead>Employee</TableHead>}
+                      {col('department') && <TableHead>Department</TableHead>}
+                      {col('designation') && <TableHead>Designation</TableHead>}
+                      {col('outlet') && <TableHead>Outlet</TableHead>}
+                      {canViewSalaries && col('salary') && <TableHead className="text-right">Salary</TableHead>}
+                      {col('status') && <TableHead>Status</TableHead>}
+                      {col('dates') && <TableHead>{view === 'left' || view === 'terminated' ? 'Date of Leaving' : 'Joined'}</TableHead>}
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredStaff.map((member) => (
                       <TableRow key={member.id} className="hover:bg-secondary/30">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                                {getInitials(member.full_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{member.full_name}</p>
-                              <p className="text-sm text-muted-foreground">{member.employee_id}</p>
+                        {col('employee') && (
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                  {getInitials(member.full_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{member.full_name}</p>
+                                <p className="text-sm text-muted-foreground">{member.employee_id}</p>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{member.department || '-'}</TableCell>
-                        <TableCell>{member.designation || '-'}</TableCell>
-                        <TableCell>
-                          {outletOf(member) ?? <span className="text-warning text-xs font-medium">Not set</span>}
-                        </TableCell>
-                        {canViewSalaries && (
+                          </TableCell>
+                        )}
+                        {col('department') && <TableCell>{member.department || '-'}</TableCell>}
+                        {col('designation') && <TableCell>{member.designation || '-'}</TableCell>}
+                        {col('outlet') && (
+                          <TableCell>
+                            {outletOf(member) ?? <span className="text-warning text-xs font-medium">Not set</span>}
+                          </TableCell>
+                        )}
+                        {canViewSalaries && col('salary') && (
                           <TableCell className="text-right">
                             {member.monthly_salary > 0 ? (
                               <Amount value={member.monthly_salary} />
@@ -411,51 +413,34 @@ export default function StaffList() {
                             )}
                           </TableCell>
                         )}
+                        {col('status') && (
+                          <TableCell>
+                            <StatusPill member={member} />
+                            {(view === 'left' || view === 'terminated') && member.separation_reason && (
+                              <p className="text-xs text-muted-foreground mt-1 max-w-[260px] truncate" title={member.separation_reason}>
+                                {member.separation_reason}
+                              </p>
+                            )}
+                          </TableCell>
+                        )}
+                        {col('dates') && (
+                          <TableCell className="text-muted-foreground">
+                            {view === 'left' || view === 'terminated'
+                              ? member.date_of_leaving
+                                ? format(new Date(member.date_of_leaving), 'dd MMM yyyy')
+                                : '-'
+                              : format(new Date(member.date_of_joining), 'dd MMM yyyy')}
+                          </TableCell>
+                        )}
                         <TableCell>
-                          <StatusPill member={member} />
-                          {(view === 'left' || view === 'terminated') && member.separation_reason && (
-                            <p className="text-xs text-muted-foreground mt-1 max-w-[260px] truncate" title={member.separation_reason}>
-                              {member.separation_reason}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {view === 'left' || view === 'terminated'
-                            ? member.date_of_leaving
-                              ? format(new Date(member.date_of_leaving), 'dd MMM yyyy')
-                              : '-'
-                            : format(new Date(member.date_of_joining), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="Staff actions" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover">
-                              <DropdownMenuItem asChild>
-                                <Link to={`/staff/${member.id}`}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Details
-                                </Link>
-                              </DropdownMenuItem>
-                              {canEditStaff && (
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/staff/${member.id}/edit`}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </Link>
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem asChild>
-                                <Link to={`/ledger?staff=${member.id}`}>
-                                  <FileText className="mr-2 h-4 w-4" />
-                                  View Ledger
-                                </Link>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <RowMenu items={[
+                            { label: 'View Details', icon: Eye, onSelect: () => navigate(`/staff/${member.id}`) },
+                            ...(canEditStaff ? [{ label: 'Edit', icon: Edit, onSelect: () => navigate(`/staff/${member.id}/edit`) }] : []),
+                            { label: 'View Ledger', icon: FileText, onSelect: () => navigate(`/ledger?staff=${member.id}`) },
+                            ...(canChangeStatus && getStatus(member) === 'active'
+                              ? [{ label: 'Mark as Left', icon: MoreHorizontal, destructive: true, onSelect: () => requestStatusChange(member, 'left') }]
+                              : []),
+                          ]} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -474,6 +459,7 @@ export default function StaffList() {
           staffId={statusDialog.staff.id}
           staffName={statusDialog.staff.full_name}
           nextStatus={statusDialog.next}
+          dateOfJoining={statusDialog.staff.date_of_joining}
           onSaved={fetchStaff}
         />
       )}
