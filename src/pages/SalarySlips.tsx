@@ -17,17 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { FileText, Download, Loader2, Lock, LockOpen, ShieldX } from 'lucide-react';
+import { FileText, Download, Loader2, Lock, ShieldX } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
 import { toast } from '@/lib/toast';
 import { downloadPayslipPDF, type PayslipOrg, type PayslipSettlement, type PayslipStaff } from '@/lib/payslip-pdf';
@@ -56,11 +46,8 @@ export default function SalarySlips() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
-  const [lockBusy, setLockBusy] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'lock' | 'unlock' | null>(null);
 
   const canDownload = can('payslips.download');
-  const canLock = can('settlements.lock');
 
   const fetchMonth = useCallback(async () => {
     setLoading(true);
@@ -159,33 +146,6 @@ export default function SalarySlips() {
     }
   };
 
-  const handleLockToggle = async () => {
-    if (!user?.id || !confirmAction) return;
-    setLockBusy(true);
-    try {
-      if (confirmAction === 'lock') {
-        const { error } = await supabase
-          .from('salary_sheet_locks' as never)
-          .insert({ month: selectedMonth, locked_by: user.id } as never);
-        if (error) throw error;
-        toast.success(`Salary sheet for ${monthLabel} is now locked`);
-      } else {
-        const { error } = await supabase
-          .from('salary_sheet_locks' as never)
-          .delete()
-          .eq('month', selectedMonth);
-        if (error) throw error;
-        toast.success(`Salary sheet for ${monthLabel} is unlocked`);
-      }
-      setConfirmAction(null);
-      await fetchMonth();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not update the salary sheet lock');
-    } finally {
-      setLockBusy(false);
-    }
-  };
-
   return (
     <div className="space-y-4 md:space-y-6">
       <PageHeader
@@ -225,28 +185,6 @@ export default function SalarySlips() {
                 {downloadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Download all
               </Button>
-              {canLock && (
-                lock ? (
-                  <Button
-                    variant="outline"
-                    className="gap-1.5"
-                    disabled={lockBusy || loading}
-                    onClick={() => setConfirmAction('unlock')}
-                  >
-                    <LockOpen className="h-4 w-4" />
-                    Unlock sheet
-                  </Button>
-                ) : (
-                  <Button
-                    className="gap-1.5"
-                    disabled={lockBusy || loading}
-                    onClick={() => setConfirmAction('lock')}
-                  >
-                    <Lock className="h-4 w-4" />
-                    Lock salary sheet
-                  </Button>
-                )
-              )}
             </div>
           </div>
 
@@ -255,7 +193,7 @@ export default function SalarySlips() {
               <Lock className="h-4 w-4 text-warning" />
               <AlertDescription className="text-warning">
                 Salary sheet for {monthLabel} was locked on {format(new Date(lock.locked_at), 'dd MMM yyyy, h:mm a')}.
-                Settlements for this month can no longer be added or changed.
+                Lock and unlock now live on Process Payroll.
               </AlertDescription>
             </Alert>
           )}
@@ -312,26 +250,6 @@ export default function SalarySlips() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction === 'lock' ? `Lock salary sheet for ${monthLabel}?` : `Unlock salary sheet for ${monthLabel}?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction === 'lock'
-                ? 'Once locked, no salary settlement for this month can be added, edited, or deleted by anyone until the sheet is unlocked.'
-                : 'Unlocking allows settlements for this month to be added or changed again.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={lockBusy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={lockBusy} onClick={(e) => { e.preventDefault(); handleLockToggle(); }}>
-              {lockBusy ? 'Working…' : confirmAction === 'lock' ? 'Lock sheet' : 'Unlock sheet'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

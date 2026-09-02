@@ -7,10 +7,10 @@
 //                                        request (reuses the SAME journal helper
 //                                        the per-staff screen uses).
 //
-// IMPORTANT: computeSettlement faithfully mirrors the per-staff screen's
-// system-default math. It is the basis of the batch group settlement. The
-// single-staff screen has NOT yet been refactored onto it (so its behaviour is
-// untouched); unify once verified on a real deploy.
+// PHASE 3A (Attendo rebuild): this engine is now THE ONLY payroll formula.
+// The per-staff screen (Settlements.tsx) and the Process Payroll grid both run
+// gatherSettlementInputs -> computeSettlement -> persistGroupSettlement.
+// Never write a second implementation of this math.
 // ============================================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -392,7 +392,18 @@ export async function isMonthSettled(staffId: string, month: string): Promise<bo
  */
 export async function persistGroupSettlement(
   calc: SettlementResult,
-  ctx: { staff: Staff; month: string; userId: string; approverName: string },
+  ctx: {
+    staff: Staff;
+    month: string;
+    userId: string;
+    approverName: string;
+    /** Reason for a manual overtime override (per-staff screen). */
+    overtimeOverrideReason?: string | null;
+    /** Reason for adjusting deduction days away from the system value. */
+    deductionAdjustmentReason?: string | null;
+    /** Explicit absent-days override applied (audit trail). */
+    absentDaysOverride?: number | null;
+  },
 ): Promise<string> {
   const { staff, month, userId } = ctx;
   const monthLabel = parseISO(month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -432,6 +443,23 @@ export async function persistGroupSettlement(
       journal_entry_id: null,
       system_deduction_days: calc.systemDeductionDays,
       final_deduction_days: calc.finalDeductionDays,
+      deduction_adjustment_reason: ctx.deductionAdjustmentReason || null,
+      deduction_adjusted_by: calc.finalDeductionDays !== calc.systemDeductionDays ? userId : null,
+      deduction_adjusted_at: calc.finalDeductionDays !== calc.systemDeductionDays ? new Date().toISOString() : null,
+      absent_days_override: calc.attendanceTracked ? (ctx.absentDaysOverride ?? null) : null,
+      // Itemised snapshot — the payslip renders from these columns. (They were
+      // added with DEFAULT 0 and previously had NO writer, so itemised slips
+      // silently fell back to the single "Earned Salary" row.)
+      earnings_basic: calc.basic,
+      earnings_hra: calc.hra,
+      earnings_allowances: calc.allowances,
+      incentives: calc.incentives,
+      bonus: calc.bonus,
+      overtime_amount: calc.overtimeAmount,
+      overtime_auto: calc.overtimeAuto,
+      overtime_override_reason: ctx.overtimeOverrideReason || null,
+      pt_amount: calc.ptAmount,
+      loan_emi_total: calc.loanEmiTotal,
       discipline_fine: calc.disciplineFine,
       pf_employee: calc.pfEmployee,
       pf_employer: calc.pfEmployer,
@@ -485,6 +513,18 @@ export async function persistGroupSettlement(
   }
   await supabase.from('salary_arrears').update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
     .eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending');
+
+  // Freeze the month's approved leave records — mirrors the per-staff screen.
+  const monthStartStr = `${month}-01`;
+  const monthEndDate = new Date(parseISO(monthStartStr).getFullYear(), parseISO(monthStartStr).getMonth() + 1, 0);
+  const monthEndStr = `${month}-${String(monthEndDate.getDate()).padStart(2, '0')}`;
+  await supabase
+    .from('leave_records')
+    .update({ is_immutable: true })
+    .eq('staff_id', staff.id)
+    .eq('status', 'approved')
+    .gte('leave_date', monthStartStr)
+    .lte('leave_date', monthEndStr);
 
   if (calc.netPayable > 0) {
     const { error: payoutErr } = await supabase.from('payment_requests').insert({

@@ -26,6 +26,7 @@ const Grievance = lazy(() => import("./pages/Grievance"));
 const Approvals = lazy(() => import("./pages/Approvals"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Settlements = lazy(() => import("./pages/Settlements"));
+const ProcessPayroll = lazy(() => import("./pages/ProcessPayroll"));
 const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
 const SalarySlips = lazy(() => import("./pages/SalarySlips"));
 const SalariesAdvances = lazy(() => import("./pages/SalariesAdvances"));
@@ -148,9 +149,9 @@ function AppRoutes() {
 
         {/* PHASE 2 — new payroll/settlements paths. Elements are the current
             pages until their rebuild phase replaces them. */}
-        <Route path="/payroll/process" element={<Settlements />} />
+        <Route path="/payroll/process" element={<ProcessPayroll />} />
         <Route path="/payroll/finalized" element={<Navigate to="/payroll/process" replace />} />
-        <Route path="/payroll/increments" element={<Navigate to="/salaries-advances" replace />} />
+        <Route path="/payroll/increments" element={<SalariesAdvances />} />
         <Route path="/payroll/salary-slips" element={<SalarySlips />} />
         <Route path="/settlements/payouts" element={<Payouts />} />
         <Route path="/settlements/arrears" element={<Arrears />} />
@@ -170,7 +171,8 @@ function AppRoutes() {
         <Route path="/petty-cash" element={<Navigate to="/ledger" replace />} />
         <Route path="/expenses" element={<Navigate to="/ledger" replace />} />
         <Route path="/expenses/new" element={<Navigate to="/ledger" replace />} />
-        <Route path="/salaries-advances" element={<SalariesAdvances />} />
+        {/* PHASE 3 — the tile list is replaced by the Process Payroll grid. */}
+        <Route path="/salaries-advances" element={<Navigate to="/payroll/process" replace />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/attendance" element={<Attendance />} />

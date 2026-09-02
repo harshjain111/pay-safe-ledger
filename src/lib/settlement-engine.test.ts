@@ -71,6 +71,33 @@ describe('computeSettlement', () => {
     expect(r.netPayable).toBe(28200);
   });
 
+  // PHASE 3A — the per-staff screen now runs on this engine. These cases cover
+  // the monthly variables that screen passes through opts.
+  it('per-staff variables (incentives, bonus, overtime override) flow through gross earnings', () => {
+    const r = computeSettlement(inputs({ overtimeAuto: 500 }), {
+      incentives: 1000,
+      bonus: 2000,
+      overtimeOverride: 750, // replaces the auto amount
+    });
+    expect(r.incentives).toBe(1000);
+    expect(r.bonus).toBe(2000);
+    expect(r.overtimeAuto).toBe(500);
+    expect(r.overtimeAmount).toBe(750);
+    expect(r.grossSalary).toBe(30000 + 1000 + 2000 + 750);
+    expect(r.netPayable).toBe(33750);
+  });
+
+  it('advance adjustment is clamped to what gross minus loan EMIs can absorb', () => {
+    const r = computeSettlement(
+      inputs({ advancesOutstanding: 50000, loanEmis: [{ id: 'l1', loan_name: 'L', amount: 25000 } as never] }),
+      { advanceToAdjust: 20000 },
+    );
+    // gross 30000 − EMI 25000 leaves only 5000 of headroom for the advance
+    expect(r.advanceToAdjust).toBe(5000);
+    expect(r.netPayable).toBe(0);
+    expect(r.carryForwardAdvance).toBe(45000);
+  });
+
   it('group policy can override PF enrolment (statutory default applies to members)', () => {
     const stat: StatutorySettings = { ...ALL_OFF, pf_enabled: true, pf_employee_rate: 12, pf_employer_rate: 12, pf_base_cap: 15000 };
     const r = computeSettlement(inputs({ statutory: stat, staff: makeStaff({ pf_enrolled: true }) }), { pfEnrolledOverride: false });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,95 +21,22 @@ import {
 } from '@/components/ui/select';
 import { Amount } from '@/components/ui/amount';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX, Download } from 'lucide-react';
+import { ArrowLeft, Calculator, Check, AlertTriangle, Lock, Info, ShieldX, Download, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { format, subMonths, getDaysInMonth, parseISO } from 'date-fns';
+import { format, subMonths, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { PayrollDataIntegrityBanner } from '@/components/payroll/PayrollDataIntegrityBanner';
 import { EnhancedSettlementConfirmDialog } from '@/components/settlements/EnhancedSettlementConfirmDialog';
 import { ZeroPaymentConfirmDialog } from '@/components/settlements/ZeroPaymentConfirmDialog';
 import { AdvanceAdjustmentInput } from '@/components/settlements/AdvanceAdjustmentInput';
-import { LeaveDeductionSection } from '@/components/settlements/LeaveDeductionSection';
-import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
-import { getMonthlyDisciplineFine } from '@/lib/discipline';
 import { downloadPayslipPDF } from '@/lib/payslip-pdf';
 import {
-  getStaffStructure,
-  prorateStructure,
-  computeProfessionalTax,
-  computeAutoOvertime,
-  getLoanEMIsForMonth,
-  type LoanEMI,
-  type PTSlab,
-} from '@/lib/payroll';
+  computeSettlement,
+  gatherSettlementInputs,
+  persistGroupSettlement,
+  type SettlementInputs,
+} from '@/lib/settlement-engine';
 import type { Staff, PaymentMode } from '@/types/database';
-import { computeDayBreakdown, type DayBreakdown } from '@/lib/attendance-pay';
-import { resolveHolidayDatesForStaff, type HolidayRow, type HolidayAssignmentRow } from '@/lib/holidays';
-
-interface SettlementCalculation {
-  monthlySalary: number; // pro-rata contractual (Basic+HRA+Allow)
-  basic: number;
-  hra: number;
-  allowances: number;
-  incentives: number;
-  bonus: number;
-  overtimeAuto: number;
-  overtimeAmount: number;
-  overtimeOverrideReason: string;
-  dailySalary: number;
-  systemDeductionDays: number;
-  finalDeductionDays: number;
-  deductionAdjustmentReason?: string;
-  leaveDeduction: number;
-  absentDeductionDays: number;
-  absentDeduction: number;
-  presentDays: number;
-  halfDays: number;
-  offDays: number;
-  paidLeaveDays: number;
-  absentDays: number;
-  compOffEarned: number;
-  attendanceTracked: boolean;
-  disciplineFine: number;
-  pfEmployee: number;
-  pfEmployer: number;
-  pfBase: number;
-  pfRateEmployee: number;
-  pfRateEmployer: number;
-  esiEmployee: number;
-  esiEmployer: number;
-  esiBase: number;
-  esiRateEmployee: number;
-  esiRateEmployer: number;
-  esiEligible: boolean;
-  ptAmount: number;
-  loanEmis: LoanEMI[];
-  loanEmiTotal: number;
-  grossSalary: number;
-  advancesOutstanding: number;
-  advanceToAdjust: number;
-  netPayable: number;
-  carryForwardAdvance: number;
-  arrears: number;
-}
-
-interface StatutorySettings {
-  pf_enabled: boolean;
-  pf_employee_rate: number;
-  pf_employer_rate: number;
-  pf_base_cap: number;
-  esi_enabled: boolean;
-  esi_employer_rate: number;
-  esi_eligibility_ceiling: number;
-  pt_enabled: boolean;
-  pt_monthly_amount: number;
-  pt_min_gross: number;
-  pt_slabs?: PTSlab[] | null;
-  ot_enabled?: boolean;
-  ot_standard_minutes?: number;
-  ot_multiplier?: number;
-}
 
 interface ValidationResult {
   valid: boolean;
@@ -124,10 +51,16 @@ const PAYMENT_MODES: { value: PaymentMode; label: string }[] = [
   { value: 'cheque', label: 'Cheque' },
 ];
 
-// Worked-minute thresholds for classifying a day's attendance.
-const FULL_DAY_MINUTES = 480; // >= 8h worked = full present day
-const HALF_DAY_MINUTES = 240; // >= 4h worked = half present day
-
+// ============================================================================
+// PHASE 3A (Attendo rebuild): this screen no longer carries its own payroll
+// math. Everything is gatherSettlementInputs() -> computeSettlement() from
+// settlement-engine.ts — the SAME functions the Process Payroll grid runs — so
+// single settle and batch settle can never pay different amounts.
+// The old "Desired Net Payable", "Final Deduction (Owner Override)" and
+// "Override absent days" fields are deleted, not ported: corrections happen
+// upstream in Bulk Attendance Adjustments; the audited Adjust drawer on
+// Process Payroll is the only escape hatch.
+// ============================================================================
 export default function Settlements() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -137,370 +70,86 @@ export default function Settlements() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(searchParams.get('staff') || '');
   const [selectedMonth, setSelectedMonth] = useState<string>(searchParams.get('month') || format(subMonths(new Date(), 1), 'yyyy-MM'));
-  // Leave deduction state
-  const [systemDeductionDays, setSystemDeductionDays] = useState(0);
-  const [finalDeductionDays, setFinalDeductionDays] = useState(0);
-  const [deductionAdjustmentReason, setDeductionAdjustmentReason] = useState('');
-  const [advanceToAdjust, setAdvanceToAdjust] = useState(0);
-  const [netPayableOverride, setNetPayableOverride] = useState<number | null>(null);
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
+  const [inputs, setInputs] = useState<SettlementInputs | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
-  const [calculation, setCalculation] = useState<SettlementCalculation | null>(null);
   const [isAlreadySettled, setIsAlreadySettled] = useState(false);
   const [isSheetLocked, setIsSheetLocked] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showZeroPaymentDialog, setShowZeroPaymentDialog] = useState(false);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [statutorySettings, setStatutorySettings] = useState<StatutorySettings | null>(null);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
 
-  // New monthly variable inputs
+  // Monthly variable inputs (legitimate pre-settle variables, not overrides).
   const [incentivesInput, setIncentivesInput] = useState<number>(0);
   const [bonusInput, setBonusInput] = useState<number>(0);
   const [overtimeOverride, setOvertimeOverride] = useState<number | null>(null);
-  const [absentDaysOverride, setAbsentDaysOverride] = useState<number | null>(null);
   const [overtimeOverrideReason, setOvertimeOverrideReason] = useState<string>('');
+  const [advanceToAdjust, setAdvanceToAdjust] = useState(0);
+
+  // ---- data loading -----------------------------------------------------------
+  useEffect(() => {
+    if (!canAccessSettlements) return;
+    (async () => {
+      const { data, error } = await supabase.from('staff').select('*').eq('is_active', true).order('full_name');
+      if (!error) setStaff((data ?? []) as Staff[]);
+    })();
+  }, [canAccessSettlements]);
 
   const validateSettlement = useCallback(async () => {
     try {
-      const { data: settledData } = await supabase
-        .rpc('is_salary_settled', {
-          _staff_id: selectedStaffId,
-          _month: selectedMonth,
-        });
-
-      setIsAlreadySettled(settledData);
-
-      // Month-level salary sheet lock (set by HR on the Salary Slips page). The
-      // DB trigger enforces it regardless; this is the friendly client check.
-      const { data: lockRow, error: lockError } = await supabase
-        .from('salary_sheet_locks' as never)
-        .select('month')
-        .eq('month', selectedMonth)
-        .maybeSingle();
-      setIsSheetLocked(!lockError && !!lockRow);
-
-      const { data: validationData, error } = await supabase
-        .rpc('validate_settlement', {
-          _staff_id: selectedStaffId,
-          _month: selectedMonth,
-        });
-
+      const [{ data: settledData }, lockRes, { data: validationData, error }] = await Promise.all([
+        supabase.rpc('is_salary_settled', { _staff_id: selectedStaffId, _month: selectedMonth }),
+        supabase.from('salary_sheet_locks' as never).select('month').eq('month', selectedMonth).maybeSingle(),
+        supabase.rpc('validate_settlement', { _staff_id: selectedStaffId, _month: selectedMonth }),
+      ]);
+      setIsAlreadySettled(!!settledData);
+      setIsSheetLocked(!lockRes.error && !!lockRes.data);
       if (error) throw error;
-
-      const result = validationData as unknown as ValidationResult;
-      setValidation(result);
-
-      const newWarnings: string[] = [];
-
-      if (result.warning) {
-        newWarnings.push('Staff is inactive');
-      }
-
-      setWarnings(newWarnings);
+      setValidation(validationData as unknown as ValidationResult);
     } catch (error) {
       console.error('Error validating settlement:', error);
     }
   }, [selectedStaffId, selectedMonth]);
 
-  const calculateSettlement = useCallback(async () => {
-    if (!selectedStaffId || !selectedMonth) return;
-
-    try {
+  useEffect(() => {
+    if (!canAccessSettlements || !selectedStaffId || !selectedMonth) return;
+    let cancelled = false;
+    setAdvanceToAdjust(0);
+    setIncentivesInput(0);
+    setBonusInput(0);
+    setOvertimeOverride(null);
+    setOvertimeOverrideReason('');
+    validateSettlement();
+    (async () => {
       setIsCalculating(true);
-
-      const { data: salaryData, error: salaryError } = await supabase
-        .rpc('get_staff_salary_for_month', {
-          _staff_id: selectedStaffId,
-          _month: selectedMonth,
-        });
-
-      if (salaryError) throw salaryError;
-
-      // SAFEGUARD 4: Use journal_lines as single source of truth for advances
-      const { data: advanceData, error: advanceError } = await supabase
-        .rpc('get_staff_advances_from_journals', {
-          _staff_id: selectedStaffId,
-        });
-
-      if (advanceError) throw advanceError;
-
-      const monthlySalary = toAmount(salaryData);
-      const daysInMonth = getDaysInMonth(parseISO(selectedMonth + '-01'));
-      const dailySalary = monthlySalary / daysInMonth;
-
-      // PRO-RATA
-      const monthStart = parseISO(selectedMonth + '-01');
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-      let effectiveDays = daysInMonth;
-      const currentStaff = staff.find(s => s.id === selectedStaffId);
-      if (currentStaff) {
-        const joiningDate = parseISO(currentStaff.date_of_joining);
-        if (joiningDate > monthStart && joiningDate <= monthEnd) {
-          effectiveDays = daysInMonth - joiningDate.getDate() + 1;
-        }
-        // Exit proration: prefer an explicit date_of_leaving; otherwise fall back
-        // to the legacy "inactive + updated_at" heuristic for older records that
-        // predate the date_of_leaving column.
-        if (currentStaff.date_of_leaving) {
-          const leavingDate = parseISO(currentStaff.date_of_leaving);
-          if (leavingDate < monthStart) {
-            effectiveDays = 0;
-          } else if (leavingDate <= monthEnd) {
-            const exitDay = leavingDate.getDate();
-            const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) ? joiningDate.getDate() : 1;
-            effectiveDays = Math.max(0, exitDay - joiningDay + 1);
-          }
-        } else if (!currentStaff.is_active) {
-          const updatedAt = parseISO(currentStaff.updated_at);
-          if (updatedAt >= monthStart && updatedAt <= monthEnd) {
-            const exitDay = updatedAt.getDate();
-            const joiningDay = (joiningDate > monthStart && joiningDate <= monthEnd) ? joiningDate.getDate() : 1;
-            effectiveDays = Math.max(0, exitDay - joiningDay + 1);
-          }
-        }
+      try {
+        const staffRow = staff.find((s) => s.id === selectedStaffId);
+        if (!staffRow) return;
+        const gathered = await gatherSettlementInputs(staffRow, selectedMonth);
+        if (!cancelled) setInputs(gathered);
+      } catch (e) {
+        console.error('Error gathering settlement inputs:', e);
+        toast({ title: 'Calculation Error', description: 'Failed to calculate settlement. Please try again.', variant: 'destructive' });
+      } finally {
+        if (!cancelled) setIsCalculating(false);
       }
+    })();
+    return () => { cancelled = true; };
+  }, [canAccessSettlements, selectedStaffId, selectedMonth, staff, validateSettlement]);
 
-      const proRataSalary = dailySalary * effectiveDays;
-      const leaveDeduction = dailySalary * finalDeductionDays;
+  // ---- the ONE formula --------------------------------------------------------
+  const calculation = useMemo(() => {
+    if (!inputs) return null;
+    return computeSettlement(inputs, {
+      incentives: incentivesInput,
+      bonus: bonusInput,
+      overtimeOverride,
+      advanceToAdjust,
+    });
+  }, [inputs, incentivesInput, bonusInput, overtimeOverride, advanceToAdjust]);
 
-      // Structure breakdown (pro-rated)
-      const fullStructure = currentStaff ? getStaffStructure(currentStaff) : { basic: monthlySalary, hra: 0, allowances: 0, contractualTotal: monthlySalary };
-      const prorated = prorateStructure(fullStructure, effectiveDays, daysInMonth);
-
-      let disciplineFine = 0;
-      const disciplineFinedDates = new Set<string>();
-      if (currentStaff && (currentStaff as Staff).attendance_tracked !== false) {
-        const { totalFine, logs } = await getMonthlyDisciplineFine(selectedStaffId, selectedMonth, monthlySalary);
-        disciplineFine = totalFine;
-        // Dates already carrying a late/early fine (not absences); used to avoid
-        // docking the attendance shortfall twice on the same day.
-        for (const l of logs) {
-          if (!l.is_cancelled && !l.is_absent && Number(l.fine_amount) > 0) disciplineFinedDates.add(l.work_date);
-        }
-      }
-
-      const round2 = (n: number) => Math.round(n * 100) / 100;
-
-      // Attendance-driven pay (item 14): dock unrecorded absences so present / off /
-      // paid-leave days drive net pay. This is ADDITIVE to the existing full-month
-      // proration and leave deduction — absent days have no session, so there is no
-      // overlap with discipline fines (which only apply to days worked).
-      const attendanceTracked = !!(currentStaff && (currentStaff as Staff).attendance_tracked !== false);
-      let dayBreakdown: DayBreakdown | null = null;
-      let absentDeductionDays = 0;
-      let compOffEnabled = true;
-      if (attendanceTracked && currentStaff) {
-        const monthStartStr = format(monthStart, 'yyyy-MM-dd');
-        const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
-        const [attRes, rosRes, lvRes, rulesRes, holRes, holAssignRes] = await Promise.all([
-          supabase.from('attendance_sessions').select('work_date, worked_minutes, status')
-            .eq('staff_id', selectedStaffId).gte('work_date', monthStartStr).lte('work_date', monthEndStr),
-          supabase.from('staff_roster').select('roster_date, shift_id, is_off')
-            .eq('staff_id', selectedStaffId).gte('roster_date', monthStartStr).lte('roster_date', monthEndStr),
-          supabase.from('leave_records').select('leave_date, deduction_days')
-            .eq('staff_id', selectedStaffId).eq('status', 'approved')
-            .gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
-          supabase.from('hr_pay_rules' as never)
-            .select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
-          supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
-          supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
-        ]);
-        const payRules = (rulesRes.data ?? null) as {
-          full_day_minutes?: number; half_day_minutes?: number;
-          unscheduled_is_off?: boolean; comp_off_enabled?: boolean;
-        } | null;
-        compOffEnabled = payRules?.comp_off_enabled ?? true;
-        const holidayDates = resolveHolidayDatesForStaff(
-          { id: selectedStaffId, outlet_id: (currentStaff as { outlet_id?: string | null }).outlet_id ?? null },
-          (holRes.data ?? []) as unknown as HolidayRow[],
-          (holAssignRes.data ?? []) as unknown as HolidayAssignmentRow[],
-          monthStartStr,
-          monthEndStr,
-        );
-        dayBreakdown = computeDayBreakdown({
-          monthStart,
-          monthEnd,
-          dateOfJoining: currentStaff.date_of_joining,
-          dateOfLeaving: currentStaff.date_of_leaving ?? null,
-          weeklyOffDay: currentStaff.weekly_off_day ?? null,
-          fullDayMinutes: payRules?.full_day_minutes ?? FULL_DAY_MINUTES,
-          halfDayMinutes: payRules?.half_day_minutes ?? HALF_DAY_MINUTES,
-          unscheduledIsOff: payRules?.unscheduled_is_off ?? true,
-          disciplineFinedDates,
-          holidayDates,
-          attendance: attRes.data ?? [],
-          roster: rosRes.data ?? [],
-          leaves: lvRes.data ?? [],
-        });
-        absentDeductionDays = absentDaysOverride !== null ? absentDaysOverride : dayBreakdown.absentDeductionDays;
-      }
-      const absentDeduction = round2(dailySalary * absentDeductionDays);
-      const compOffEarned = compOffEnabled ? (dayBreakdown?.offWorkedDays ?? 0) : 0;
-
-      const s = statutorySettings;
-      const cs = currentStaff;
-
-      const pfActive = !!(s?.pf_enabled && cs?.pf_enrolled);
-      const pfRateEmployee = pfActive ? toAmount(cs?.pf_employee_rate_override ?? s?.pf_employee_rate) : 0;
-      const pfRateEmployer = pfActive ? (s?.pf_employer_rate ?? 0) : 0;
-      const pfBase = pfActive ? Math.min(proRataSalary, s?.pf_base_cap ?? proRataSalary) : 0;
-      const pfEmployee = pfActive ? round2(pfBase * pfRateEmployee / 100) : 0;
-      const pfEmployer = pfActive ? round2(pfBase * pfRateEmployer / 100) : 0;
-
-      const esiEnrolled = !!(s?.esi_enabled && cs?.esi_enrolled);
-      const esiBase = proRataSalary;
-      // Eligibility is decided on the contractual MONTHLY wage vs the ceiling, not
-      // the pro-rated amount — a mid-month joiner/leaver above the ceiling stays
-      // ineligible. The deduction base (esiBase) still pro-rates.
-      const esiEligible = esiEnrolled && monthlySalary <= (s?.esi_eligibility_ceiling ?? Infinity);
-      const esiRateEmployee = esiEligible ? toAmount(cs?.esi_employee_rate) : 0;
-      const esiRateEmployer = esiEligible ? (s?.esi_employer_rate ?? 0) : 0;
-      const esiEmployee = esiEligible ? round2(esiBase * esiRateEmployee / 100) : 0;
-      const esiEmployer = esiEligible ? round2(esiBase * esiRateEmployer / 100) : 0;
-
-      // Auto Overtime — global config (shift length + multiplier) with per-staff override.
-      const otEnabled = s?.ot_enabled !== false;
-      const otStandardMinutes = (cs as Staff)?.ot_standard_minutes_override ?? s?.ot_standard_minutes ?? 480;
-      const otMultiplier = (cs as Staff)?.ot_multiplier_override ?? s?.ot_multiplier ?? 1.5;
-      const overtimeAuto = attendanceTracked && otEnabled
-        ? await computeAutoOvertime({
-            staffId: selectedStaffId,
-            month: selectedMonth,
-            basic: fullStructure.basic,
-            daysInMonth,
-            scheduledMinutesPerDay: otStandardMinutes,
-            multiplier: otMultiplier,
-          })
-        : 0;
-      const overtimeAmount = overtimeOverride !== null ? overtimeOverride : overtimeAuto;
-
-      // Loan EMIs
-      const loanEmis = await getLoanEMIsForMonth(selectedStaffId, selectedMonth);
-      const loanEmiTotal = loanEmis.reduce((sum, l) => sum + toAmount(l.amount), 0);
-
-      // Gross earnings before statutory + leave + discipline
-      const grossEarnings = proRataSalary + incentivesInput + bonusInput + overtimeAmount;
-
-      // Professional Tax (computed against gross earnings)
-      const ptAmount = computeProfessionalTax(currentStaff ?? {}, grossEarnings, s);
-
-      const grossSalary = Math.max(0, grossEarnings - leaveDeduction - absentDeduction - disciplineFine - pfEmployee - esiEmployee - ptAmount);
-      const advancesOutstanding = toAmount(advanceData);
-      // Pending arrears for this settlement month (signed: + back-pay, - recovery)
-      const { data: arrearsRows } = await supabase
-        .from('salary_arrears')
-        .select('amount')
-        .eq('staff_id', selectedStaffId)
-        .eq('settlement_month', selectedMonth)
-        .eq('status', 'pending');
-      const arrearsTotal = ((arrearsRows ?? []) as { amount: number | null }[]).reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
-      const maxAdjustable = Math.min(advancesOutstanding, Math.max(0, grossSalary - loanEmiTotal));
-      const currentAdj = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = Math.max(0, grossSalary - currentAdj - loanEmiTotal + arrearsTotal);
-      const carryForwardAdvance = advancesOutstanding - currentAdj;
-
-      const newWarnings: string[] = [];
-      if (effectiveDays < daysInMonth) newWarnings.push(`Pro-rata: ${effectiveDays} of ${daysInMonth} days`);
-      if (finalDeductionDays > 5) newWarnings.push(`High leave deduction (${finalDeductionDays} days)`);
-      if (finalDeductionDays > effectiveDays) newWarnings.push(`Leave exceeds working days (${effectiveDays})`);
-      if (esiEnrolled && !esiEligible) newWarnings.push(`ESI skipped — gross exceeds ceiling`);
-      setWarnings(newWarnings);
-
-      setCalculation({
-        monthlySalary: proRataSalary,
-        basic: prorated.basic,
-        hra: prorated.hra,
-        allowances: prorated.allowances,
-        incentives: incentivesInput,
-        bonus: bonusInput,
-        overtimeAuto,
-        overtimeAmount,
-        overtimeOverrideReason,
-        dailySalary,
-        systemDeductionDays,
-        finalDeductionDays,
-        deductionAdjustmentReason,
-        leaveDeduction,
-        absentDeductionDays,
-        absentDeduction,
-        presentDays: dayBreakdown?.presentFull ?? 0,
-        halfDays: dayBreakdown?.presentHalf ?? 0,
-        offDays: dayBreakdown?.offDays ?? 0,
-        paidLeaveDays: dayBreakdown?.paidLeaveDays ?? 0,
-        absentDays: dayBreakdown?.absentDays ?? 0,
-        compOffEarned,
-        attendanceTracked,
-        disciplineFine,
-        pfEmployee, pfEmployer, pfBase, pfRateEmployee, pfRateEmployer,
-        esiEmployee, esiEmployer, esiBase, esiRateEmployee, esiRateEmployer, esiEligible,
-        ptAmount,
-        loanEmis,
-        loanEmiTotal,
-        grossSalary,
-        advancesOutstanding,
-        advanceToAdjust: currentAdj,
-        netPayable,
-        arrears: arrearsTotal,
-        carryForwardAdvance,
-      });
-    } catch (error) {
-      console.error('Error calculating settlement:', error);
-      toast({
-        title: 'Calculation Error',
-        description: 'Failed to calculate settlement. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsCalculating(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 'advanceToAdjust' intentionally excluded: advance-adjustment changes are handled by the dedicated lightweight effect below to avoid a full DB recalculation.
-  }, [selectedStaffId, selectedMonth, staff, finalDeductionDays, statutorySettings, overtimeOverride, absentDaysOverride, incentivesInput, bonusInput, systemDeductionDays, deductionAdjustmentReason, overtimeOverrideReason]);
-
-  useEffect(() => {
-    if (canAccessSettlements) {
-      fetchStaff();
-      fetchStatutorySettings();
-    }
-  }, [canAccessSettlements]);
-
-  useEffect(() => {
-    if (canAccessSettlements && selectedStaffId && selectedMonth) {
-      // Reset overrides when staff/month changes
-      setAdvanceToAdjust(0);
-      setNetPayableOverride(null);
-      validateSettlement();
-    }
-  }, [canAccessSettlements, selectedStaffId, selectedMonth, validateSettlement]);
-
-  // Recalculate when deduction days change OR statutory settings load
-  useEffect(() => {
-    if (canAccessSettlements && selectedStaffId && selectedMonth) {
-      calculateSettlement();
-    }
-  }, [canAccessSettlements, selectedStaffId, selectedMonth, calculateSettlement]);
-
-  // Recalculate netPayable when advance adjustment changes (without resetting overrides)
-  useEffect(() => {
-    if (calculation) {
-      const loanTotal = calculation.loanEmiTotal || 0;
-      const maxAdjustable = Math.min(calculation.advancesOutstanding, Math.max(0, calculation.grossSalary - loanTotal));
-      const clampedAdjustment = Math.min(advanceToAdjust, maxAdjustable);
-      const netPayable = Math.max(0, calculation.grossSalary - clampedAdjustment - loanTotal);
-      const carryForward = calculation.advancesOutstanding - clampedAdjustment;
-
-      setCalculation(prev => prev ? {
-        ...prev,
-        advanceToAdjust: clampedAdjustment,
-        netPayable,
-        carryForwardAdvance: carryForward,
-      } : null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 'calculation' is updated inside this effect; including it would cause an infinite update loop. Advance-adjustment changes drive this recalc.
-  }, [advanceToAdjust]);
-
-  // STRICT ACCESS CONTROL: Only Owner can access settlements
+  // STRICT ACCESS CONTROL: settlements need the settlements permission.
   if (!canAccessSettlements) {
     return (
       <EmptyState
@@ -517,356 +166,50 @@ export default function Settlements() {
     );
   }
 
-  const fetchStaff = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('is_active', true)
-        .order('full_name');
-
-      if (error) throw error;
-      setStaff(data || []);
-    } catch (error) {
-      console.error('Error fetching staff:', error);
-    }
-  };
-
-  const fetchStatutorySettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payroll_statutory_settings')
-        .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross, pt_slabs, ot_enabled, ot_standard_minutes, ot_multiplier')
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      if (data) setStatutorySettings(data as unknown as StatutorySettings);
-    } catch (error) {
-      console.error('Error fetching statutory settings:', error);
-    }
-  };
-
-  // Handle leave deduction changes from LeaveDeductionSection
-  const handleLeaveDeductionChange = (systemDays: number, finalDays: number, reason?: string) => {
-    setSystemDeductionDays(systemDays);
-    setFinalDeductionDays(finalDays);
-    setDeductionAdjustmentReason(reason || '');
-  };
-
-  const handleAdvanceAdjustmentChange = (amount: number) => {
-    if (!calculation) return;
-    
-    const maxAdjustable = Math.min(calculation.advancesOutstanding, calculation.grossSalary);
-    const clampedAmount = Math.min(maxAdjustable, Math.max(0, amount));
-    
-    setAdvanceToAdjust(clampedAmount);
-    
-    // If there's a net payable override active, recalculate deduction based on override
-    if (netPayableOverride !== null) {
-      const leaveDeduction = Math.max(0, calculation.monthlySalary - clampedAmount - netPayableOverride);
-      const dailySalary = calculation.dailySalary;
-      const backCalculatedDays = dailySalary > 0 ? Math.round((leaveDeduction / dailySalary) * 100) / 100 : 0;
-      setFinalDeductionDays(backCalculatedDays);
-    }
-  };
-
-  const handleNetPayableOverride = (desiredNetPayable: number) => {
-    if (!calculation) return;
-    
-    const monthlySalary = calculation.monthlySalary;
-    const dailySalary = calculation.dailySalary;
-    const advanceAdj = advanceToAdjust;
-    
-    // Clamp desired net payable between 0 and (monthlySalary - advanceAdj)
-    const maxNetPayable = Math.max(0, monthlySalary - advanceAdj);
-    const clampedNet = Math.min(maxNetPayable, Math.max(0, desiredNetPayable));
-    
-    setNetPayableOverride(clampedNet);
-    
-    // Formula: deduction = monthlySalary - advanceAdj - desiredNetPayable
-    const leaveDeduction = Math.max(0, monthlySalary - advanceAdj - clampedNet);
-    const backCalculatedDays = dailySalary > 0 ? Math.round((leaveDeduction / dailySalary) * 100) / 100 : 0;
-    
-    // Update deduction days (this triggers recalculation)
-    setFinalDeductionDays(backCalculatedDays);
-  };
-
   const handleSettleClick = () => {
     if (!calculation) return;
-
-    const daysInMonth = getDaysInMonth(parseISO(selectedMonth + '-01'));
-    
-    // VALIDATION 1: Leave days must be reasonable
-    if (finalDeductionDays < 0) {
-      toast({
-        title: 'Invalid Leave Days',
-        description: 'Leave deduction days cannot be negative.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // VALIDATION 2: Advance adjustment cannot exceed outstanding advance
-    if (calculation.advanceToAdjust > calculation.advancesOutstanding) {
-      toast({
-        title: 'Invalid Advance Adjustment',
-        description: 'Advance adjustment cannot exceed outstanding advance balance.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // VALIDATION 3: Advance adjustment cannot exceed gross salary
-    if (calculation.advanceToAdjust > calculation.grossSalary) {
-      toast({
-        title: 'Invalid Advance Adjustment',
-        description: 'Advance adjustment cannot exceed gross salary.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // VALIDATION 4: Net payable must reconcile correctly
-    const expectedNetPayable = calculation.grossSalary - calculation.advanceToAdjust;
-    if (Math.abs(calculation.netPayable - expectedNetPayable) > 0.01) {
-      toast({
-        title: 'Calculation Error',
-        description: `Net payable (₹${calculation.netPayable}) does not match expected (₹${expectedNetPayable}). Please refresh and try again.`,
-        variant: 'destructive',
-      });
-      console.error('Settlement validation failed:', {
-        grossSalary: calculation.grossSalary,
-        advanceToAdjust: calculation.advanceToAdjust,
-        netPayable: calculation.netPayable,
-        expectedNetPayable,
-      });
-      return;
-    }
-
-    // VALIDATION 5: Carry-forward must reconcile
-    const expectedCarryForward = calculation.advancesOutstanding - calculation.advanceToAdjust;
-    if (Math.abs(calculation.carryForwardAdvance - expectedCarryForward) > 0.01) {
-      toast({
-        title: 'Calculation Error',
-        description: 'Carry-forward advance does not reconcile. Please refresh and try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (calculation.netPayable === 0) {
-      setShowZeroPaymentDialog(true);
-    } else {
-      setShowConfirmDialog(true);
-    }
+    if (calculation.netPayable === 0) setShowZeroPaymentDialog(true);
+    else setShowConfirmDialog(true);
   };
 
   const handleSettle = async () => {
-    if (!calculation || !selectedStaffId || !selectedMonth || !user?.id) return;
-
+    if (!calculation || !inputs || !selectedStaffId || !selectedMonth || !user?.id) return;
     if (isAlreadySettled) {
-      toast({
-        title: 'Already Settled',
-        description: 'Salary for this month has already been settled.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Already Settled', description: 'Salary for this month has already been settled.', variant: 'destructive' });
       return;
     }
-
-    const staffName = selectedStaff?.full_name || 'Unknown';
     const monthLabel = format(new Date(selectedMonth + '-01'), 'MMMM yyyy');
-
     try {
       setIsSettling(true);
-
-      // ========================================
-      // DOUBLE-ENTRY ACCOUNTING: SALARY SETTLEMENT
-      // ========================================
-      // This creates the ACCRUAL entries (no cash movement):
-      // 1. Debit: Salary Expense (P&L)
-      // 2. Credit: Staff Payable (creates liability)
-      // 3. If advance adjustment:
-      //    - Debit: Staff Payable (reduce liability)
-      //    - Credit: Staff Advances (reduce receivable)
-      
-      // Step 1: Reserve the settlement row FIRST (unique staff+month slot) so a
-      // duplicate/retry is rejected by the constraint BEFORE any immutable journal
-      // is posted — no orphan ledger entries.
-      const { data: settlementRecord, error: settlementError } = await supabase
-        .from('salary_settlements')
-        .insert({
-          staff_id: selectedStaffId,
-          settlement_month: selectedMonth,
-          base_salary: calculation.monthlySalary,
-          leave_days: calculation.finalDeductionDays,
-          leave_deduction: calculation.leaveDeduction,
-          absent_deduction_days: calculation.absentDeductionDays,
-          absent_deduction: calculation.absentDeduction,
-          present_days: calculation.presentDays,
-          half_days: calculation.halfDays,
-          off_days: calculation.offDays,
-          paid_leave_days: calculation.paidLeaveDays,
-          absent_days: calculation.absentDays,
-          absent_days_override: calculation.attendanceTracked ? absentDaysOverride : null,
-          comp_off_earned: calculation.compOffEarned,
-          net_salary: calculation.grossSalary,
-          advances_adjusted: calculation.advanceToAdjust,
-          opening_advance_balance: calculation.advancesOutstanding,
-          closing_advance_balance: calculation.carryForwardAdvance,
-          balance_payable: calculation.netPayable,
-          arrears: calculation.arrears,
-          status: 'settled',
-          settled_at: new Date().toISOString(),
-          settled_by: user.id,
-          journal_entry_id: null, // linked after the journal posts (below)
-          system_deduction_days: calculation.systemDeductionDays,
-          final_deduction_days: calculation.finalDeductionDays,
-          deduction_adjustment_reason: calculation.deductionAdjustmentReason || null,
-          deduction_adjusted_by: calculation.finalDeductionDays !== calculation.systemDeductionDays ? user.id : null,
-          deduction_adjusted_at: calculation.finalDeductionDays !== calculation.systemDeductionDays ? new Date().toISOString() : null,
-          discipline_fine: calculation.disciplineFine,
-          pf_employee: calculation.pfEmployee,
-          pf_employer: calculation.pfEmployer,
-          esi_employee: calculation.esiEmployee,
-          esi_employer: calculation.esiEmployer,
-          pf_rate_employee: calculation.pfRateEmployee || null,
-          pf_rate_employer: calculation.pfRateEmployer || null,
-          esi_rate_employee: calculation.esiRateEmployee || null,
-          esi_rate_employer: calculation.esiRateEmployer || null,
-          pf_base: calculation.pfBase || null,
-          esi_base: calculation.esiBase || null,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (settlementError) throw settlementError;
-
-      // Step 2: Post the (immutable) settlement journal now that the slot is
-      // reserved. If it fails, roll back the reserved row so a retry is clean.
-      let journalEntryId: string;
-      try {
-        journalEntryId = await createSalarySettlementEntry({
-          staffId: selectedStaffId,
-          staffName,
-          settlementMonth: monthLabel,
-          grossSalary: calculation.grossSalary,
-          leaveDeduction: calculation.leaveDeduction,
-          advanceAdjustment: calculation.advanceToAdjust,
-          pfEmployee: calculation.pfEmployee,
-          pfEmployer: calculation.pfEmployer,
-          esiEmployee: calculation.esiEmployee,
-          esiEmployer: calculation.esiEmployer,
-          ptAmount: calculation.ptAmount,
-          loanEmiTotal: calculation.loanEmiTotal,
-          bonus: calculation.bonus,
-          overtimeAmount: calculation.overtimeAmount,
-          settlementId: settlementRecord.id,
-          createdBy: user.id,
-        });
-      } catch (e) {
-        await supabase.from('salary_settlements').delete().eq('id', settlementRecord.id);
-        throw e;
-      }
-
-      // Step 3: Link the settlement to its journal.
-      await supabase
-        .from('journal_entries')
-        .update({ reference_id: settlementRecord.id })
-        .eq('id', journalEntryId);
-      await supabase
-        .from('salary_settlements')
-        .update({ journal_entry_id: journalEntryId })
-        .eq('id', settlementRecord.id);
-
-      // Step 4b: Arrears — post a balanced entry only when there's a net to move,
-      // but ALWAYS mark the month's pending arrears settled (zero-sum arrears must
-      // not stay pending forever against an already-settled month).
-      if (Math.abs(calculation.arrears) >= 0.01) {
-        await createArrearsEntry({
-          staffId: selectedStaffId,
-          staffName,
-          amount: calculation.arrears,
-          settlementMonth: monthLabel,
-          settlementId: settlementRecord.id,
-          createdBy: user.id,
-        });
-      }
-      await supabase
-        .from('salary_arrears')
-        .update({ status: 'settled', settlement_id: settlementRecord.id, settled_at: new Date().toISOString() })
-        .eq('staff_id', selectedStaffId)
-        .eq('settlement_month', selectedMonth)
-        .eq('status', 'pending');
-
-      // Step 5: Create salary payout request (if net payable > 0)
-      // This will appear in Payouts page for Owner to execute
-      // The PAYOUT will create the second journal entry:
-      // - Debit: Staff Payable (clear liability)
-      // - Credit: Bank/Cash (money out)
-      if (calculation.netPayable > 0) {
-        const approverName = getUserDisplayName(user, staffData);
-        const { error: payoutRequestError } = await supabase
-          .from('payment_requests')
-          .insert({
-            staff_id: selectedStaffId,
-            requested_by: user.id,
-            amount: calculation.netPayable,
-            reason: `Salary for ${monthLabel}`,
-            status: 'approved',
-            approved_by: user.id,
-            approved_at: new Date().toISOString(),
-            approved_by_user_name: approverName,
-            payout_type: 'salary',
-            settlement_id: settlementRecord.id,
-          });
-
-        if (payoutRequestError) throw payoutRequestError;
-      }
-      // Mark leave records for this month as immutable
-      const monthStart = format(parseISO(selectedMonth + '-01'), 'yyyy-MM-dd');
-      const monthEnd = format(new Date(parseISO(selectedMonth + '-01').getFullYear(), parseISO(selectedMonth + '-01').getMonth() + 1, 0), 'yyyy-MM-dd');
-      
-      await supabase
-        .from('leave_records')
-        .update({ is_immutable: true })
-        .eq('staff_id', selectedStaffId)
-        .eq('status', 'approved')
-        .gte('leave_date', monthStart)
-        .lte('leave_date', monthEnd);
+      await persistGroupSettlement(calculation, {
+        staff: inputs.staff,
+        month: selectedMonth,
+        userId: user.id,
+        approverName: getUserDisplayName(user, staffData),
+        overtimeOverrideReason: overtimeOverride !== null ? overtimeOverrideReason : null,
+      });
 
       toast({
         title: 'Salary Settled',
-        description: `Salary for ${monthLabel} has been recorded. ${calculation.netPayable > 0 ? 'Go to Payouts to execute payment.' : ''}`,
+        description: `Salary for ${monthLabel} has been recorded. ${calculation.netPayable > 0 ? 'Go to Advance Payouts to execute payment.' : ''}`,
       });
 
-      // Refresh balance-derived views now that the settlement changed payable/advance balances
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.staffBalance.byStaff(selectedStaffId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.ledger.byStaff(selectedStaffId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.advancesOutstanding.all });
 
-      // Reset form
       setSelectedStaffId('');
-      setSystemDeductionDays(0);
-      setFinalDeductionDays(0);
-      setDeductionAdjustmentReason('');
-      setAdvanceToAdjust(0);
-      setNetPayableOverride(null);
-      setCalculation(null);
+      setInputs(null);
       setIsAlreadySettled(false);
       setShowConfirmDialog(false);
       setShowZeroPaymentDialog(false);
-      
-      // Navigate to payouts if there's something to pay
-      if (calculation.netPayable > 0) {
-        navigate('/payouts');
-      }
-    } catch (error: any) {
+      if (calculation.netPayable > 0) navigate('/settlements/payouts');
+    } catch (error) {
       console.error('Error settling salary:', error);
       toast({
         title: 'Settlement Failed',
-        description: error.message || 'Failed to settle salary. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to settle salary. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -876,25 +219,18 @@ export default function Settlements() {
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const date = subMonths(new Date(), i);
-    return {
-      value: format(date, 'yyyy-MM'),
-      label: format(date, 'MMMM yyyy'),
-    };
-  }).filter(m => m.value <= format(new Date(), 'yyyy-MM'));
+    return { value: format(date, 'yyyy-MM'), label: format(date, 'MMMM yyyy') };
+  }).filter((m) => m.value <= format(new Date(), 'yyyy-MM'));
 
-  const selectedStaff = staff.find(s => s.id === selectedStaffId);
-  const daysInMonth = selectedMonth ? getDaysInMonth(parseISO(selectedMonth + '-01')) : 30;
-  const canSettle = calculation && !isAlreadySettled && !isSheetLocked && validation?.valid !== false && finalDeductionDays >= 0;
+  const selectedStaff = staff.find((s) => s.id === selectedStaffId);
+  const canSettle = calculation && !isAlreadySettled && !isSheetLocked && validation?.valid !== false;
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <PageHeader
-        title="Salary Settlement"
-        description="Process monthly settlements"
-      >
-        <Button variant="ghost" size="sm" onClick={() => navigate('/salaries-advances')}>
+      <PageHeader title="Single Settlement" description="Settle one salary — the grid on Process Payroll is the main flow">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/payroll/process')}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          <span className="hidden sm:inline">Back</span>
+          <span className="hidden sm:inline">Process Payroll</span>
         </Button>
       </PageHeader>
 
@@ -966,7 +302,7 @@ export default function Settlements() {
                           toast({ title: 'Error', description: 'Could not load settlement for payslip', variant: 'destructive' });
                           return;
                         }
-                        await downloadPayslipPDF(selectedStaff as any, data as any);
+                        await downloadPayslipPDF(selectedStaff as never, data as never);
                       }}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -981,7 +317,7 @@ export default function Settlements() {
               <Alert className="border-warning bg-warning/10">
                 <Lock className="h-4 w-4 text-warning" />
                 <AlertDescription className="text-warning">
-                  The salary sheet for this month has been locked by HR. Settlements cannot be added or changed until it is unlocked from the Salary Slips page.
+                  The salary sheet for this month is locked. Settlements cannot be added or changed until it is unlocked from Process Payroll.
                 </AlertDescription>
               </Alert>
             )}
@@ -993,84 +329,41 @@ export default function Settlements() {
               </Alert>
             )}
 
-            {warnings.length > 0 && validation?.valid && (
-              <Alert className="border-warning bg-warning/10">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <AlertDescription className="text-warning">
-                  {warnings.map((w, i) => (
-                    <div key={i}>{w}</div>
-                  ))}
-                </AlertDescription>
-              </Alert>
-            )}
-
             <Separator />
 
-            {/* Step 1: Advance Adjustment (if advances exist) */}
+            {/* Advance adjustment (if advances exist) */}
             {calculation && calculation.advancesOutstanding > 0 && !isAlreadySettled && (
               <AdvanceAdjustmentInput
                 totalAdvanceOutstanding={calculation.advancesOutstanding}
                 grossSalary={calculation.grossSalary}
                 adjustmentAmount={calculation.advanceToAdjust}
-                onAdjustmentChange={handleAdvanceAdjustmentChange}
+                onAdjustmentChange={(amount) => setAdvanceToAdjust(Math.max(0, amount))}
                 disabled={isAlreadySettled}
               />
             )}
 
-            {/* Step 2: Leave Deduction Section */}
-            {selectedStaffId && selectedMonth && !isAlreadySettled && (
-              <LeaveDeductionSection
-                staffId={selectedStaffId}
-                month={selectedMonth}
-                dailySalary={calculation?.dailySalary || 0}
-                onDeductionChange={handleLeaveDeductionChange}
-                disabled={isAlreadySettled}
-              />
-            )}
-
-            {/* Step 3: Desired Net Payable Override */}
+            {/* Monthly variables */}
             {calculation && !isAlreadySettled && (
-              <div className="space-y-2 p-4 rounded-lg border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Desired Net Payable (Optional)</Label>
-                  <Badge variant="outline" className="text-xs">Override</Badge>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Incentives</Label>
+                  <Input type="number" min="0" value={incentivesInput || ''} placeholder="0"
+                    onChange={(e) => setIncentivesInput(toAmount(e.target.value))} />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Enter the exact amount you want to pay. Leave deduction will be auto-calculated using: 
-                  <span className="font-mono text-[10px] block mt-1">Salary − Advance Adj − Deduction = Net Payable</span>
-                </p>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    max={Math.max(0, calculation.monthlySalary - advanceToAdjust)}
-                    value={netPayableOverride !== null ? netPayableOverride : ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        setNetPayableOverride(null);
-                        // Recalculate with original leave days
-                        calculateSettlement();
-                      } else {
-                        handleNetPayableOverride(toAmount(val));
-                      }
-                    }}
-                    className="pl-8 font-mono"
-                    placeholder={`Auto: ₹${calculation.netPayable.toLocaleString('en-IN')}`}
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bonus</Label>
+                  <Input type="number" min="0" value={bonusInput || ''} placeholder="0"
+                    onChange={(e) => setBonusInput(toAmount(e.target.value))} />
                 </div>
-                {netPayableOverride !== null && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-primary">
-                      <Info className="h-3 w-3" />
-                      <span>
-                        Leave deduction auto-set to {finalDeductionDays} days (₹{(calculation.dailySalary * finalDeductionDays).toFixed(0)})
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground font-mono bg-muted/50 p-2 rounded">
-                      ₹{calculation.monthlySalary.toFixed(0)} − ₹{advanceToAdjust.toFixed(0)} − ₹{(calculation.dailySalary * finalDeductionDays).toFixed(0)} = ₹{netPayableOverride.toFixed(0)}
-                    </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Overtime (auto ₹{calculation.overtimeAuto.toFixed(0)})</Label>
+                  <Input type="number" min="0" value={overtimeOverride ?? ''} placeholder="auto"
+                    onChange={(e) => setOvertimeOverride(e.target.value === '' ? null : toAmount(e.target.value))} />
+                </div>
+                {overtimeOverride !== null && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Overtime override reason *</Label>
+                    <Input value={overtimeOverrideReason} onChange={(e) => setOvertimeOverrideReason(e.target.value)} />
                   </div>
                 )}
               </div>
@@ -1078,8 +371,8 @@ export default function Settlements() {
 
             <div className="space-y-2">
               <Label>Payment Mode *</Label>
-              <Select 
-                value={paymentMode} 
+              <Select
+                value={paymentMode}
                 onValueChange={(v) => setPaymentMode(v as PaymentMode)}
                 disabled={isAlreadySettled}
               >
@@ -1110,19 +403,30 @@ export default function Settlements() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!calculation ? (
+            {isCalculating ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : !calculation ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Calculator className="h-12 w-12 mb-4 opacity-50" />
                 <p>Select staff and month to calculate</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-muted-foreground">Monthly Salary</span>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-muted-foreground">Monthly Salary (pro-rata)</span>
                   <Amount value={calculation.monthlySalary} className="font-medium" />
                 </div>
-                
-                <div className="flex justify-between items-center py-2">
+
+                {(calculation.incentives > 0 || calculation.bonus > 0 || calculation.overtimeAmount > 0) && (
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-muted-foreground">Incentives + Bonus + Overtime</span>
+                    <span className="font-medium text-success">
+                      +<Amount value={calculation.incentives + calculation.bonus + calculation.overtimeAmount} />
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center py-1.5">
                   <span className="text-muted-foreground">
                     Leave Deduction ({calculation.finalDeductionDays} days × ₹{calculation.dailySalary.toFixed(2)})
                   </span>
@@ -1132,7 +436,7 @@ export default function Settlements() {
                 </div>
 
                 {calculation.absentDeduction > 0 && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="text-muted-foreground">
                       Absent Days ({calculation.absentDeductionDays} × ₹{calculation.dailySalary.toFixed(2)})
                     </span>
@@ -1145,98 +449,90 @@ export default function Settlements() {
                 <div className="rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
                   <span className="font-medium text-foreground">Attendance:</span>{' '}
                   Present {calculation.presentDays}{calculation.halfDays > 0 ? ` + ${calculation.halfDays} half` : ''} · Paid leave {calculation.paidLeaveDays} · Off {calculation.offDays} · Absent {calculation.absentDays}{calculation.compOffEarned > 0 ? ` · Comp-off +${calculation.compOffEarned}` : ''}
-                  <div className="mt-2 flex items-center gap-2">
-                    <Label className="text-[11px]">Override absent days</Label>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      className="h-7 w-24 text-xs"
-                      placeholder="auto"
-                      value={absentDaysOverride ?? ''}
-                      onChange={(e) => setAbsentDaysOverride(e.target.value === '' ? null : toAmount(e.target.value))}
-                    />
-                    {absentDaysOverride !== null && (
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAbsentDaysOverride(null)}>
-                        Reset
-                      </Button>
-                    )}
-                  </div>
+                  <span className="mt-1 block">
+                    Wrong attendance? Fix it in <button className="font-medium text-primary underline underline-offset-2" onClick={() => navigate('/bulk-attendance')}>Bulk Attendance Adjustments</button> — this screen has no overrides.
+                  </span>
                 </div>
 
                 {calculation.disciplineFine > 0 && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="text-muted-foreground">Discipline Fine</span>
-                    <span className="text-destructive font-medium">
-                      -<Amount value={calculation.disciplineFine} />
-                    </span>
+                    <span className="text-destructive font-medium">-<Amount value={calculation.disciplineFine} /></span>
                   </div>
                 )}
 
                 {calculation.pfEmployee > 0 && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="text-muted-foreground">
                       PF (Employee {calculation.pfRateEmployee}% of ₹{calculation.pfBase.toFixed(0)})
                     </span>
-                    <span className="text-destructive font-medium">
-                      -<Amount value={calculation.pfEmployee} />
-                    </span>
+                    <span className="text-destructive font-medium">-<Amount value={calculation.pfEmployee} /></span>
                   </div>
                 )}
 
                 {calculation.esiEmployee > 0 && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="text-muted-foreground">
                       ESI (Employee {calculation.esiRateEmployee}% of ₹{calculation.esiBase.toFixed(0)})
                     </span>
-                    <span className="text-destructive font-medium">
-                      -<Amount value={calculation.esiEmployee} />
-                    </span>
+                    <span className="text-destructive font-medium">-<Amount value={calculation.esiEmployee} /></span>
                   </div>
                 )}
-                
+
+                {calculation.ptAmount > 0 && (
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-muted-foreground">Professional Tax</span>
+                    <span className="text-destructive font-medium">-<Amount value={calculation.ptAmount} /></span>
+                  </div>
+                )}
+
+                {calculation.loanEmiTotal > 0 && (
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-muted-foreground">Loan EMI</span>
+                    <span className="text-destructive font-medium">-<Amount value={calculation.loanEmiTotal} /></span>
+                  </div>
+                )}
+
                 <Separator />
-                
-                <div className="flex justify-between items-center py-2">
+
+                <div className="flex justify-between items-center py-1.5">
                   <span className="font-medium">Gross Salary</span>
                   <Amount value={calculation.grossSalary} className="font-medium" />
                 </div>
-                
+
                 {calculation.advancesOutstanding > 0 && (
                   <>
-                    <div className="flex justify-between items-center py-2 text-sm">
+                    <div className="flex justify-between items-center py-1.5 text-sm">
                       <span className="text-muted-foreground">Opening Advance Balance</span>
                       <Amount value={calculation.advancesOutstanding} className="text-warning" />
                     </div>
-                    <div className="flex justify-between items-center py-2">
+                    <div className="flex justify-between items-center py-1.5">
                       <span className="text-muted-foreground">Advance Adjusted</span>
-                      <span className="text-destructive font-medium">
-                        -<Amount value={calculation.advanceToAdjust} />
-                      </span>
+                      <span className="text-destructive font-medium">-<Amount value={calculation.advanceToAdjust} /></span>
                     </div>
                     {calculation.carryForwardAdvance > 0 && (
-                      <div className="flex justify-between items-center py-2 text-sm">
+                      <div className="flex justify-between items-center py-1.5 text-sm">
                         <span className="text-muted-foreground">Carry Forward</span>
                         <Amount value={calculation.carryForwardAdvance} className="text-warning" />
                       </div>
                     )}
                   </>
                 )}
-                
-                <Separator />
-                
+
                 {calculation.arrears !== 0 && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="font-medium">Arrears {calculation.arrears < 0 ? '(recovery)' : '(back-pay)'}</span>
                     <span className={calculation.arrears < 0 ? 'font-medium text-destructive' : 'font-medium text-success'}>
                       {calculation.arrears < 0 ? '-' : '+'}<Amount value={Math.abs(calculation.arrears)} />
                     </span>
                   </div>
                 )}
+
                 <div className="flex justify-between items-center py-3 bg-primary/5 rounded-lg px-4 -mx-4">
                   <span className="font-semibold text-lg">Net Payable</span>
                   <Amount value={calculation.netPayable} size="lg" className="font-bold text-primary" />
                 </div>
-                
+
                 {calculation.carryForwardAdvance > 0 && (
                   <Alert className="border-info bg-info/10">
                     <Info className="h-4 w-4 text-info" />
@@ -1245,10 +541,10 @@ export default function Settlements() {
                     </AlertDescription>
                   </Alert>
                 )}
-                
-                <Button 
+
+                <Button
                   onClick={handleSettleClick}
-                  disabled={!canSettle || isSettling}
+                  disabled={!canSettle || isSettling || (overtimeOverride !== null && !overtimeOverrideReason.trim())}
                   className="w-full mt-4"
                   size="lg"
                 >
@@ -1290,7 +586,7 @@ export default function Settlements() {
             }}
             paymentMode={paymentMode}
           />
-          
+
           <ZeroPaymentConfirmDialog
             open={showZeroPaymentDialog}
             onOpenChange={setShowZeroPaymentDialog}
