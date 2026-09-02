@@ -37,8 +37,8 @@ function fromValue(v: string): { shift_id: string | null; status: RosterStatus |
 }
 
 export default function Roster() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [from, setFrom] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [to, setTo] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));

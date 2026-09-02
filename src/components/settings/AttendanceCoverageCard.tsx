@@ -17,8 +17,8 @@ interface Row {
 }
 
 export function AttendanceCoverageCard() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

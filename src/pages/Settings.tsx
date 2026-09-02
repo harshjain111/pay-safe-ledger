@@ -74,7 +74,7 @@ interface Category {
   /** Permission required to see this category; undefined = everyone. */
   permission?: string;
   /** When set, category is shown to these roles instead of a permission check. */
-  roles?: ('owner' | 'admin' | 'accountant')[];
+  roles?: ('owner' | 'admin' | 'accountant' | 'hr')[];
 }
 
 const CATEGORIES: Category[] = [
@@ -83,18 +83,18 @@ const CATEGORIES: Category[] = [
   { id: 'attendance', label: 'Attendance & Leave', icon: Clock, permission: 'settings.attendance.edit' },
   { id: 'hardware', label: 'Hardware', icon: Fingerprint, permission: 'settings.attendance.edit' },
   { id: 'organisation', label: 'Organisation', icon: Building2, permission: 'settings.organisation.edit' },
-  { id: 'masters', label: 'Lists & Masters', icon: Store, roles: ['owner', 'admin', 'accountant'] },
+  { id: 'masters', label: 'Lists & Masters', icon: Store, roles: ['owner', 'admin', 'accountant', 'hr'] },
   { id: 'data', label: 'Data Management', icon: Database, permission: 'settings.data.manage' },
 ];
 
 export default function Settings() {
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
-  const { user, userRole, staffData, can, isOwner, isAdmin, isAccountant } = useAuth();
+  const { user, userRole, staffData, can, isOwner, isAdmin, isAccountant, isHR } = useAuth();
   const { language, setLanguage } = useLanguage();
 
   const visible = CATEGORIES.filter((c) => {
-    if (c.roles) return (isOwner && c.roles.includes('owner')) || (isAdmin && c.roles.includes('admin')) || (isAccountant && c.roles.includes('accountant'));
+    if (c.roles) return (isOwner && c.roles.includes('owner')) || (isAdmin && c.roles.includes('admin')) || (isAccountant && c.roles.includes('accountant')) || (isHR && c.roles.includes('hr'));
     return !c.permission || can(c.permission);
   });
   const active = visible.find((c) => c.id === category) ?? visible[0];

@@ -33,8 +33,8 @@ const EVENT_TYPES: { value: EmploymentEventType; label: string }[] = [
 interface Props { staffId: string; canViewSalaries?: boolean }
 
 export function EmploymentHistoryCard({ staffId, canViewSalaries }: Props) {
-  const { user, isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { user, isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const [entries, setEntries] = useState<EmploymentHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);

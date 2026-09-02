@@ -109,9 +109,9 @@ function fmtTime(iso: string | null): string {
 }
 
 export default function Attendance() {
-  const { isOwner, isAdmin, isCA } = useAuth();
+  const { isOwner, isAdmin, isCA, isHR } = useAuth();
   const breaksEnabled = useBreaksEnabled();
-  const canView = isOwner || isAdmin || isCA;
+  const canView = isOwner || isAdmin || isCA || isHR;
 
   // Drill-down from dashboard cards: ?status=present|checkedIn|completed|absent|late
   const [searchParams, setSearchParams] = useSearchParams();

@@ -167,8 +167,8 @@ function OutletGeofenceAction({ outletId, outletName }: { outletId: string; outl
 }
 
 export function ManageOutletsDepartmentsCard() {
-  const { isOwner, isAdmin, isAccountant } = useAuth();
-  const canManage = isOwner || isAdmin || isAccountant;
+  const { isOwner, isAdmin, isAccountant, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isAccountant || isHR;
   if (!canManage) return null;
 
   return (

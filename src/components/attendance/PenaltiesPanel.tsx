@@ -36,8 +36,8 @@ interface Row extends DisciplineLogRow {
 }
 
 export function PenaltiesPanel() {
-  const { isOwner, isAdmin, user, staffData } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR, user, staffData } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const start = new Date();

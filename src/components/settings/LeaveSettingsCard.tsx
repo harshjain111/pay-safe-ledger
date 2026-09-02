@@ -18,8 +18,8 @@ import { toAmount } from '@/lib/utils';
 import type { LeaveAccrual } from '@/lib/leave';
 
 export function LeaveSettingsCard() {
-  const { isOwner, isAdmin, user } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR, user } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const { data, loading, error, reload, save } = useSingletonSettings<{
     annual_quota?: number;

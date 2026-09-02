@@ -60,7 +60,7 @@ function getStatus(member: Staff): StaffStatus {
 }
 
 export default function StaffList() {
-  const { canViewSalaries, isOwner, isAdmin, isAccountant, canEditStaff } = useAuth();
+  const { canViewSalaries, isOwner, isAdmin, isAccountant, isHR, canEditStaff } = useAuth();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -76,8 +76,8 @@ export default function StaffList() {
     next: StaffStatus;
   }>({ open: false, staff: null, next: 'active' });
 
-  const canAddStaff = isOwner || isAdmin || isAccountant;
-  const canChangeStatus = isOwner || isAdmin;
+  const canAddStaff = isOwner || isAdmin || isAccountant || isHR;
+  const canChangeStatus = isOwner || isAdmin || isHR;
 
   useEffect(() => {
     fetchStaff();

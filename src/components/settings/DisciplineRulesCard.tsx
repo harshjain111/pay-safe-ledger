@@ -80,8 +80,8 @@ function SlabEditor({
 }
 
 export function DisciplineRulesCard() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const [rules, setRules] = useState<DisciplineRules | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

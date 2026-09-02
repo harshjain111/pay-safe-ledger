@@ -126,8 +126,8 @@ function TemplateBuilder({ open, onOpenChange, editingId, onSaved }: {
 }
 
 export default function HolidayTemplates() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [rows, setRows] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);

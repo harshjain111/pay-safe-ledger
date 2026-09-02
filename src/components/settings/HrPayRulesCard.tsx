@@ -25,8 +25,8 @@ const DEFAULTS: Rules = {
 };
 
 export function HrPayRulesCard() {
-  const { isOwner, isAdmin, user } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR, user } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const { data, loading, error, reload, save } = useSingletonSettings<Partial<Rules>>(
     'hr_pay_rules',
     '*',

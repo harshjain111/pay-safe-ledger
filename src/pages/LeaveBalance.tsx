@@ -29,8 +29,8 @@ const statusOf = (s: StaffRow): string => s.status || (s.is_active ? 'active' : 
 const key = (staffId: string, typeId: string) => `${staffId}:${typeId}`;
 
 export default function LeaveBalance() {
-  const { isOwner, isAdmin, user } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR, user } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [types, setTypes] = useState<LeaveType[]>([]);

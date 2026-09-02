@@ -19,8 +19,8 @@ import { listLeaveTypes, assignLeaveTypes, listBalances, type LeaveType } from '
 interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null }
 
 export default function LeaveAssign() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [types, setTypes] = useState<LeaveType[]>([]);

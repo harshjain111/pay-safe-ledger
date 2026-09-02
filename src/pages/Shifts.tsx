@@ -220,8 +220,8 @@ function WorkingHoursModal({ open, onOpenChange }: { open: boolean; onOpenChange
 }
 
 export default function Shifts() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [timings, setTimings] = useState<Map<string, ShiftTiming[]>>(new Map());

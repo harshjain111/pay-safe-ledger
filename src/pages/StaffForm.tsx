@@ -32,15 +32,15 @@ import type { Staff, StaffDocumentType } from '@/types/database';
 export default function StaffForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user, isOwner, isAdmin, isAccountant } = useAuth();
+  const { user, isOwner, isAdmin, isAccountant, isHR } = useAuth();
   const isEditing = !!id;
   
   // Determine who can access this page
   // Owner: full access (add/edit with salary)
   // Admin/Accountant: can add staff without salary, can edit non-salary fields
-  const canAddStaff = isOwner || isAdmin || isAccountant;
+  const canAddStaff = isOwner || isAdmin || isAccountant || isHR;
   const canSetSalary = isOwner;
-  const canEditStaff = isOwner || isAdmin; // Only owner/admin can UPDATE staff (RLS-enforced); accountants enroll only
+  const canEditStaff = isOwner || isAdmin || isHR; // Only owner/admin/HR can UPDATE staff (RLS-enforced); accountants enroll only
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);

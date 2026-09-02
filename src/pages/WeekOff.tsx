@@ -18,8 +18,8 @@ const NONE = 'none';
 interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null }
 
 export default function WeekOff() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   // staff_id -> weekly off weekday (0-6) or null (no weekly off)

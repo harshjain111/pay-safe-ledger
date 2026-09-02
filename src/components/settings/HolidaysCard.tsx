@@ -13,8 +13,8 @@ import { expandHolidaysInRange } from '@/lib/holidays';
  * holidays and links to the full management page (/holidays).
  */
 export function HolidaysCard() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const { holidays, loading } = useHolidays();
 
   const today = format(new Date(), 'yyyy-MM-dd');

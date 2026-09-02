@@ -57,8 +57,8 @@ const STATUS_LABEL = {
 } as const;
 
 export default function BiometricEnrolment() {
-  const { user, isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { user, isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const { rows, total, enrolled, pending, isLoading, error, reload } = useBiometricEnrolment();
 
   const [filter, setFilter] = useState<Filter>('pending');

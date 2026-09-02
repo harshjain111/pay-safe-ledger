@@ -17,8 +17,8 @@ const key = (sid: string, wd: number) => `${sid}:${wd}`;
 interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null }
 
 export default function ShiftAssignment() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);

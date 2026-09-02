@@ -26,8 +26,8 @@ interface Row {
  * biometric device). Gated with the surrounding Attendance settings category.
  */
 export function SelfCheckinCard() {
-  const { isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const queryClient = useQueryClient();
   const { data: org } = useOrganizationProfile();
 

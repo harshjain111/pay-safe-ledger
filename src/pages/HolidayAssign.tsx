@@ -17,8 +17,8 @@ import { listTemplates, listAssignments, assignTemplate, type TemplateSummary } 
 interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null }
 
 export default function HolidayAssign() {
-  const { isOwner, isAdmin, user } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { isOwner, isAdmin, isHR, user } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
 
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);

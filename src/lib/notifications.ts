@@ -7,6 +7,7 @@ interface NotificationRecipients {
   owners?: boolean;
   admins?: boolean;
   accountants?: boolean;
+  hr?: boolean;
   staffUserId?: string;
 }
 
@@ -53,6 +54,7 @@ export async function sendNotificationsByRole(
     if (recipients.owners) rolesToNotify.push('owner');
     if (recipients.admins) rolesToNotify.push('admin');
     if (recipients.accountants) rolesToNotify.push('accountant');
+    if (recipients.hr) rolesToNotify.push('hr');
     
     // Fan out to every user holding one of these roles. This runs server-side
     // via the SECURITY DEFINER notify_users_by_role() RPC, so the client never
@@ -244,7 +246,7 @@ export const NotificationEvents = {
   // Leave events
   leaveRequested: async (staffName: string, leaveDate: string) => {
     await sendNotificationsByRole(
-      { owners: true, admins: true },
+      { owners: true, admins: true, hr: true },
       'New Leave Request',
       `${staffName} has requested leave on ${leaveDate}.`,
       'info',

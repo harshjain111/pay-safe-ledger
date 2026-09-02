@@ -29,8 +29,8 @@ interface HolidayGroup {
 const ROLES = ['staff', 'accountant', 'admin', 'ca', 'owner'];
 
 export default function Holidays() {
-  const { isOwner, isAdmin, isAccountant, user } = useAuth();
-  const canManage = isOwner || isAdmin || isAccountant;
+  const { isOwner, isAdmin, isAccountant, isHR, user } = useAuth();
+  const canManage = isOwner || isAdmin || isAccountant || isHR;
 
   const [groups, setGroups] = useState<HolidayGroup[]>([]);
   const [depts, setDepts] = useState<Named[]>([]);

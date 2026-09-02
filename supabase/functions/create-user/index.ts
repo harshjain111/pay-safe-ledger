@@ -12,7 +12,7 @@ interface CreateUserRequest {
   password: string;
   full_name: string;
   email?: string;
-  role: "owner" | "admin" | "accountant" | "staff" | "ca";
+  role: "owner" | "admin" | "accountant" | "staff" | "ca" | "hr";
   is_active: boolean;
   link_staff_id?: string; // Optional: link to existing staff record
 }

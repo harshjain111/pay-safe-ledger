@@ -42,8 +42,8 @@ interface Props {
 }
 
 export function StaffDocumentsCard({ staffId }: Props) {
-  const { user, isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { user, isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const [docs, setDocs] = useState<StaffDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);

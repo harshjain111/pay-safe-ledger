@@ -77,8 +77,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export function BiometricDevicesCard() {
-  const { user, isOwner, isAdmin } = useAuth();
-  const canManage = isOwner || isAdmin;
+  const { user, isOwner, isAdmin, isHR } = useAuth();
+  const canManage = isOwner || isAdmin || isHR;
   const { devices, loading, error, reload } = useBiometricDevices(canManage);
 
   const [syncing, setSyncing] = useState<false | 'light' | 'full'>(false);

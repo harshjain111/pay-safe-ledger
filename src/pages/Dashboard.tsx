@@ -27,6 +27,7 @@ export default function Dashboard() {
     case 'owner':
       return <OwnerDashboard />;
     case 'admin':
+    case 'hr':
       // Admin / HR see the same rich dashboard as the owner (salary figures
       // stay gated by the salary permission inside OwnerDashboard).
       return <OwnerDashboard />;
