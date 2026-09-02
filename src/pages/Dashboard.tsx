@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { OwnerDashboard } from '@/components/dashboards/OwnerDashboard';
+import { AdminDashboard } from '@/components/dashboards/AdminDashboard';
 import { AccountantDashboard } from '@/components/dashboards/AccountantDashboard';
 import { StaffDashboard } from '@/components/dashboards/StaffDashboard';
 import { CADashboard } from '@/components/dashboards/CADashboard';
@@ -31,6 +32,10 @@ export default function Dashboard() {
       // Admin / HR see the same rich dashboard as the owner (salary figures
       // stay gated by the salary permission inside OwnerDashboard).
       return <OwnerDashboard />;
+    case 'manager':
+      // Outlet manager — the management dashboard; RLS scopes every count to
+      // their own outlet, and salary widgets stay behind salaries.view.
+      return <AdminDashboard />;
     case 'accountant':
       return <AccountantDashboard />;
     case 'staff':

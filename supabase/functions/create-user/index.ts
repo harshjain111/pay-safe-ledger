@@ -12,7 +12,7 @@ interface CreateUserRequest {
   password: string;
   full_name: string;
   email?: string;
-  role: "owner" | "admin" | "accountant" | "staff" | "ca" | "hr";
+  role: "owner" | "admin" | "accountant" | "staff" | "ca" | "hr" | "manager";
   is_active: boolean;
   link_staff_id?: string; // Optional: link to existing staff record
 }
@@ -144,8 +144,9 @@ serve(async (req) => {
       throw new Error(`Failed to assign role: ${roleError.message}`);
     }
 
-    // If linking to existing staff record
-    if (link_staff_id && role === 'staff') {
+    // If linking to existing staff record (managers need one — their outlet
+    // scope comes from staff.outlet_id via current_user_outlet_id()).
+    if (link_staff_id && (role === 'staff' || role === 'manager')) {
       const { error: staffError } = await supabaseAdmin
         .from("staff")
         .update({ user_id: userId })

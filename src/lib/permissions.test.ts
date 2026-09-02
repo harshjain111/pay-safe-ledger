@@ -77,6 +77,13 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
     expect(ROLE_PERMISSIONS.hr).not.toContain('settlements.run');
     expect(ROLE_PERMISSIONS.hr).not.toContain('payouts.execute');
   });
+  it('manager (outlet-scoped) never holds any salary permission', () => {
+    expect(ROLE_PERMISSIONS.manager).toContain('attendance.manage');
+    expect(ROLE_PERMISSIONS.manager).toContain('leave.approve');
+    for (const key of ['salaries.view', 'salaries.edit', 'payslips.download', 'settlements.run', 'settlements.lock', 'payouts.execute']) {
+      expect(ROLE_PERMISSIONS.manager).not.toContain(key);
+    }
+  });
   it('sheet-lock stays HR-only; payslips.download is HR + Admin (client decision, Phase 5)', () => {
     for (const role of ['admin', 'accountant', 'staff', 'ca'] as const) {
       expect(ROLE_PERMISSIONS[role]).not.toContain('settlements.lock');

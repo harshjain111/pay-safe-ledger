@@ -244,6 +244,44 @@ function roleNavSections(
     return managementNav({ ledger: false });
   }
 
+  // Outlet Manager — one outlet's attendance and leave. RLS restricts every
+  // query to their outlet; no payroll/settlements items at all.
+  if (userRole === 'manager') {
+    return [
+      {
+        items: [
+          { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        ],
+      },
+      {
+        title: 'Employees',
+        items: [
+          { title: 'Employees', href: '/staff', icon: Briefcase },
+        ],
+      },
+      {
+        title: 'Attendance',
+        items: [
+          { title: 'Bulk Attendance Adjustments', href: '/bulk-attendance', icon: Users2 },
+          { title: 'Attendance', href: '/attendance', icon: Clock },
+        ],
+      },
+      {
+        title: 'Leave',
+        items: [
+          { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
+          { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
+        ],
+      },
+      {
+        title: 'Admin',
+        items: [
+          { title: 'Settings', href: '/settings', icon: Settings },
+        ],
+      },
+    ];
+  }
+
   // Accountant — work (accounting) view: finance-facing subset of the taxonomy.
   // The personal "My Account" view is handled by the shared canSwitch branch above.
   if (isAccountant) {

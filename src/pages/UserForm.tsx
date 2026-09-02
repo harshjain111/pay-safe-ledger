@@ -172,7 +172,7 @@ export default function UserForm() {
               email: email.trim() || null,
               role: role,
               is_active: isActive,
-              link_staff_id: role === 'staff' ? linkedStaffId : null,
+              link_staff_id: role === 'staff' || role === 'manager' ? linkedStaffId : null,
             }),
           }
         );
@@ -337,6 +337,7 @@ export default function UserForm() {
                     <SelectItem value="owner">Owner</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="hr">HR</SelectItem>
+                    <SelectItem value="manager">Manager (outlet)</SelectItem>
                     <SelectItem value="accountant">Accountant</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     <SelectItem value="ca">CA / Auditor</SelectItem>
@@ -346,6 +347,7 @@ export default function UserForm() {
                   {role === 'owner' && 'Full access to all features including salary'}
                   {role === 'admin' && 'Can approve requests and execute payouts (no salary access)'}
                   {role === 'hr' && 'Runs people ops: staff, attendance, leave, holidays; downloads all payslips and locks the monthly salary sheet'}
+                  {role === 'manager' && 'Outlet-scoped: sees only their own outlet — attendance overrides and leave approvals there, and never any salary data (link them to a staff record with an outlet)'}
                   {role === 'accountant' && 'Can execute payouts and view ledger (no salary access)'}
                   {role === 'staff' && 'Can submit requests and view own data'}
                   {role === 'ca' && 'Read-only access to reports and audit log'}
@@ -370,7 +372,7 @@ export default function UserForm() {
             </div>
 
             {/* Link to existing staff - only for staff role */}
-            {role === 'staff' && !isEditing && availableStaff.length > 0 && (
+            {(role === 'staff' || role === 'manager') && !isEditing && availableStaff.length > 0 && (
               <div className="space-y-2 pt-4 border-t">
                 <Label htmlFor="linkedStaff">Link to Existing Staff Record (Optional)</Label>
                 <Select 

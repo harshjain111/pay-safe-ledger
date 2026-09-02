@@ -173,6 +173,15 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ledger.view',
     'reports.view', 'audit.view',
   ],
+  // Manager is OUTLET-SCOPED (RLS restricts every read/write to their own
+  // outlet): attendance and leave for the outlet they run. NO salary
+  // permissions of any kind — a manager must never see pay.
+  manager: [
+    'dashboard.view',
+    'staff.view',
+    'attendance.view', 'attendance.create', 'attendance.edit', 'attendance.manage',
+    'leave.view', 'leave.approve',
+  ],
   // HR is the day-to-day people-ops operator: full staff/attendance/leave
   // management, payslip downloads for everyone, and the monthly sheet lock.
   // salaries.view is deliberate — payslips expose pay, so HR sees salaries.

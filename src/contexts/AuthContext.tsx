@@ -19,6 +19,12 @@ interface AuthContextType {
   isStaff: boolean;
   isCA: boolean;
   isHR: boolean;
+  /** Outlet-scoped Manager ROLE (distinct from the staff.is_manager flag). */
+  isOutletManager: boolean;
+  /** The current user's own outlet (from their staff link); null when none. */
+  outletId: string | null;
+  /** True when every query this user makes is outlet-restricted by RLS. */
+  isOutletScoped: boolean;
   permissions: Set<string>;
   can: (permission: string) => boolean;
   canManageStaff: boolean;
@@ -137,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching role:', roleError);
       }
 
-      const ROLE_PRIORITY = ['owner', 'hr', 'accountant', 'admin', 'staff', 'ca'];
+      const ROLE_PRIORITY = ['owner', 'hr', 'accountant', 'admin', 'manager', 'staff', 'ca'];
       const heldRoles = (roleRows ?? []).map((r) => (r as { role: string }).role);
       const primaryRole = ROLE_PRIORITY.find((r) => heldRoles.includes(r)) ?? heldRoles[0] ?? null;
       if (primaryRole) {
@@ -226,6 +232,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isStaff = userRole === 'staff';
   const isCA = userRole === 'ca';
   const isHR = userRole === 'hr';
+  const isOutletManager = userRole === 'manager';
+  const outletId = (staffData as (typeof staffData & { outlet_id?: string | null }) | null)?.outlet_id ?? null;
+  const isOutletScoped = isOutletManager;
 
   // Permission helpers - STRICT SALARY CONFIDENTIALITY
   
@@ -281,6 +290,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isStaff,
     isCA,
     isHR,
+    isOutletManager,
+    outletId,
+    isOutletScoped,
     permissions,
     can,
     canManageStaff,
