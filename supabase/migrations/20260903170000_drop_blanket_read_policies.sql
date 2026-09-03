@@ -1,0 +1,35 @@
+-- ============================================================================
+-- Remove the two blanket USING(true) read policies.
+--
+-- "Read staff_roster" and "Read leave_balances" let ANY authenticated user —
+-- including an ordinary employee — read every colleague's duty roster and
+-- leave balances. They came from an early permissive batch and were never the
+-- intended model: each table already carries precise policies.
+--
+-- Coverage after dropping them (verified against pg_policies before writing):
+--
+--   staff_roster    owner/admin  -> "Manage staff_roster",
+--                                   "Owners and admins manage roster",
+--                                   "Finance roles view roster"
+--                   accountant/ca-> "Finance roles view roster"
+--                   hr           -> "HR can manage staff_roster"
+--                   manager      -> "Managers manage outlet roster" (outlet)
+--                   employee     -> "Staff view own roster" (own rows only)
+--
+--   leave_balances  owner/admin  -> "Manage leave_balances",
+--                                   "Owners and admins manage leave balances",
+--                                   "View own or privileged leave balances"
+--                   accountant   -> "View own or privileged leave balances"
+--                   hr           -> "HR can manage leave_balances"
+--                   manager      -> "Managers view outlet leave balances"
+--                   employee     -> "View own or privileged leave balances"
+--
+-- So every legitimate reader keeps access and only cross-employee snooping is
+-- removed. One deliberate change: the CA role loses leave_balances, which the
+-- "privileged" policy never granted it — the blanket policy was the only
+-- reason a CA could read balances, and no CA-facing screen reads that table
+-- (only lib/leave.ts and lib/payslip-extras.ts do, behind owner/admin/HR).
+-- ============================================================================
+
+DROP POLICY IF EXISTS "Read staff_roster"   ON public.staff_roster;
+DROP POLICY IF EXISTS "Read leave_balances" ON public.leave_balances;
