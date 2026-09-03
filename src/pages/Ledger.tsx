@@ -55,6 +55,48 @@ interface JournalLineWithDetails {
   } | null;
 }
 
+/** Debit/credit totals on the two accounts the ledger reconciles:
+ *  2000 Staff Payable and 1200 Staff Advances. */
+interface AccountTotals {
+  payableDebit: number;
+  payableCredit: number;
+  advanceDebit: number;
+  advanceCredit: number;
+}
+
+const ZERO_TOTALS: AccountTotals = {
+  payableDebit: 0, payableCredit: 0, advanceDebit: 0, advanceCredit: 0,
+};
+
+interface OpeningRow {
+  staff_id: string;
+  payable_debit: number;
+  payable_credit: number;
+  advance_debit: number;
+  advance_credit: number;
+}
+
+function sumAccountTotals(list: AccountTotals[]): AccountTotals {
+  return list.reduce((a, t) => ({
+    payableDebit: a.payableDebit + t.payableDebit,
+    payableCredit: a.payableCredit + t.payableCredit,
+    advanceDebit: a.advanceDebit + t.advanceDebit,
+    advanceCredit: a.advanceCredit + t.advanceCredit,
+  }), { ...ZERO_TOTALS });
+}
+
+/** The balance these totals represent: what we owe, less what is owed to us. */
+function balanceOf(t: AccountTotals): number {
+  return (t.payableCredit - t.payableDebit) - (t.advanceDebit - t.advanceCredit);
+}
+
+/** First and last day of a 'yyyy-MM' month, as yyyy-MM-dd. */
+function monthBounds(month: string): { from: string; to: string } {
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` };
+}
+
 interface StaffBalance {
   staffId: string;
   staffName: string;
@@ -79,6 +121,8 @@ export default function Ledger() {
     searchParams.get('staff') || 'all'
   );
   const [selectedMonth, setSelectedMonth] = useState<string>(() => format(new Date(), 'yyyy-MM'));
+  /** Balance carried into the selected period (zero when showing All Months). */
+  const [openingTotals, setOpeningTotals] = useState<AccountTotals>(ZERO_TOTALS);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -115,17 +159,22 @@ export default function Ledger() {
   // For "All Staff" view: calculate as SUM of individual staff balances
   // For individual staff: use account-based formula
   // Staff Balance = (Payable Cr - Payable Dr) - (Advance Dr - Advance Cr)
-  const closingBalance = selectedStaff === 'all' 
+  // Both branches include the balance carried into the period, so the figure is
+  // the position as at the period end — not the movement within it.
+  const closingBalance = selectedStaff === 'all'
     ? staffBalances.reduce((sum, sb) => sum + sb.balance, 0)
-    : (totals.payableCredit - totals.payableDebit) - (totals.advanceDebit - totals.advanceCredit);
+    : balanceOf(sumAccountTotals([totals, openingTotals]));
 
   // Validation: ensure individual balances sum to the aggregate "All Staff" balance
   useEffect(() => {
     if (selectedStaff === 'all' && staffBalances.length > 0) {
       const sumOfIndividual = staffBalances.reduce((sum, sb) => sum + sb.balance, 0);
-      // For aggregate, recalculate using account-based formula
-      const aggregatePayableBalance = totals.payableCredit - totals.payableDebit;
-      const aggregateAdvanceBalance = totals.advanceDebit - totals.advanceCredit;
+      // Aggregate recalculated the same way, from period movement PLUS the
+      // balance carried in — the individual balances include it, so the check
+      // compares like with like.
+      const withOpening = sumAccountTotals([totals, openingTotals]);
+      const aggregatePayableBalance = withOpening.payableCredit - withOpening.payableDebit;
+      const aggregateAdvanceBalance = withOpening.advanceDebit - withOpening.advanceCredit;
       const directCalculation = aggregatePayableBalance - aggregateAdvanceBalance;
       
       // Allow small rounding difference
@@ -144,7 +193,7 @@ export default function Ledger() {
     } else {
       setValidationError(null);
     }
-  }, [staffBalances, totals, selectedStaff]);
+  }, [staffBalances, totals, openingTotals, selectedStaff]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -175,6 +224,10 @@ export default function Ledger() {
         staffIdFilter = selectedStaff;
       }
 
+      // The selected period, as entry_date bounds. 'all' keeps the old
+      // behaviour of reading the whole journal.
+      const period = selectedMonth === 'all' ? null : monthBounds(selectedMonth);
+
       // CRITICAL: Only fetch journal_lines WHERE staff_id IS NOT NULL
       // This ensures we only see staff-side entries, not Bank/Cash/Expense accounts
       let query = supabase
@@ -186,7 +239,7 @@ export default function Ledger() {
           description,
           staff_id,
           created_at,
-          journal_entry:journal_entry_id(
+          journal_entry:journal_entry_id${period ? '!inner' : ''}(
             id,
             entry_date,
             reference_no,
@@ -208,10 +261,26 @@ export default function Ledger() {
       if (staffIdFilter) {
         query = query.eq('staff_id', staffIdFilter);
       }
+      if (period) {
+        // Filtered on the BUSINESS date (journal_entries.entry_date), not the
+        // row's created_at — a backdated entry belongs to the month it is dated,
+        // which is the date the table displays.
+        query = query
+          .gte('journal_entry.entry_date', period.from)
+          .lte('journal_entry.entry_date', period.to);
+      }
 
-      const [{ data: linesData, error: linesError }, staffListRes] = await Promise.all([
+      const [{ data: linesData, error: linesError }, staffListRes, openingRes] = await Promise.all([
         query,
         staffListPromise ?? Promise.resolve(null),
+        // Everything before the period, aggregated server-side. Without this the
+        // balances below would report one month's movement as the amount owed.
+        period
+          ? supabase.rpc('get_staff_ledger_opening', {
+              _before: period.from,
+              _staff_id: staffIdFilter,
+            })
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (linesError) throw linesError;
@@ -219,6 +288,17 @@ export default function Ledger() {
         if (staffListRes.error) throw staffListRes.error;
         setStaffList((staffListRes.data as StaffPublic[]) || []);
       }
+
+      const opening = new Map<string, AccountTotals>();
+      for (const r of (openingRes?.data ?? []) as OpeningRow[]) {
+        opening.set(r.staff_id, {
+          payableDebit: toAmount(r.payable_debit),
+          payableCredit: toAmount(r.payable_credit),
+          advanceDebit: toAmount(r.advance_debit),
+          advanceCredit: toAmount(r.advance_credit),
+        });
+      }
+      setOpeningTotals(sumAccountTotals([...opening.values()]));
 
       // Calculate per-staff balances for validation and "All Staff" view
       // CRITICAL: Use account-based calculation for accurate balance
@@ -233,6 +313,15 @@ export default function Ledger() {
         advanceCredit: number;
       }>();
       
+      // Seed with the carried-in balances FIRST, so "balance" is the amount
+      // actually owed rather than this period's movement — and so someone who
+      // has an outstanding balance but no transactions this month still
+      // appears. debit/credit stay period-only: they label the period's
+      // Debits / Credits cards.
+      opening.forEach((carried, staffId) => {
+        staffBalanceMap.set(staffId, { debit: 0, credit: 0, ...carried });
+      });
+
       (linesData || []).forEach(line => {
         if (line.staff_id && line.account) {
           const existing = staffBalanceMap.get(line.staff_id) || {
@@ -288,10 +377,14 @@ export default function Ledger() {
 
       // Calculate running balance for display using correct formula per account type
       // Running balance tracks: (Payable Cr - Payable Dr) - (Advance Dr - Advance Cr)
-      let runningPayableCr = 0;
-      let runningPayableDr = 0;
-      let runningAdvanceDr = 0;
-      let runningAdvanceCr = 0;
+      // Seeded with the carried-in totals so the first row of a filtered period
+      // continues from the closing balance of the previous one, instead of
+      // restarting the ledger at zero every month.
+      const carriedIn = sumAccountTotals([...opening.values()]);
+      let runningPayableCr = carriedIn.payableCredit;
+      let runningPayableDr = carriedIn.payableDebit;
+      let runningAdvanceDr = carriedIn.advanceDebit;
+      let runningAdvanceCr = carriedIn.advanceCredit;
       
       const linesWithBalance = (linesData || []).map(line => {
         if (line.staff_id && line.account) {
@@ -540,8 +633,12 @@ export default function Ledger() {
           ) : journalLines.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="No entries found"
-              description="Ledger entries will appear here once transactions are recorded"
+              title={selectedMonth === 'all' ? 'No entries found' : 'No entries this month'}
+              description={
+                selectedMonth === 'all'
+                  ? 'Ledger entries will appear here once transactions are recorded'
+                  : `Nothing was posted in ${format(new Date(`${selectedMonth}-01`), 'MMMM yyyy')}. Pick another month, or All Months, to widen the search.`
+              }
             />
           ) : (
             <>
@@ -628,6 +725,25 @@ export default function Ledger() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {/* The balance carried into the period, so the Balance
+                        column below is read as a continuation rather than as a
+                        ledger that restarts at zero each month. */}
+                    {selectedMonth !== 'all' && (
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell className="whitespace-nowrap text-muted-foreground italic">
+                          {format(new Date(`${selectedMonth}-01`), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell colSpan={5} className="italic text-muted-foreground">
+                          Opening balance brought forward
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ₹{balanceOf(openingTotals).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </TableCell>
+                        {isOwner && <TableCell />}
+                      </TableRow>
+                    )}
                     {journalLines.map((line) => (
                       <TableRow key={line.id} className="group">
                         <TableCell className="whitespace-nowrap text-muted-foreground">
