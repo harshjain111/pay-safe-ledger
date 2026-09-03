@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchOutlets } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader, RowMenu, ColumnChooser, useColumnPrefs } from '@/components/patterns';
 import { ExportButton } from '@/components/common/ExportButton';
@@ -96,8 +97,8 @@ export default function StaffList() {
   useEffect(() => {
     fetchStaff();
     (async () => {
-      const { data } = await supabase.from('outlets').select('id, name');
-      setOutletMap(new Map(((data ?? []) as { id: string; name: string }[]).map((o) => [o.id, o.name])));
+      const rows = await fetchOutlets().catch(() => []);
+      setOutletMap(new Map(rows.map((o) => [o.id, o.name])));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner]);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -62,8 +63,7 @@ export function OwnerDashboard() {
   const [outletFilter, setOutletFilter] = useState('all');
   const outletId = outletFilter === 'all' ? undefined : outletFilter;
   useEffect(() => {
-    supabase.from('outlets').select('id, name').eq('is_active', true).order('name')
-      .then(({ data }) => setOutlets((data ?? []) as { id: string; name: string }[]));
+    fetchActiveMaster('outlets').then(setOutlets).catch(() => setOutlets([]));
   }, []);
 
   // Today's roll-up feeds the KPI; the band has its own date control.

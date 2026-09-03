@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { format, parseISO, subMonths } from 'date-fns';
 import { CheckCircle2, Eye, Inbox, Unlock, Wallet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchOutlets } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { toAmount } from '@/lib/utils';
@@ -83,8 +84,7 @@ export default function FinalizedPayroll() {
 
   const loadMasters = async () => {
     if (mastersLoaded) return;
-    const { data } = await supabase.from('outlets').select('id, name').order('name');
-    setOutlets((data ?? []) as { id: string; name: string }[]);
+    setOutlets(await fetchOutlets().catch(() => []));
     setMastersLoaded(true);
   };
 

@@ -9,13 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
 import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, MapPin } from 'lucide-react';
 
-type MasterTable = 'outlets' | 'departments' | 'designations';
-
-interface MasterRow {
-  id: string;
-  name: string;
-  is_active: boolean;
-}
+import { fetchMaster, type MasterRow, type MasterTable } from '@/lib/masters-cache';
 
 function MasterList({
   table,
@@ -34,9 +28,15 @@ function MasterList({
   const [isAdding, setIsAdding] = useState(false);
   const [busy, setBusy] = useState<{ id: string; action: 'toggle' | 'delete' } | null>(null);
 
+  // Force-refetch through the shared masters cache: this runs after every add /
+  // toggle / delete here, so the cache the rest of the app reads is refreshed
+  // from the same round trip instead of serving a stale list.
   const fetchRows = useCallback(async () => {
-    const { data, error } = await supabase.from(table).select('id, name, is_active').order('name');
-    if (!error && data) setRows(data as MasterRow[]);
+    try {
+      setRows(await fetchMaster(table, true));
+    } catch {
+      /* leave the last-known list on screen */
+    }
     setIsLoading(false);
   }, [table]);
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { format, subMonths } from 'date-fns';
 import { Inbox, ShieldX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { toAmount } from '@/lib/utils';
 import {
@@ -50,8 +51,7 @@ export default function TransactionLog() {
 
   const loadMasters = async () => {
     if (mastersLoaded) return;
-    const { data } = await supabase.from('outlets').select('id, name').eq('is_active', true).order('name');
-    setOutlets((data ?? []) as { id: string; name: string }[]);
+    setOutlets(await fetchActiveMaster('outlets').catch(() => []));
     setMastersLoaded(true);
   };
 

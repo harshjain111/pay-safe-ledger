@@ -14,8 +14,8 @@ import { format, parseISO, eachDayOfInterval, startOfMonth } from 'date-fns';
 import {
   Loader2, Search, ShieldAlert, Info, Save, FileSpreadsheet, RotateCcw, RefreshCw, ArrowRight,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -123,8 +123,7 @@ export default function BulkAttendance() {
   // Branches list
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('outlets').select('id, name').eq('is_active', true).order('name');
-      setBranches((data ?? []) as Branch[]);
+      setBranches(await fetchActiveMaster('outlets').catch(() => []));
     })();
   }, []);
 
@@ -351,7 +350,11 @@ export default function BulkAttendance() {
     }
   };
 
-  const exportExcel = () => {
+  // xlsx is ~138 KB gzipped — loaded on the click, not with the page, so
+  // opening Bulk Attendance doesn't pay for an export most visits never do.
+  // (Attendance.tsx and report-export.ts already load it this way.)
+  const exportExcel = async () => {
+    const XLSX = await import('xlsx');
     const header = ['Employee ID', 'Employee Name', 'Department', 'Designation', ...dates.map((d) => format(parseISO(d), 'dd-MMM (EEE)'))];
     const rows = filteredStaff.map((s) => {
       const r: (string | number)[] = [s.employee_id ?? '', s.full_name, s.department ?? '', s.designation ?? ''];

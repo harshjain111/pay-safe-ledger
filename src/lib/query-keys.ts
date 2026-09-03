@@ -24,4 +24,9 @@ export const queryKeys = {
   advancesOutstanding: {
     all: ['advances-outstanding'] as const,
   },
+  notificationCounts: {
+    all: ['notification-counts'] as const,
+    forUser: (userId: string | null | undefined, wantsPending: boolean, wantsAdvances: boolean) =>
+      ['notification-counts', userId, wantsPending, wantsAdvances] as const,
+  },
 } as const;

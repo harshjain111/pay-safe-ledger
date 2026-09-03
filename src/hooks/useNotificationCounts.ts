@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/query-keys';
 
 interface NotificationCounts {
   pendingRequests: number;
@@ -8,110 +10,127 @@ interface NotificationCounts {
   unreadNotifications: number;
 }
 
-// Global refetch trigger for notification counts
-let globalRefetch: (() => void) | null = null;
+const EMPTY: NotificationCounts = {
+  pendingRequests: 0,
+  approvedAdvances: 0,
+  unreadNotifications: 0,
+};
 
-export function refetchNotificationCounts() {
-  if (globalRefetch) {
-    globalRefetch();
-  }
-}
+// ---------------------------------------------------------------------------
+// AppLayout renders this hook TWICE (the desktop sidebar and the mobile nav),
+// and it used to be plain useState + useEffect: both copies fired their own
+// three queries and opened their own realtime channel, so the badges alone cost
+// six requests per page load. Going through TanStack Query means both mounts
+// share one in-flight request and one cached result, and the realtime channel
+// is opened once and reference-counted below.
+// ---------------------------------------------------------------------------
 
-export function useNotificationCounts() {
-  const { user, userRole, isOwner, isAdmin, isAccountant, staffData } = useAuth();
-  const [counts, setCounts] = useState<NotificationCounts>({
-    pendingRequests: 0,
-    approvedAdvances: 0,
-    unreadNotifications: 0,
-  });
+/** One shared realtime channel, opened on the first subscriber and closed on
+ *  the last, so N mounts never mean N websocket subscriptions. */
+let channel: ReturnType<typeof supabase.channel> | null = null;
+let subscribers = 0;
 
-  const fetchCounts = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      // Unread notifications - always fetch
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-
-      // Pending requests - for Owner/Admin who can approve
-      let pendingRequests = 0;
-      if (isOwner || isAdmin) {
-        const { data: requests } = await supabase
-          .from('payment_requests')
-          .select('id')
-          .eq('status', 'pending');
-        pendingRequests = requests?.length || 0;
-      }
-
-      // Approved advances awaiting payout - for Accountant/Owner/Admin
-      let approvedAdvances = 0;
-      if (isAccountant || isOwner || isAdmin) {
-        const { data: requests } = await supabase
-          .from('payment_requests')
-          .select('id')
-          .eq('status', 'approved')
-          .is('paid_at', null);
-        approvedAdvances = requests?.length || 0;
-      }
-
-      setCounts({
-        pendingRequests,
-        approvedAdvances,
-        unreadNotifications: notifications?.length || 0,
-      });
-    } catch (error) {
-      console.error('Error fetching notification counts:', error);
-    }
-  }, [user, isOwner, isAdmin, isAccountant]);
-
-  // Register global refetch function
-  useEffect(() => {
-    globalRefetch = fetchCounts;
-    return () => {
-      globalRefetch = null;
-    };
-  }, [fetchCounts]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    fetchCounts();
-
-    // Set up real-time subscription for notifications
-    const channel = supabase
+function openChannel(userId: string, onChange: () => void) {
+  subscribers += 1;
+  if (!channel) {
+    channel = supabase
       .channel('notification-counts')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchCounts();
-        }
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        onChange,
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payment_requests',
-        },
-        () => {
-          fetchCounts();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_requests' }, onChange)
       .subscribe();
-
-    return () => {
+  }
+  return () => {
+    subscribers -= 1;
+    if (subscribers <= 0 && channel) {
       supabase.removeChannel(channel);
-    };
-  }, [user, userRole, fetchCounts]);
+      channel = null;
+      subscribers = 0;
+    }
+  };
+}
 
-  return { counts, refetch: fetchCounts };
+// Global refetch trigger, kept for callers outside React (advance approvals etc).
+let globalRefetch: (() => void) | null = null;
+
+export function refetchNotificationCounts() {
+  globalRefetch?.();
+}
+
+async function fetchCounts(
+  userId: string,
+  wantsPending: boolean,
+  wantsAdvances: boolean,
+): Promise<NotificationCounts> {
+  // These are badge numbers, so ask the server to COUNT rather than ship every
+  // matching row back to read .length off it — head:true sends no body at all.
+  // They also go out together rather than in series: a round trip costs ~150 ms
+  // from here, so three sequential awaits burn 450 ms of wall clock to produce
+  // three integers.
+  const [unreadRes, pendingRes, advancesRes] = await Promise.all([
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_read', false),
+
+    // Pending requests — for Owner/Admin who can approve.
+    wantsPending
+      ? supabase
+          .from('payment_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
+
+    // Approved advances awaiting payout — for Accountant/Owner/Admin.
+    wantsAdvances
+      ? supabase
+          .from('payment_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'approved')
+          .is('paid_at', null)
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  return {
+    pendingRequests: pendingRes.count ?? 0,
+    approvedAdvances: advancesRes.count ?? 0,
+    unreadNotifications: unreadRes.count ?? 0,
+  };
+}
+
+export function useNotificationCounts() {
+  const { user, isOwner, isAdmin, isAccountant } = useAuth();
+  const queryClient = useQueryClient();
+
+  const wantsPending = isOwner || isAdmin;
+  const wantsAdvances = isAccountant || isOwner || isAdmin;
+  const userId = user?.id ?? null;
+
+  const { data, refetch } = useQuery({
+    queryKey: queryKeys.notificationCounts.forUser(userId, wantsPending, wantsAdvances),
+    queryFn: () => fetchCounts(userId as string, wantsPending, wantsAdvances),
+    enabled: !!userId,
+  });
+
+  useEffect(() => {
+    globalRefetch = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificationCounts.all });
+    };
+    return () => { globalRefetch = null; };
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!userId) return;
+    // Invalidate rather than refetch directly: both mounts share the cache
+    // entry, so one change produces one request, not one per mount.
+    return openChannel(userId, () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificationCounts.all });
+    });
+  }, [userId, queryClient]);
+
+  return { counts: data ?? EMPTY, refetch };
 }

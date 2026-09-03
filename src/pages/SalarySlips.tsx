@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { format, parseISO, subMonths } from 'date-fns';
 import { Download, FileText, Inbox, Loader2, ShieldX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
 import { Badge } from '@/components/ui/badge';
@@ -50,8 +51,7 @@ export default function SalarySlips() {
 
   const loadMasters = async () => {
     if (mastersLoaded) return;
-    const { data } = await supabase.from('outlets').select('id, name').eq('is_active', true).order('name');
-    setOutlets((data ?? []) as { id: string; name: string }[]);
+    setOutlets(await fetchActiveMaster('outlets').catch(() => []));
     setMastersLoaded(true);
   };
 

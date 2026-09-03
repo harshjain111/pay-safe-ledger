@@ -130,15 +130,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch user role(s). A user may hold more than one (e.g. accountant +
-      // admin); pick a deterministic primary by priority. Using .single() here
-      // used to break the WHOLE session for any multi-role user (it errors on >1
-      // row → no role → locked out).
-      const { data: roleRows, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+      // All three are independent — roles by user_id, permissions resolved
+      // server-side from auth.uid(), staff by user_id — so they go out together.
+      //
+      // In series they were three sequential round trips (~150 ms each) that
+      // every screen in the app waits on: nothing else may fetch until
+      // isLoading flips, so this chain sat in front of every page load.
+      const [rolesRes, permsRes, staffRes] = await Promise.all([
+        // A user may hold more than one role (e.g. accountant + admin); pick a
+        // deterministic primary by priority. .single() here used to break the
+        // WHOLE session for any multi-role user (errors on >1 row → no role →
+        // locked out).
+        supabase.from('user_roles').select('role').eq('user_id', userId),
+        // Kept rejection-safe: this used to sit in its own try/catch whose
+        // fallback is the no-lockout guarantee below. Inside Promise.all a
+        // thrown (rather than returned) error would skip that and land in the
+        // outer catch, leaving the user with NO permissions at all.
+        supabase.rpc('get_my_permissions').then(
+          (r) => r,
+          (error: unknown) => ({ data: null, error }),
+        ),
+        supabase.from('staff').select('*').eq('user_id', userId).single(),
+      ]);
 
+      const { data: roleRows, error: roleError } = rolesRes;
       if (roleError && roleError.code !== 'PGRST116') {
         console.error('Error fetching role:', roleError);
       }
@@ -153,26 +168,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Effective permissions — server-resolved (get_my_permissions). Falls back
       // to the role map if the permissions migration isn't deployed yet, so the
       // UI never breaks and no one is locked out.
-      const roleStr = primaryRole;
-      try {
-        const { data: permRows, error: permErr } = await supabase.rpc('get_my_permissions');
-        if (permErr) throw permErr;
+      if (permsRes.error) {
+        // The only case that needs the fallback: the RPC not deployed yet.
+        setPermissions(fallbackPermsFor(primaryRole));
+      } else {
         // Trust the server's effective set verbatim — INCLUDING an intentionally
         // empty result (a user restricted to no permissions). Falling back to the
-        // role map on empty would silently un-revoke them. The catch below covers
-        // the only case that needs the fallback: the RPC not deployed yet (errors).
-        setPermissions(new Set((permRows as string[] | null) ?? []));
-      } catch {
-        setPermissions(fallbackPermsFor(roleStr));
+        // role map on empty would silently un-revoke them.
+        setPermissions(new Set((permsRes.data as string[] | null) ?? []));
       }
 
-      // Fetch staff data
-      const { data: staffDataResult, error: staffError } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
+      const { data: staffDataResult, error: staffError } = staffRes;
       if (staffError && staffError.code !== 'PGRST116') {
         console.error('Error fetching staff data:', staffError);
       }

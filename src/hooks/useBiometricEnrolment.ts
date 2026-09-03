@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchOutlets } from '@/lib/masters-cache';
 
 export type EnrolmentStatus = 'enrolled' | 'pending' | 'failed' | 'none';
 
@@ -52,14 +53,14 @@ export function useBiometricEnrolment() {
         supabase
           .from('biometric_enrolments')
           .select('id, staff_id, device_id, kind, status, enrolled_at, face_vector_ref'),
-        supabase.from('outlets').select('id, name'),
+        fetchOutlets(),
       ]);
 
       if (staffRes.error) throw staffRes.error;
       if (enrolRes.error) throw enrolRes.error;
 
       const outletName = new Map<string, string>();
-      for (const o of outletRes.data ?? []) outletName.set(o.id, o.name);
+      for (const o of outletRes) outletName.set(o.id, o.name);
 
       // Prefer the staff's GLOBAL enrolment (device_id null); fall back to any.
       const byStaff = new Map<string, (typeof enrolRes.data)[number]>();

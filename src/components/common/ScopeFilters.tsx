@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
@@ -61,8 +61,8 @@ export function ScopeFilters({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('outlets').select('id, name').eq('is_active', true).order('name');
-      if (!cancelled) setOutlets((data ?? []) as { id: string; name: string }[]);
+      const rows = await fetchActiveMaster('outlets').catch(() => []);
+      if (!cancelled) setOutlets(rows);
     })();
     return () => { cancelled = true; };
   }, []);
