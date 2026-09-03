@@ -211,10 +211,9 @@ export async function computeLeaveBalancesForStaff(
   const staffOutlet = (staffRow as { outlet_id?: string | null } | null)?.outlet_id ?? null;
   const staffUserId = (staffRow as { user_id?: string | null } | null)?.user_id ?? null;
 
-  const [types, recordsRes, openingRes, ovrRes, rolesRes] = await Promise.all([
+  const [types, recordsRes, ovrRes, rolesRes] = await Promise.all([
     fetchLeaveTypes(true),
     supabase.from('leave_records').select('leave_type_id').eq('staff_id', staffId).eq('status', 'approved').gte('leave_date', ly.fromISO).lte('leave_date', ly.toISO),
-    supabase.from('leave_balances').select('leave_type_id, opening').eq('staff_id', staffId).eq('year', ly.fyStartYear),
     supabase.from('leave_type_overrides' as never).select('leave_type_id, scope, department_id, outlet_id, role_type, quota_override, is_exempt, is_active'),
     staffUserId ? supabase.from('user_roles').select('role').eq('user_id', staffUserId) : Promise.resolve({ data: [] as { role: string }[] }),
   ]);
@@ -238,10 +237,15 @@ export async function computeLeaveBalancesForStaff(
     if (!r.leave_type_id) continue;
     usedByType.set(r.leave_type_id, (usedByType.get(r.leave_type_id) ?? 0) + 1);
   }
+  // Opening (carry-forward) is 0 until a leave-year rollover has run.
+  //
+  // Deliberately NOT seeded from employee_leave_balance.balance: that column is
+  // the figure HR sets on the Leave Balance screen, i.e. the employee's whole
+  // balance — adding it on top of `accrued` would double-count (a stored 12
+  // against a 24/year type would display 36). run_leave_rollover() writes that
+  // column at year end, and the meaning of the two numbers needs settling
+  // before either is folded into the other.
   const openingByType = new Map<string, number>();
-  for (const b of (openingRes.data ?? []) as { leave_type_id: string; opening: number | null }[]) {
-    openingByType.set(b.leave_type_id, Number(b.opening ?? 0));
-  }
 
   const fyFrom = new Date(ly.fyStartYear, startMonth - 1, 1);
   const fyToExcl = new Date(ly.fyStartYear + 1, startMonth - 1, 1);
