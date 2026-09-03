@@ -116,15 +116,33 @@ export function computeDayBreakdown(params: {
   const lv = new Map<string, LeaveLite>();
   for (const l of params.leaves) lv.set(l.leave_date, l);
 
+  // WEEKLY-OFF QUOTA (client rule, 03 Sep 2026): the assigned weekday sets a
+  // monthly ENTITLEMENT, not fixed dates — "Monday off" in a month with five
+  // Mondays means five paid offs. The offs are fungible: work a Monday and take
+  // the Tuesday instead, and that Tuesday is paid out of the same quota. Only
+  // once the quota is spent does a non-worked day become an unpaid absence.
+  //
+  // The quota is counted over the employment window, so a mid-month joiner or
+  // leaver is entitled only to the assigned days that fall inside their window.
+  let offQuota = 0;
+  if (!unscheduledIsOff && weeklyOffDay != null) {
+    for (const d of eachDayOfInterval({ start: windowStart, end: windowEnd })) {
+      if (getDay(d) === weeklyOffDay) offQuota += 1;
+    }
+  }
+  // Non-worked days awaiting a verdict: paid off (from quota) or unpaid absence.
+  const pendingDays: { date: string; isAssignedOffDay: boolean }[] = [];
+
   for (const d of eachDayOfInterval({ start: windowStart, end: windowEnd })) {
     const ds = format(d, 'yyyy-MM-dd');
     result.windowDays += 1;
 
     const rosterRow = ros.get(ds);
     const isHoliday = holidayDates.has(ds);
-    // A day is OFF when: it is a mandatory paid holiday; OR the roster marks it
-    // off / assigns no shift; OR there is no roster entry and the org treats
-    // unscheduled days as off; OR (legacy) it falls on the weekly-off day.
+    // A day is structurally OFF when: it is a mandatory paid holiday; OR the
+    // roster marks it off / assigns no shift; OR there is no roster entry and
+    // the org treats unscheduled days as off. The weekly-off day no longer
+    // marks a DATE off — it feeds the quota resolved after this loop.
     let isOff: boolean;
     if (isHoliday) {
       isOff = true;
@@ -133,7 +151,7 @@ export function computeDayBreakdown(params: {
     } else if (unscheduledIsOff) {
       isOff = true;
     } else {
-      isOff = weeklyOffDay != null && getDay(d) === weeklyOffDay;
+      isOff = false;
     }
     if (!isOff) result.workingDays += 1;
 
@@ -185,11 +203,46 @@ export function computeDayBreakdown(params: {
       continue;
     }
 
-    // 4) Working day with no attendance and no leave -> unpaid absence.
-    result.absentDays += 1;
-    result.absentDeductionDays += 1;
-    result.days.push({ date: ds, status: 'absent', isOff: false, offWorked: false, workedMinutes: 0 });
+    // 4) Working day with no attendance and no leave -> defer the verdict to
+    //    the weekly-off quota below.
+    pendingDays.push({ date: ds, isAssignedOffDay: weeklyOffDay != null && getDay(d) === weeklyOffDay });
   }
+
+  // ---- resolve the deferred days against the weekly-off quota ---------------
+  // Spend the quota on the employee's own assigned weekday first (so a normal
+  // month reads naturally on the muster roll), then on the earliest remaining
+  // non-worked days. Anything left over is an unpaid absence.
+  pendingDays.sort((a, b) =>
+    a.isAssignedOffDay === b.isAssignedOffDay
+      ? a.date.localeCompare(b.date)
+      : (a.isAssignedOffDay ? -1 : 1),
+  );
+  let quotaLeft = offQuota;
+  const verdicts = new Map<string, DayStatus>();
+  for (const p of pendingDays) {
+    if (quotaLeft > 0) {
+      quotaLeft -= 1;
+      result.offDays += 1;
+      result.workingDays -= 1; // a paid off is not a working day
+      verdicts.set(p.date, 'off');
+    } else {
+      result.absentDays += 1;
+      result.absentDeductionDays += 1;
+      verdicts.set(p.date, 'absent');
+    }
+  }
+  // Emit the per-day marks in date order so the muster roll stays chronological.
+  for (const p of [...pendingDays].sort((a, b) => a.date.localeCompare(b.date))) {
+    const status = verdicts.get(p.date) ?? 'absent';
+    result.days.push({
+      date: p.date,
+      status,
+      isOff: status === 'off',
+      offWorked: false,
+      workedMinutes: 0,
+    });
+  }
+  result.days.sort((a, b) => a.date.localeCompare(b.date));
 
   result.presentEquiv = result.presentFull + 0.5 * result.presentHalf;
   return result;

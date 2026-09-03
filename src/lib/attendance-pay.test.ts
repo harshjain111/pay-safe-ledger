@@ -221,6 +221,88 @@ describe('computeDayBreakdown', () => {
     });
   });
 
+  // ==========================================================================
+  // WEEKLY-OFF QUOTA (client rule, 03 Sep 2026).
+  // The assigned weekday sets a monthly ENTITLEMENT, not fixed dates: "Monday
+  // off" in a month with five Mondays = five paid offs, and those offs are
+  // fungible. Work a Monday, take the Tuesday instead, and the Tuesday is paid
+  // from the same quota. Only once the quota is spent is a day an absence.
+  // June 2026: 1 Jun is a Monday, so Mondays are 1, 8, 15, 22, 29 -> quota 5.
+  // ==========================================================================
+  describe('weekly-off quota', () => {
+    const june = (workedDates: string[]) => computeDayBreakdown({
+      ...base,
+      weeklyOffDay: 1,          // Monday
+      unscheduledIsOff: false,  // quota model only applies once this is off
+      dateOfJoining: '2026-06-01',
+      dateOfLeaving: null,
+      attendance: workedDates.map((d) => ({ work_date: d, worked_minutes: 480, status: 'completed' })),
+      roster: [],
+      leaves: [],
+    });
+    const allJuneDates = Array.from({ length: 30 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`);
+
+    it("the client's example: called in on a Monday, takes the Tuesday instead — still fully paid", () => {
+      // Works every day INCLUDING all 5 Mondays, but takes Tue 2 Jun off.
+      const bd = june(allJuneDates.filter((d) => d !== '2026-06-02'));
+      expect(bd.presentFull).toBe(29);
+      expect(bd.offDays).toBe(1);        // the Tuesday, paid from the Monday quota
+      expect(bd.absentDays).toBe(0);
+      expect(bd.absentDeductionDays).toBe(0);
+    });
+
+    it('offs are fungible: five non-Monday days off, all five Mondays worked, nothing deducted', () => {
+      const tuesdays = ['2026-06-02', '2026-06-09', '2026-06-16', '2026-06-23', '2026-06-30'];
+      const bd = june(allJuneDates.filter((d) => !tuesdays.includes(d)));
+      expect(bd.presentFull).toBe(25);
+      expect(bd.offDays).toBe(5);        // quota fully spent on Tuesdays
+      expect(bd.absentDays).toBe(0);
+      expect(bd.absentDeductionDays).toBe(0);
+    });
+
+    it('beyond the quota it deducts: 20 worked days leaves 10 off — 5 paid, 5 absent', () => {
+      const bd = june(allJuneDates.slice(0, 20));
+      expect(bd.presentFull).toBe(20);
+      expect(bd.offDays).toBe(5);
+      expect(bd.absentDays).toBe(5);
+      expect(bd.absentDeductionDays).toBe(5);
+    });
+
+    it('quota follows the calendar: a 4-Tuesday month grants 4 offs, not 5', () => {
+      // June 2026 has 5 Mondays but only 4 Wednesdays counted from the 3rd?
+      // Saturdays in June 2026: 6, 13, 20, 27 -> 4 occurrences.
+      const bd = computeDayBreakdown({
+        ...base,
+        weeklyOffDay: 6,         // Saturday
+        unscheduledIsOff: false,
+        dateOfJoining: '2026-06-01',
+        dateOfLeaving: null,
+        attendance: allJuneDates.slice(0, 20).map((d) => ({ work_date: d, worked_minutes: 480, status: 'completed' })),
+        roster: [],
+        leaves: [],
+      });
+      expect(bd.offDays).toBe(4);        // only 4 Saturdays in June 2026
+      expect(bd.absentDays).toBe(6);     // 10 non-worked - 4 quota
+    });
+
+    it('a mid-month joiner only earns the assigned days inside their window', () => {
+      // Joining 16 Jun leaves Mondays 22 and 29 -> quota 2.
+      const bd = computeDayBreakdown({
+        ...base,
+        weeklyOffDay: 1,
+        unscheduledIsOff: false,
+        dateOfJoining: '2026-06-16',
+        dateOfLeaving: null,
+        attendance: [],
+        roster: [],
+        leaves: [],
+      });
+      expect(bd.windowDays).toBe(15);    // 16..30 Jun
+      expect(bd.offDays).toBe(2);
+      expect(bd.absentDays).toBe(13);
+    });
+  });
+
   it('ignores open (active/on_break) sessions — a scheduled day with only an open session is absent', () => {
     const bd = computeDayBreakdown({
       ...base,
