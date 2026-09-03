@@ -7,27 +7,33 @@ import type { PayslipExtras, PayslipOrg } from './payslip-pdf';
  * Leave balances for the payslip's "Bal. SL/CL" and "Bal. PL" lines, per
  * staff. SL/CL types may not exist in this org — the payslip then prints
  * 0.00/0.00 (never throws, never omits the line).
+ *
+ * Reads `employee_leave_balance` — the table the Leave Assign / Leave Balance
+ * screens actually write. (There is a second, unused `leave_balances` table in
+ * the schema with an opening/year shape; reading that one made every payslip
+ * print 0.00 regardless of the employee's real balance.)
  */
 export async function fetchPayslipExtras(staffIds: string[]): Promise<Map<string, PayslipExtras>> {
   const out = new Map<string, PayslipExtras>();
   if (staffIds.length === 0) return out;
   try {
-    const year = new Date().getFullYear();
     const [typesRes, balRes] = await Promise.all([
       supabase.from('leave_types' as never).select('id, code, is_default'),
-      supabase.from('leave_balances').select('staff_id, leave_type_id, opening').eq('year', year).in('staff_id', staffIds),
+      supabase.from('employee_leave_balance' as never)
+        .select('staff_id, leave_type_id, balance')
+        .in('staff_id', staffIds),
     ]);
     type LeaveType = { id: string; code: string; is_default: boolean | null };
     const types = (typesRes.data ?? []) as unknown as LeaveType[];
     const byId = new Map(types.map((t) => [t.id, t]));
     const plId = types.find((t) => t.code === 'PL')?.id ?? types.find((t) => t.is_default)?.id;
 
-    type Bal = { staff_id: string; leave_type_id: string; opening: number | null };
+    type Bal = { staff_id: string; leave_type_id: string; balance: number | null };
     for (const b of (balRes.data ?? []) as unknown as Bal[]) {
       const t = byId.get(b.leave_type_id);
       if (!t) continue;
       const cur = out.get(b.staff_id) ?? {};
-      const v = Number(b.opening ?? 0);
+      const v = Number(b.balance ?? 0);
       if (t.code === 'SL') cur.balSL = (cur.balSL ?? 0) + v;
       else if (t.code === 'CL') cur.balCL = (cur.balCL ?? 0) + v;
       else if (t.id === plId) cur.balPL = (cur.balPL ?? 0) + v;
