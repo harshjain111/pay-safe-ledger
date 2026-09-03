@@ -1007,7 +1007,7 @@ export default function StaffForm() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Location / Branch</Label>
+                    <Label>Location / Outlet</Label>
                     <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Guwahati HQ" />
                   </div>
                   <div className="space-y-2">

@@ -29,7 +29,7 @@ const REPORTS: { key: ReportKey; label: string; short: string; icon: typeof Cloc
   { key: 'daily_punch', label: 'Daily Punch', short: 'Punches', icon: Clock },
   { key: 'working_hours', label: 'Working Hours', short: 'Hours', icon: Timer },
   { key: 'shift_wise', label: 'Shift-Wise', short: 'Shifts', icon: Layers },
-  { key: 'branch_wise', label: 'Branch-Wise Punch', short: 'Branch', icon: Building2 },
+  { key: 'branch_wise', label: 'Outlet-Wise Punch', short: 'Outlet', icon: Building2 },
   { key: 'day_wise', label: 'Employee Day-Wise', short: 'Day-Wise', icon: CalendarDays },
 ];
 
@@ -225,7 +225,7 @@ function buildView(report: ReportKey, ds: AttendanceReportDataset): ReportView {
   if (report === 'branch_wise') {
     const rows = branchWiseRows(ds);
     const specs: Spec<(typeof rows)[number]>[] = [
-      { id: 'branch', header: 'Branch', value: (r) => r.branch, sortable: true },
+      { id: 'branch', header: 'Outlet', value: (r) => r.branch, sortable: true },
       { id: 'staff', header: 'Staff', value: (r) => r.staffCount, align: 'right' },
       { id: 'punches', header: 'Punches', value: (r) => r.punches, align: 'right', sortable: true, sortValue: (r) => r.punches },
       { id: 'present', header: 'Present', value: (r) => r.present, align: 'right' },
@@ -236,7 +236,7 @@ function buildView(report: ReportKey, ds: AttendanceReportDataset): ReportView {
       exportHeaders: specs.map((s) => s.header),
       exportRows: rows.map((r) => specs.map((s) => s.value(r))),
       searchText: (r) => r.branch,
-      title: 'Branch-Wise Punch Report', filenameBase: 'Branch_Wise_Punch_Report',
+      title: 'Outlet-Wise Punch Report', filenameBase: 'Outlet_Wise_Punch_Report',
     });
   }
 
@@ -289,7 +289,7 @@ export function AttendanceReports() {
 
   const subtitle = useMemo(() => {
     const parts: string[] = [];
-    if (filters.outletId !== 'all') parts.push(`Branch: ${outlets.find((o) => o.id === filters.outletId)?.name ?? ''}`);
+    if (filters.outletId !== 'all') parts.push(`Outlet: ${outlets.find((o) => o.id === filters.outletId)?.name ?? ''}`);
     if (filters.departmentId !== 'all') parts.push(`Dept: ${departments.find((d) => d.id === filters.departmentId)?.name ?? ''}`);
     if (filters.staffId !== 'all') parts.push(`Staff: ${staffList.find((s) => s.id === filters.staffId)?.full_name ?? ''}`);
     return parts.length ? parts.join('  •  ') : 'All branches & departments';
@@ -351,7 +351,7 @@ export function AttendanceReports() {
               </div>
             </div>
             <Select value={filters.outletId} onValueChange={(v) => set({ outletId: v })}>
-              <SelectTrigger className="h-9 w-[9.5rem]" aria-label="Branch"><SelectValue placeholder="Branch" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-[9.5rem]" aria-label="Outlet"><SelectValue placeholder="Outlet" /></SelectTrigger>
               <SelectContent className="bg-popover">
                 <SelectItem value="all">All branches</SelectItem>
                 {outlets.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}

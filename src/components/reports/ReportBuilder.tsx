@@ -295,7 +295,7 @@ export function ReportBuilder() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Branch</Label>
+              <Label className="text-xs">Outlet</Label>
               <Select value={branch} onValueChange={setBranch}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-popover">

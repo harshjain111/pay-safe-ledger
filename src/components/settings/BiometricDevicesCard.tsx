@@ -253,7 +253,7 @@ export function BiometricDevicesCard() {
     },
     {
       id: 'outlet',
-      header: 'Branch',
+      header: 'Outlet',
       cell: (d) => (
         <span className="text-sm text-muted-foreground">
           {d.outlet_id ? outletName.get(d.outlet_id) ?? '—' : 'Unassigned'}
@@ -436,7 +436,7 @@ export function BiometricDevicesCard() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="device-outlet">Branch</Label>
+              <Label htmlFor="device-outlet">Outlet</Label>
               <Select
                 value={form.outletId}
                 onValueChange={(v) => setForm((f) => ({ ...f, outletId: v }))}

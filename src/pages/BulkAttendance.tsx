@@ -392,11 +392,11 @@ export default function BulkAttendance() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">Branch</label>
+              <label className="text-[11px] text-muted-foreground">Outlet</label>
               <Select value={branchId} onValueChange={setBranchId}>
-                <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Choose Branch" /></SelectTrigger>
+                <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Choose outlet" /></SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="all">All outlets</SelectItem>
                   {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>

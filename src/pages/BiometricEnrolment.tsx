@@ -169,7 +169,7 @@ export default function BiometricEnrolment() {
     },
     {
       id: 'branch',
-      header: 'Branch',
+      header: 'Outlet',
       cell: (r) => <span className="text-sm text-muted-foreground">{r.outletName ?? 'Unassigned'}</span>,
     },
     {
