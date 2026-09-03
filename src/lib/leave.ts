@@ -62,33 +62,10 @@ export function computeBalance(entitled: number, taken: number, compOff = 0): Le
   return { entitled, taken, compOff, remaining };
 }
 
-/** Approved leave-day count per staff for the given calendar year. */
-export async function fetchTakenLeaveByStaff(year: number): Promise<Record<string, number>> {
-  const { data } = await supabase
-    .from('leave_records')
-    .select('staff_id')
-    .eq('status', 'approved')
-    .eq('leave_type', 'paid')
-    .gte('leave_date', `${year}-01-01`)
-    .lte('leave_date', `${year}-12-31`);
-  const taken: Record<string, number> = {};
-  ((data ?? []) as { staff_id: string }[]).forEach((r) => {
-    taken[r.staff_id] = (taken[r.staff_id] ?? 0) + 1;
-  });
-  return taken;
-}
-
-/** Comp-off days earned (off-days worked) per staff from settled months this year. */
-export async function fetchCompOffByStaff(year: number): Promise<Record<string, number>> {
-  // Via a SECURITY DEFINER RPC so owner AND admin/accountant can read comp-off
-  // totals without exposing the owner-only salary_settlements rows directly.
-  const { data } = await supabase.rpc('get_comp_off_earned_by_staff', { _year: year });
-  const map: Record<string, number> = {};
-  ((data ?? []) as { staff_id: string; comp_off: number | null }[]).forEach((r) => {
-    map[r.staff_id] = Number(r.comp_off ?? 0);
-  });
-  return map;
-}
+// The per-staff "taken" and "comp-off" roll-ups that used to live here are now
+// part of the get_leave_balances_overview RPC (migration 20260903210000), which
+// returns the whole Pending Leaves table in one call instead of four. The
+// single-staff variants below are still used by the employee-facing screens.
 
 /** Comp-off days earned for one staff member from settled months this year. */
 export async function fetchCompOffForStaff(staffId: string, year: number): Promise<number> {

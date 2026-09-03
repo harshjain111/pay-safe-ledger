@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/anyClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CalendarDays } from 'lucide-react';
-import {
-  fetchLeaveSettings,
-  entitledForYear,
-  fetchTakenLeaveByStaff,
-  fetchCompOffByStaff,
-  computeBalance,
-} from '@/lib/leave';
 
 interface Row {
   id: string;
@@ -26,25 +19,18 @@ export function LeaveBalancesCard() {
     let cancelled = false;
     (async () => {
       try {
-        const now = new Date();
-        const year = now.getFullYear();
-        const [settings, taken, compOff, staffRes] = await Promise.all([
-          fetchLeaveSettings(),
-          fetchTakenLeaveByStaff(year),
-          fetchCompOffByStaff(year),
-          supabase.from('staff_public').select('id, full_name, is_active').eq('is_active', true).order('full_name'),
-        ]);
-        const entitled = entitledForYear(settings, year, now);
-        const list: Row[] = ((staffRes.data ?? []) as { id: string; full_name: string }[]).map((s) => {
-          const t = taken[s.id] ?? 0;
-          const c = compOff[s.id] ?? 0;
-          return {
-            id: s.id,
-            full_name: s.full_name,
-            remaining: computeBalance(entitled, t, c).remaining,
-            available: entitled + c,
-          };
-        });
+        // One RPC for what used to be four calls (leave settings, leave taken,
+        // comp-off, staff list) plus the join between them on the client. The
+        // entitlement rule is unchanged — it still follows the default leave
+        // type and prorates monthly accrual the same way entitledForYear does.
+        const { data, error } = await supabase.rpc('get_leave_balances_overview', { _year: null });
+        if (error) throw error;
+        const list = (((data ?? {}) as { rows?: Row[] }).rows ?? []).map((r) => ({
+          id: r.id,
+          full_name: r.full_name,
+          remaining: Number(r.remaining),
+          available: Number(r.available),
+        }));
         if (!cancelled) setRows(list);
       } catch (e) {
         console.error('Failed to load leave balances', e);
