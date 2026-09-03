@@ -109,6 +109,13 @@ interface OvertimeInput {
   daysInMonth: number;
   scheduledMinutesPerDay?: number; // defaults to 480 (8h)
   multiplier?: number; // defaults to 1.5x
+  /**
+   * The month's sessions for this staff member, when the caller already has
+   * them. A batch payroll run fetches every employee's sessions in one query,
+   * so passing them here avoids re-reading the same rows per employee — the
+   * arithmetic below is unchanged either way.
+   */
+  sessions?: { worked_minutes: number | null }[];
 }
 
 /**
@@ -124,13 +131,17 @@ export async function computeAutoOvertime(input: OvertimeInput): Promise<number>
   const monthEnd = new Date(ms.getFullYear(), ms.getMonth() + 1, 0)
     .toISOString().split('T')[0];
 
-  const { data, error } = await supabase
-    .from('attendance_sessions')
-    .select('worked_minutes, status, work_date')
-    .eq('staff_id', input.staffId)
-    .gte('work_date', monthStart)
-    .lte('work_date', monthEnd);
-  if (error || !data) return 0;
+  let data = input.sessions ?? null;
+  if (!data) {
+    const res = await supabase
+      .from('attendance_sessions')
+      .select('worked_minutes, status, work_date')
+      .eq('staff_id', input.staffId)
+      .gte('work_date', monthStart)
+      .lte('work_date', monthEnd);
+    if (res.error || !res.data) return 0;
+    data = res.data;
+  }
 
   let extraMinutes = 0;
   for (const session of data) {
@@ -166,8 +177,19 @@ export async function getLoanEMIsForMonth(
     .eq('staff_id', staffId)
     .eq('status', 'active');
   if (error || !data) return [];
+  return loanEmisFromRows(data as unknown as StaffLoan[], month);
+}
+
+/**
+ * The EMI rule itself, over already-fetched ACTIVE loan rows.
+ *
+ * Pure, so the batch payroll run — which reads every employee's active loans in
+ * one query — applies the same rule as the single-staff fetch above rather than
+ * carrying a second copy of it.
+ */
+export function loanEmisFromRows(rows: StaffLoan[], month: string): LoanEMI[] {
   const out: LoanEMI[] = [];
-  for (const row of data as unknown as StaffLoan[]) {
+  for (const row of rows) {
     if (row.start_month > month) continue;
     if (row.remaining_balance <= 0) continue;
     const amount = Math.min(Number(row.emi_amount), Number(row.remaining_balance));

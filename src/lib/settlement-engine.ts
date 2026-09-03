@@ -20,9 +20,9 @@ import { computeDayBreakdown, type DayBreakdown } from '@/lib/attendance-pay';
 import { resolveHolidayDatesForStaff, type HolidayRow, type HolidayAssignmentRow } from '@/lib/holidays';
 import {
   getStaffStructure, prorateStructure, computeProfessionalTax, computeAutoOvertime,
-  getLoanEMIsForMonth, type LoanEMI, type PTSlab,
+  getLoanEMIsForMonth, loanEmisFromRows, type LoanEMI, type PTSlab,
 } from '@/lib/payroll';
-import { getMonthlyDisciplineFine } from '@/lib/discipline';
+import { getMonthlyDisciplineFine, sumDisciplineFine, type DisciplineLogRow } from '@/lib/discipline';
 import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
 import { supabase as anyDb } from '@/integrations/supabase/anyClient';
 import { mergeTemplateHolidays } from '@/lib/leave-allocation';
@@ -274,34 +274,236 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
 const FULL_DAY_MINUTES = 480;
 const HALF_DAY_MINUTES = 240;
 
+// ---------------------------------------------------------------------------
+// Org-wide payroll configuration.
+//
+// These four reads return the SAME rows for every employee — pay rules and
+// statutory settings are single config rows, and the holiday calendar is shared
+// (holiday_assignments is filtered per staff in memory, not in SQL). Fetched
+// inside the per-staff path they were re-requested once per employee: a 214-
+// person run spent ~857 of its ~3,000 requests re-reading four rows.
+//
+// So a run fetches them ONCE and passes the result down. Kept as an explicit
+// parameter rather than a module-level cache: payroll is the most
+// consequential thing this app computes, and a hidden cache raises a staleness
+// question (did this run see the rule I just edited?) that an explicit
+// per-run fetch does not. Omit it and each call fetches for itself, exactly as
+// before — the single-staff screen still does.
+// ---------------------------------------------------------------------------
+export interface PayrollRunConfig {
+  statutory: StatutorySettings | null;
+  payRules: PayRules | null;
+  holidays: HolidayRow[];
+  holidayAssignments: HolidayAssignmentRow[];
+}
+
+interface PayRules {
+  full_day_minutes?: number;
+  half_day_minutes?: number;
+  unscheduled_is_off?: boolean;
+  comp_off_enabled?: boolean;
+}
+
+const STATUTORY_COLUMNS =
+  'pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross, pt_slabs, ot_enabled, ot_standard_minutes, ot_multiplier';
+
+/** Read the org-wide payroll config once, for a whole batch run. */
+export async function fetchPayrollRunConfig(): Promise<PayrollRunConfig> {
+  const [statRes, rulesRes, holRes, holAssignRes] = await Promise.all([
+    supabase.from('payroll_statutory_settings').select(STATUTORY_COLUMNS).limit(1).maybeSingle(),
+    supabase.from('hr_pay_rules' as never).select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
+    supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
+    supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
+  ]);
+  return {
+    statutory: (statRes.data ?? null) as unknown as StatutorySettings | null,
+    payRules: (rulesRes.data ?? null) as PayRules | null,
+    holidays: (holRes.data ?? []) as unknown as HolidayRow[],
+    holidayAssignments: (holAssignRes.data ?? []) as unknown as HolidayAssignmentRow[],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Per-staff data for a whole run, fetched in bulk.
+//
+// Every read below was previously issued once per employee with
+// .eq('staff_id', x): nine of them, so a 214-person run made ~1,900 requests
+// and took 74 seconds. They are the same queries with .in('staff_id', ids)
+// instead — the filters, columns and date bounds are identical, so the rows a
+// staff member gets out of the map are the rows their own query returned.
+//
+// This changes only WHERE computeSettlement's inputs come from. The formula
+// itself is untouched; nothing in this file computes differently with a run
+// bundle than without one, and omitting it falls back to the per-staff reads.
+// ---------------------------------------------------------------------------
+interface LeaveRow { leave_date: string; deduction_days: number | null }
+interface AttendanceRow { work_date: string; worked_minutes: number | null; status: string }
+interface RosterRow { roster_date: string; shift_id: string | null; is_off: boolean }
+interface TemplateDay { start_date: string; end_date: string }
+
+export interface PayrollRunData {
+  config: PayrollRunConfig;
+  salary: Map<string, number>;
+  advances: Map<string, number>;
+  leaves: Map<string, LeaveRow[]>;
+  arrears: Map<string, number>;
+  attendance: Map<string, AttendanceRow[]>;
+  roster: Map<string, RosterRow[]>;
+  discipline: Map<string, DisciplineLogRow[]>;
+  loans: Map<string, StaffLoan[]>;
+  /** Holiday-template days already resolved per staff member. */
+  templateDays: Map<string, TemplateDay[]>;
+}
+
+/** Group rows by their staff_id into a Map, preserving order. */
+function byStaff<T extends { staff_id: string }>(rows: T[]): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const list = m.get(r.staff_id);
+    if (list) list.push(r);
+    else m.set(r.staff_id, [r]);
+  }
+  return m;
+}
+
+/**
+ * Read every row of a bulk query, not just the first page.
+ *
+ * PostgREST caps a response at 1,000 rows. That cap is invisible — a truncated
+ * result looks exactly like a complete one — and it bites precisely when a
+ * per-staff query is replaced by one .in() query over everybody: August 2026
+ * has 4,595 attendance rows across 214 staff, so an unpaged read returned the
+ * first 1,000 and every employee after that computed as if they had never
+ * attended. Each page is explicitly ordered so rows can't shift between
+ * requests and be duplicated or skipped.
+ */
+const PAGE_SIZE = 1000;
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) return out;
+  }
+}
+
+/** Read everything a batch run needs for all of `staffIds`, in ~11 queries. */
+export async function fetchPayrollRunData(staffIds: string[], month: string): Promise<PayrollRunData> {
+  const monthStartStr = `${month}-01`;
+  const monthStart = parseISO(monthStartStr);
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const monthEndStr = `${month}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+  // getMonthlyDisciplineFine uses a half-open [start, nextMonth) window.
+  const nextMonthStr = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1)
+    .toISOString().slice(0, 10);
+
+  const [config, salRes, advRes, leaveRows, arrRows, attRows, rosRows, discRows, loanRows, tplRows] =
+    await Promise.all([
+      fetchPayrollRunConfig(),
+      supabase.rpc('get_staff_salaries_for_month', { _staff_ids: staffIds, _month: month }),
+      supabase.rpc('get_staff_advances_from_journals_bulk', { _staff_ids: staffIds }),
+      fetchAllPages<LeaveRow & { staff_id: string }>((f, t) =>
+        supabase.from('leave_records').select('staff_id, leave_date, deduction_days').in('staff_id', staffIds).eq('status', 'approved').gte('leave_date', monthStartStr).lte('leave_date', monthEndStr).order('staff_id').order('leave_date').range(f, t)),
+      fetchAllPages<{ staff_id: string; amount: number | null }>((f, t) =>
+        supabase.from('salary_arrears').select('staff_id, amount').in('staff_id', staffIds).eq('settlement_month', month).eq('status', 'pending').order('staff_id').order('id').range(f, t)),
+      fetchAllPages<AttendanceRow & { staff_id: string }>((f, t) =>
+        supabase.from('attendance_sessions').select('staff_id, work_date, worked_minutes, status').in('staff_id', staffIds).gte('work_date', monthStartStr).lte('work_date', monthEndStr).order('staff_id').order('work_date').order('id').range(f, t)),
+      fetchAllPages<RosterRow & { staff_id: string }>((f, t) =>
+        supabase.from('staff_roster').select('staff_id, roster_date, shift_id, is_off').in('staff_id', staffIds).gte('roster_date', monthStartStr).lte('roster_date', monthEndStr).order('staff_id').order('roster_date').range(f, t)),
+      fetchAllPages<DisciplineLogRow & { staff_id: string }>((f, t) =>
+        supabase.from('attendance_discipline_log' as never).select('*').in('staff_id', staffIds).gte('work_date', monthStartStr).lt('work_date', nextMonthStr).order('staff_id').order('work_date').range(f, t)),
+      fetchAllPages<StaffLoan & { staff_id: string }>((f, t) =>
+        supabase.from('staff_loans').select('*').in('staff_id', staffIds).eq('status', 'active').order('staff_id').order('id').range(f, t)),
+      fetchAllPages<{ staff_id: string; template_id: string | null }>((f, t) =>
+        anyDb.from('employee_holiday_template').select('staff_id, template_id').in('staff_id', staffIds).order('staff_id').range(f, t)),
+    ]);
+
+  // Holiday templates: one extra query for the distinct templates in use,
+  // then mapped back onto the staff who use them.
+  const templateIds = [...new Set(tplRows.map((r) => r.template_id).filter((x): x is string => !!x))];
+  const templateDays = new Map<string, TemplateDay[]>();
+  if (templateIds.length) {
+    const days = await fetchAllPages<{ template_id: string; start_date: string; end_date: string }>((f, t) =>
+      anyDb.from('holiday_template_days').select('template_id, start_date, end_date').in('template_id', templateIds).order('template_id').order('start_date').range(f, t));
+    const daysByTemplate = new Map<string, TemplateDay[]>();
+    for (const d of days) {
+      const list = daysByTemplate.get(d.template_id);
+      if (list) list.push(d);
+      else daysByTemplate.set(d.template_id, [d]);
+    }
+    for (const r of tplRows) {
+      if (r.template_id) templateDays.set(r.staff_id, daysByTemplate.get(r.template_id) ?? []);
+    }
+  }
+
+  const arrears = new Map<string, number>();
+  for (const r of arrRows) arrears.set(r.staff_id, (arrears.get(r.staff_id) ?? 0) + Number(r.amount ?? 0));
+
+  return {
+    config,
+    salary: new Map(((salRes.data ?? []) as { staff_id: string; salary: number }[]).map((r) => [r.staff_id, Number(r.salary)])),
+    advances: new Map(((advRes.data ?? []) as { staff_id: string; advances: number }[]).map((r) => [r.staff_id, Number(r.advances)])),
+    leaves: byStaff(leaveRows),
+    arrears,
+    attendance: byStaff(attRows),
+    roster: byStaff(rosRows),
+    discipline: byStaff(discRows),
+    loans: byStaff(loanRows),
+    templateDays,
+  };
+}
+
 /** Fetch + sub-compute everything computeSettlement needs for one staff/month. */
 export async function gatherSettlementInputs(
   staff: Staff,
   month: string,
-  opts?: { statutory?: StatutorySettings | null },
+  opts?: { statutory?: StatutorySettings | null; config?: PayrollRunConfig; run?: PayrollRunData },
 ): Promise<SettlementInputs> {
   const monthStartStr = `${month}-01`;
   const monthStart = parseISO(monthStartStr);
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
   const monthEndStr = `${month}-${String(monthEnd.getDate()).padStart(2, '0')}`;
 
-  const [salaryRes, advanceRes, leaveRes, arrearsRes] = await Promise.all([
-    supabase.rpc('get_staff_salary_for_month', { _staff_id: staff.id, _month: month }),
-    supabase.rpc('get_staff_advances_from_journals', { _staff_id: staff.id }),
-    supabase.from('leave_records').select('deduction_days').eq('staff_id', staff.id).eq('status', 'approved').gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
-    supabase.from('salary_arrears').select('amount').eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending'),
-  ]);
+  // With a run bundle these four are already in memory; without one they are
+  // fetched exactly as before. Note the single leave read: the attendance block
+  // below needs the same rows (same staff, month, approved) and used to fetch
+  // them a second time just for leave_date — 214 duplicate requests on a full
+  // run. Selecting both columns once serves both uses.
+  const run = opts?.run;
+  let leaveRows: LeaveRow[];
+  let monthlySalary: number;
+  let advancesOutstanding: number;
+  let arrearsTotal: number;
 
-  const monthlySalary = toAmount(salaryRes.data);
-  const advancesOutstanding = toAmount(advanceRes.data);
-  const systemDeductionDays = ((leaveRes.data ?? []) as { deduction_days: number | null }[]).reduce((sum, r) => sum + Number(r.deduction_days ?? 0), 0);
-  const arrearsTotal = ((arrearsRes.data ?? []) as { amount: number | null }[]).reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+  if (run) {
+    leaveRows = run.leaves.get(staff.id) ?? [];
+    monthlySalary = toAmount(run.salary.get(staff.id) ?? 0);
+    advancesOutstanding = toAmount(run.advances.get(staff.id) ?? 0);
+    arrearsTotal = run.arrears.get(staff.id) ?? 0;
+  } else {
+    const [salaryRes, advanceRes, leaveRes, arrearsRes] = await Promise.all([
+      supabase.rpc('get_staff_salary_for_month', { _staff_id: staff.id, _month: month }),
+      supabase.rpc('get_staff_advances_from_journals', { _staff_id: staff.id }),
+      supabase.from('leave_records').select('leave_date, deduction_days').eq('staff_id', staff.id).eq('status', 'approved').gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
+      supabase.from('salary_arrears').select('amount').eq('staff_id', staff.id).eq('settlement_month', month).eq('status', 'pending'),
+    ]);
+    leaveRows = (leaveRes.data ?? []) as LeaveRow[];
+    monthlySalary = toAmount(salaryRes.data);
+    advancesOutstanding = toAmount(advanceRes.data);
+    arrearsTotal = ((arrearsRes.data ?? []) as { amount: number | null }[]).reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+  }
 
-  let statutory = opts?.statutory ?? null;
+  const systemDeductionDays = leaveRows.reduce((sum, r) => sum + Number(r.deduction_days ?? 0), 0);
+
+  let statutory = opts?.statutory ?? opts?.config?.statutory ?? run?.config.statutory ?? null;
   if (statutory === undefined || statutory === null) {
     const { data } = await supabase
       .from('payroll_statutory_settings')
-      .select('pf_enabled, pf_employee_rate, pf_employer_rate, pf_base_cap, esi_enabled, esi_employer_rate, esi_eligibility_ceiling, pt_enabled, pt_monthly_amount, pt_min_gross, pt_slabs, ot_enabled, ot_standard_minutes, ot_multiplier')
+      .select(STATUTORY_COLUMNS)
       .limit(1)
       .maybeSingle();
     statutory = (data ?? null) as unknown as StatutorySettings | null;
@@ -316,8 +518,10 @@ export async function gatherSettlementInputs(
   if (attendanceTracked) {
     const disciplineFinedDates = new Set<string>();
     try {
-      const { totalFine, logs } = await getMonthlyDisciplineFine(staff.id, month, monthlySalary);
-      disciplineFine = totalFine;
+      const logs = run
+        ? (run.discipline.get(staff.id) ?? [])
+        : (await getMonthlyDisciplineFine(staff.id, month, monthlySalary)).logs;
+      disciplineFine = sumDisciplineFine(logs);
       for (const l of logs) {
         if (!l.is_cancelled && !l.is_absent && Number(l.fine_amount) > 0) disciplineFinedDates.add(l.work_date);
       }
@@ -325,15 +529,28 @@ export async function gatherSettlementInputs(
       console.error('Discipline fine compute failed', e);
     }
 
-    const [attRes, rosRes, lvRes, rulesRes, holRes, holAssignRes] = await Promise.all([
-      supabase.from('attendance_sessions').select('work_date, worked_minutes, status').eq('staff_id', staff.id).gte('work_date', monthStartStr).lte('work_date', monthEndStr),
-      supabase.from('staff_roster').select('roster_date, shift_id, is_off').eq('staff_id', staff.id).gte('roster_date', monthStartStr).lte('roster_date', monthEndStr),
-      supabase.from('leave_records').select('leave_date, deduction_days').eq('staff_id', staff.id).eq('status', 'approved').gte('leave_date', monthStartStr).lte('leave_date', monthEndStr),
-      supabase.from('hr_pay_rules' as never).select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
-      supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
-      supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
+    // Per-staff rows come from the run bundle when there is one. Pay rules and
+    // the holiday calendar come from the run config. Without either, everything
+    // is fetched here exactly as before — the single-staff screen is unchanged.
+    const cfg = opts?.config ?? run?.config;
+    const [attRes, rosRes, rulesRes, holRes, holAssignRes] = await Promise.all([
+      run
+        ? Promise.resolve({ data: run.attendance.get(staff.id) ?? [] })
+        : supabase.from('attendance_sessions').select('work_date, worked_minutes, status').eq('staff_id', staff.id).gte('work_date', monthStartStr).lte('work_date', monthEndStr),
+      run
+        ? Promise.resolve({ data: run.roster.get(staff.id) ?? [] })
+        : supabase.from('staff_roster').select('roster_date, shift_id, is_off').eq('staff_id', staff.id).gte('roster_date', monthStartStr).lte('roster_date', monthEndStr),
+      cfg
+        ? Promise.resolve({ data: cfg.payRules })
+        : supabase.from('hr_pay_rules' as never).select('full_day_minutes, half_day_minutes, unscheduled_is_off, comp_off_enabled').maybeSingle(),
+      cfg
+        ? Promise.resolve({ data: cfg.holidays })
+        : supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
+      cfg
+        ? Promise.resolve({ data: cfg.holidayAssignments })
+        : supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
     ]);
-    const payRules = (rulesRes.data ?? null) as { full_day_minutes?: number; half_day_minutes?: number; unscheduled_is_off?: boolean; comp_off_enabled?: boolean } | null;
+    const payRules = (rulesRes.data ?? null) as PayRules | null;
     compOffEnabled = payRules?.comp_off_enabled ?? true;
     let holidayDates = resolveHolidayDatesForStaff(
       { id: staff.id, outlet_id: (staff as { outlet_id?: string | null }).outlet_id ?? null },
@@ -343,11 +560,16 @@ export async function gatherSettlementInputs(
     );
     // Fold any assigned holiday-TEMPLATE dates into the paid-day set (Leaves module).
     try {
-      const { data: eht } = await anyDb.from('employee_holiday_template').select('template_id').eq('staff_id', staff.id).maybeSingle();
-      const templateId = (eht as { template_id?: string } | null)?.template_id;
-      if (templateId) {
-        const { data: tdays } = await anyDb.from('holiday_template_days').select('start_date, end_date').eq('template_id', templateId);
-        holidayDates = mergeTemplateHolidays(holidayDates, (tdays ?? []) as { start_date: string; end_date: string }[], monthStartStr, monthEndStr);
+      let tdays: TemplateDay[] | null = run ? (run.templateDays.get(staff.id) ?? []) : null;
+      if (!run) {
+        const { data: eht } = await anyDb.from('employee_holiday_template').select('template_id').eq('staff_id', staff.id).maybeSingle();
+        const templateId = (eht as { template_id?: string } | null)?.template_id;
+        tdays = templateId
+          ? ((await anyDb.from('holiday_template_days').select('start_date, end_date').eq('template_id', templateId)).data ?? []) as TemplateDay[]
+          : [];
+      }
+      if (tdays && tdays.length) {
+        holidayDates = mergeTemplateHolidays(holidayDates, tdays, monthStartStr, monthEndStr);
       }
     } catch (e) { console.error('Holiday template resolution failed', e); }
     dayBreakdown = computeDayBreakdown({
@@ -363,7 +585,7 @@ export async function gatherSettlementInputs(
       holidayDates,
       attendance: attRes.data ?? [],
       roster: rosRes.data ?? [],
-      leaves: lvRes.data ?? [],
+      leaves: leaveRows,
     });
   }
 
@@ -372,10 +594,17 @@ export async function gatherSettlementInputs(
   const otStd = (staff as { ot_standard_minutes_override?: number | null }).ot_standard_minutes_override ?? statutory?.ot_standard_minutes ?? 480;
   const otMult = (staff as { ot_multiplier_override?: number | null }).ot_multiplier_override ?? statutory?.ot_multiplier ?? 1.5;
   const overtimeAuto = attendanceTracked && otEnabled
-    ? await computeAutoOvertime({ staffId: staff.id, month, basic: fullStructure.basic, daysInMonth: getDaysInMonth(monthStart), scheduledMinutesPerDay: otStd, multiplier: otMult })
+    ? await computeAutoOvertime({
+        staffId: staff.id, month, basic: fullStructure.basic,
+        daysInMonth: getDaysInMonth(monthStart), scheduledMinutesPerDay: otStd, multiplier: otMult,
+        // Same rows the day-breakdown used; saves re-reading them per employee.
+        sessions: run ? (run.attendance.get(staff.id) ?? []) : undefined,
+      })
     : 0;
 
-  const loanEmis = await getLoanEMIsForMonth(staff.id, month);
+  const loanEmis = run
+    ? loanEmisFromRows(run.loans.get(staff.id) ?? [], month)
+    : await getLoanEMIsForMonth(staff.id, month);
 
   return { staff, month, monthlySalary, advancesOutstanding, statutory, dayBreakdown, attendanceTracked, compOffEnabled, disciplineFine, systemDeductionDays, overtimeAuto, loanEmis, arrearsTotal };
 }

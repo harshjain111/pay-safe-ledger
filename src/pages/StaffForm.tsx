@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -120,10 +121,10 @@ export default function StaffForm() {
   // Outlet, department & designation master lists for the enrollment dropdowns.
   useEffect(() => {
     (async () => {
-      const [{ data: outletRows }, { data: deptRows }, { data: desigRows }, { data: mgrRows }] = await Promise.all([
-        supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('departments').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('designations').select('id, name').eq('is_active', true).order('name'),
+      const [outletRows, deptRows, desigRows, { data: mgrRows }] = await Promise.all([
+        fetchActiveMaster('outlets'),
+        fetchActiveMaster('departments'),
+        fetchActiveMaster('designations'),
         // Only staff explicitly designated as managers appear in the picker.
         supabase.from('staff').select('id, full_name').eq('is_active', true).eq('is_manager' as never, true).order('full_name'),
       ]);

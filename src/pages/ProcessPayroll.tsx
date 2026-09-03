@@ -5,6 +5,7 @@ import {
   Calculator, Eye, FileText, Inbox, Lock, LockOpen, Pencil, User, Wallet,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { toAmount } from '@/lib/utils';
@@ -34,7 +35,7 @@ import { toast } from '@/lib/toast';
 import { downloadPayslipPDF, type PayslipSettlement } from '@/lib/payslip-pdf';
 import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
 import {
-  computeSettlement, gatherSettlementInputs, isMonthSettled, persistGroupSettlement,
+  computeSettlement, gatherSettlementInputs, fetchPayrollRunData, isMonthSettled, persistGroupSettlement,
   type SettlementInputs, type SettlementResult,
 } from '@/lib/settlement-engine';
 import type { Staff } from '@/types/database';
@@ -152,11 +153,11 @@ export default function ProcessPayroll() {
   const loadMasters = async () => {
     if (mastersLoaded) return;
     const [o, d] = await Promise.all([
-      supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
-      supabase.from('departments').select('name').eq('is_active', true).order('name'),
+      fetchActiveMaster('outlets'),
+      fetchActiveMaster('departments'),
     ]);
-    setOutlets((o.data ?? []) as { id: string; name: string }[]);
-    setDepartments(((d.data ?? []) as { name: string }[]).map((r) => r.name));
+    setOutlets(o);
+    setDepartments(d.map((r) => r.name));
     setMastersLoaded(true);
   };
 
@@ -208,8 +209,16 @@ export default function ProcessPayroll() {
       });
       setRows(initial);
 
-      // Compute pending rows in parallel with a concurrency cap.
+      // Every read the engine needs, for every pending employee, in ~12 queries
+      // instead of nine per employee. Fetched after the grid is on screen so
+      // the rows appear immediately and then fill in.
       const pending = initial.filter((r) => r.status === 'pending');
+      const runData = pending.length
+        ? await fetchPayrollRunData(pending.map((r) => r.staff.id), m)
+        : null;
+      if (seq !== searchSeq.current) return;
+
+      // Compute pending rows in parallel with a concurrency cap.
       let idx = 0;
       const worker = async () => {
         for (;;) {
@@ -217,7 +226,7 @@ export default function ProcessPayroll() {
           if (i >= pending.length || seq !== searchSeq.current) return;
           const row = pending[i];
           try {
-            const inputs = await gatherSettlementInputs(row.staff, m);
+            const inputs = await gatherSettlementInputs(row.staff, m, { run: runData ?? undefined });
             const calc = computeSettlement(inputs);
             if (seq !== searchSeq.current) return;
             setRows((prev) => prev.map((r) => (r.staff.id === row.staff.id ? { ...r, inputs, calc } : r)));

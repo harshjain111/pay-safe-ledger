@@ -363,11 +363,27 @@ export async function getMonthlyDisciplineFine(
   // here: a full-day absence is docked once by the attendance day-breakdown
   // (absentDeduction), so summing the cron-written absent fine too would
   // double-deduct the same day. Discipline fines = late-in / early-out only.
+  return { totalFine: sumDisciplineFine(logs), logs };
+}
+
+/**
+ * The fine a month's discipline log adds up to.
+ *
+ * Cancelled rows contribute 0. Absent rows (is_absent=true) also contribute 0:
+ * a full-day absence is docked once by the attendance day-breakdown
+ * (absentDeduction), so summing the cron-written absent fine too would
+ * double-deduct the same day. Discipline fines = late-in / early-out only.
+ *
+ * Pure, so the batch payroll path (which prefetches every staff member's logs
+ * in one query) and the single-staff path above produce the same number from
+ * the same rows.
+ */
+export function sumDisciplineFine(logs: DisciplineLogRow[]): number {
   const total = logs.reduce(
     (s, r) => s + (r.is_cancelled || r.is_absent ? 0 : Number(r.fine_amount || 0)),
     0,
   );
-  return { totalFine: Math.round(total * 100) / 100, logs };
+  return Math.round(total * 100) / 100;
 }
 
 /** Returns a human-friendly schedule string for display. */

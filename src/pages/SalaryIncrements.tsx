@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { differenceInCalendarMonths, format, parseISO } from 'date-fns';
 import { Inbox, Pencil, ShieldX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,11 +73,11 @@ export default function SalaryIncrements() {
   const loadMasters = async () => {
     if (mastersLoaded) return;
     const [o, d] = await Promise.all([
-      supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
-      supabase.from('departments').select('name').eq('is_active', true).order('name'),
+      fetchActiveMaster('outlets'),
+      fetchActiveMaster('departments'),
     ]);
-    setOutlets((o.data ?? []) as { id: string; name: string }[]);
-    setDepartments(((d.data ?? []) as { name: string }[]).map((r) => r.name));
+    setOutlets(o);
+    setDepartments(d.map((r) => r.name));
     setMastersLoaded(true);
   };
 
