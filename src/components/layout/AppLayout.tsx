@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
@@ -9,7 +9,10 @@ import { RequirePermission } from '@/components/auth/RequirePermission';
 import { ORGANIZATION } from '@/lib/brand';
 import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
 import { orgDisplayName } from '@/lib/organization';
-import { OrganizationOnboardingDialog } from '@/components/organization/OrganizationOnboardingDialog';
+const OrganizationOnboardingDialog = lazy(() =>
+  import('@/components/organization/OrganizationOnboardingDialog')
+    .then((m) => ({ default: m.OrganizationOnboardingDialog })),
+);
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -817,15 +820,21 @@ function OrgOnboardingGate() {
     if (isOwner && !isLoading && profile) setOpen(!profile.onboarded_at);
   }, [isOwner, isLoading, profile]);
 
-  if (!isOwner) return null;
+  // Only mount the dialog once it actually needs to open. It is the only thing
+  // in the always-loaded layout that uses react-hook-form, and onboarding
+  // happens once in an org's lifetime — eagerly importing it put the form
+  // library in the bundle every user downloads on every visit.
+  if (!isOwner || !open) return null;
   return (
-    <OrganizationOnboardingDialog
-      open={open}
-      onOpenChange={setOpen}
-      profile={profile ?? null}
-      mode="onboarding"
-      onSignOut={async () => { await signOut(); navigate('/auth'); }}
-    />
+    <Suspense fallback={null}>
+      <OrganizationOnboardingDialog
+        open={open}
+        onOpenChange={setOpen}
+        profile={profile ?? null}
+        mode="onboarding"
+        onSignOut={async () => { await signOut(); navigate('/auth'); }}
+      />
+    </Suspense>
   );
 }
 

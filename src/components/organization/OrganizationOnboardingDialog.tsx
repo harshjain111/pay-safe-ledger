@@ -28,7 +28,7 @@ import {
   organizationFormSchema,
   type OrganizationFormValues,
   type OrgProfile,
-} from '@/lib/organization';
+} from '@/lib/organization-schema';
 import { INDIAN_STATES } from '@/lib/gstin';
 import { ORG_PROFILE_QUERY_KEY } from '@/hooks/useOrganizationProfile';
 

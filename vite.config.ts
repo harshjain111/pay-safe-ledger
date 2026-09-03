@@ -29,6 +29,25 @@ export default defineConfig(({ mode }) => {
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the three big, rarely-changing vendor groups out of the entry
+        // chunk. This does not reduce first-load bytes — it means a deploy that
+        // only touches app code leaves these three still cached in returning
+        // users' browsers instead of re-downloading ~150 KB gzipped.
+        //
+        // Deliberately coarse. Finer splitting risks load-order problems for no
+        // extra benefit, and everything here is needed on the first paint
+        // anyway, so separating them costs nothing on a cold visit.
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          "query-vendor": ["@tanstack/react-query"],
+        },
+      },
+    },
+  },
   define: {
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),

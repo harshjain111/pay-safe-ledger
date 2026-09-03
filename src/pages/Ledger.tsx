@@ -151,16 +151,14 @@ export default function Ledger() {
     setValidationError(null);
     setHasError(false);
     try {
-      // Fetch staff list (for filter dropdown)
-      if (isOwner || isAdmin || (isAccountant && accountingMode) || isCA) {
-        const { data: staffListData, error: staffError } = await supabase
-          .from('staff_public')
-          .select('*')
-          .order('full_name');
-
-        if (staffError) throw staffError;
-        setStaffList(staffListData as StaffPublic[] || []);
-      }
+      // The staff list only populates the filter dropdown — the ledger query
+      // below does not depend on it (its filter comes from selectedStaff /
+      // staffData). Awaiting it first made journal_lines wait a full round trip
+      // before it was even issued; it is now started here and awaited after.
+      const staffListPromise =
+        isOwner || isAdmin || (isAccountant && accountingMode) || isCA
+          ? supabase.from('staff_public').select('*').order('full_name')
+          : null;
 
       // Determine staff filter
       let staffIdFilter: string | null = null;
@@ -211,9 +209,16 @@ export default function Ledger() {
         query = query.eq('staff_id', staffIdFilter);
       }
 
-      const { data: linesData, error: linesError } = await query;
+      const [{ data: linesData, error: linesError }, staffListRes] = await Promise.all([
+        query,
+        staffListPromise ?? Promise.resolve(null),
+      ]);
 
       if (linesError) throw linesError;
+      if (staffListRes) {
+        if (staffListRes.error) throw staffListRes.error;
+        setStaffList((staffListRes.data as StaffPublic[]) || []);
+      }
 
       // Calculate per-staff balances for validation and "All Staff" view
       // CRITICAL: Use account-based calculation for accurate balance
