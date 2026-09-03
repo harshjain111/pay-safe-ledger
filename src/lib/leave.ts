@@ -240,11 +240,11 @@ export async function computeLeaveBalancesForStaff(
   // Opening (carry-forward) is 0 until a leave-year rollover has run.
   //
   // Deliberately NOT seeded from employee_leave_balance.balance: that column is
-  // the figure HR sets on the Leave Balance screen, i.e. the employee's whole
-  // balance — adding it on top of `accrued` would double-count (a stored 12
-  // against a 24/year type would display 36). run_leave_rollover() writes that
-  // column at year end, and the meaning of the two numbers needs settling
-  // before either is folded into the other.
+  // the figure HR sets on the Leave Balance screen, i.e. the employee's WHOLE
+  // balance, and it now equals this type's quota (migration
+  // 20260903200000 aligned it). Adding it on top of `accrued` would show the
+  // entitlement twice — 24 + 24 = 48. run_leave_rollover() writes that column
+  // at year end; only a true carry-forward opening belongs here.
   const openingByType = new Map<string, number>();
 
   const fyFrom = new Date(ly.fyStartYear, startMonth - 1, 1);

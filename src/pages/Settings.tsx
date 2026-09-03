@@ -57,6 +57,7 @@ import { ClearTransactionDataCard } from '@/components/settings/ClearTransaction
 import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { SelfCheckinCard } from '@/components/settings/SelfCheckinCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
+import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
 import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
 import { HolidaysCard } from '@/components/settings/HolidaysCard';
@@ -415,6 +416,7 @@ export default function Settings() {
           {active.id === 'attendance' && (
             <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, leave entitlement and coverage.">
               <HrPayRulesCard />
+              <LeaveSettingsCard />
               <LeaveTypesCard />
               <AttendanceCoverageCard />
               <SelfCheckinCard />
