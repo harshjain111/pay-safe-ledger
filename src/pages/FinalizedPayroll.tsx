@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, parseISO, subMonths } from 'date-fns';
 import { CheckCircle2, Eye, Inbox, Unlock, Wallet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,6 +87,9 @@ export default function FinalizedPayroll() {
     setOutlets((data ?? []) as { id: string; name: string }[]);
     setMastersLoaded(true);
   };
+
+  // Outlet names label every run row, so load them before the first Search.
+  useEffect(() => { void loadMasters(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runSearch = async (filters: Filters) => {
     setApplied(filters);

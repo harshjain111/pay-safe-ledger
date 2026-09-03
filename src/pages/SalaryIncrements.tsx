@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { differenceInCalendarMonths, format, parseISO } from 'date-fns';
 import { Inbox, Pencil, ShieldX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,6 +79,8 @@ export default function SalaryIncrements() {
     setDepartments(((d.data ?? []) as { name: string }[]).map((r) => r.name));
     setMastersLoaded(true);
   };
+
+  useEffect(() => { void loadMasters(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runSearch = async (filters: Filters) => {
     setApplied(filters);

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, getDaysInMonth, parseISO, subMonths } from 'date-fns';
 import {
@@ -159,6 +159,10 @@ export default function ProcessPayroll() {
     setDepartments(((d.data ?? []) as { name: string }[]).map((r) => r.name));
     setMastersLoaded(true);
   };
+
+  // Outlet/department names label the grid rows, so they must be present before
+  // the first Search — not only after the filter bar happens to be hovered.
+  useEffect(() => { void loadMasters(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- search: load scope + compute every row through the ONE engine --------
   const runSearch = async (filters: Filters) => {

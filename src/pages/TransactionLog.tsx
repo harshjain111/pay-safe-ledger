@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, subMonths } from 'date-fns';
 import { Inbox, ShieldX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,6 +54,8 @@ export default function TransactionLog() {
     setOutlets((data ?? []) as { id: string; name: string }[]);
     setMastersLoaded(true);
   };
+
+  useEffect(() => { void loadMasters(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runSearch = async (filters: Filters) => {
     setApplied(filters);
