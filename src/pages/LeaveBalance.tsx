@@ -21,9 +21,10 @@ import { toast } from '@/lib/toast';
 import { toAmount } from '@/lib/utils';
 import { validateBalanceAdjustment } from '@/lib/leave-allocation';
 import { listLeaveTypes, listBalances, bulkAdjustBalance, saveBalances, type LeaveType, type BalanceRow } from '@/lib/leave-service';
+import { ScopeFilters, scopeMatches, EMPTY_SCOPE, type StaffScope } from '@/components/common/ScopeFilters';
 import { exportSheetsToExcel } from '@/lib/report-export';
 
-interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null; status: string | null; is_active: boolean }
+interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null; status: string | null; is_active: boolean; outlet_id: string | null }
 
 const statusOf = (s: StaffRow): string => s.status || (s.is_active ? 'active' : 'inactive');
 const key = (staffId: string, typeId: string) => `${staffId}:${typeId}`;
@@ -37,6 +38,7 @@ export default function LeaveBalance() {
   const [balances, setBalances] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<StaffScope>(EMPTY_SCOPE);
   const [view, setView] = useState('list'); // 'list' | 'sheet'
 
   // bulk adjust
@@ -55,7 +57,7 @@ export default function LeaveBalance() {
     setLoading(true);
     try {
       const [{ data: st }, tp, bal] = await Promise.all([
-        supabase.from('staff').select('id, employee_id, full_name, department, designation, status, is_active').order('full_name'),
+        supabase.from('staff').select('id, employee_id, full_name, department, designation, status, is_active, outlet_id').order('full_name'),
         listLeaveTypes(),
         listBalances(),
       ]);
@@ -71,8 +73,10 @@ export default function LeaveBalance() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? staff.filter((s) => s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q)) : staff;
-  }, [staff, search]);
+    return staff
+      .filter((s) => scopeMatches(scope, s))
+      .filter((s) => !q || s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q));
+  }, [staff, search, scope]);
 
   const toggle = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allShown = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
@@ -152,7 +156,12 @@ export default function LeaveBalance() {
       </PageHeader>
 
       <StatusTabs value={view} onValueChange={setView} tabs={[{ value: 'list', label: 'Balances' }, { value: 'sheet', label: 'Bulk Update' }]} />
-      <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search staff…" />
+      <FilterBar
+        filters={<ScopeFilters staff={staff} value={scope} onChange={setScope} />}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search staff…"
+      />
 
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

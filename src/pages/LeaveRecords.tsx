@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -32,12 +32,15 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import type { LeaveRecord, LeaveStatus } from '@/types/leave';
 import { LEAVE_TYPE_CONFIG, LEAVE_STATUS_LABELS } from '@/types/leave';
 import { fetchLeaveTypes, computeLeaveBalancesForStaff, type LeaveTypeBalance } from '@/lib/leave';
+import { ScopeFilters, scopeMatches, EMPTY_SCOPE, type StaffScope } from '@/components/common/ScopeFilters';
 import { cn } from '@/lib/utils';
 
 interface StaffOption {
   id: string;
   full_name: string;
   employee_id: string;
+  department?: string | null;
+  outlet_id?: string | null;
 }
 
 export default function LeaveRecords() {
@@ -64,6 +67,12 @@ export default function LeaveRecords() {
   const [selectedStaffId, setSelectedStaffId] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [scope, setScope] = useState<StaffScope>(EMPTY_SCOPE);
+  // Department / outlet for a staff id — both views filter through this.
+  const staffScopeById = useMemo(
+    () => new Map(staff.map((s) => [s.id, { department: s.department ?? null, outlet_id: s.outlet_id ?? null }])),
+    [staff],
+  );
 
   const isStaff = userRole === 'staff';
   // On this management page, only owner + admins (leave.approve) approve. Managers
@@ -77,11 +86,11 @@ export default function LeaveRecords() {
     try {
       const { data, error } = await supabase
         .from('staff')
-        .select('id, full_name, employee_id')
+        .select('id, full_name, employee_id, department, outlet_id')
         .eq('is_active', true)
         .order('full_name');
       if (error) throw error;
-      setStaff(data || []);
+      setStaff((data || []) as StaffOption[]);
     } catch (error) {
       console.error('Error fetching staff:', error);
     }
@@ -196,6 +205,7 @@ export default function LeaveRecords() {
   }, [balanceStaffId, year, leaveRecords]);
 
   const filteredRecords = leaveRecords.filter((record) => {
+    if (!scopeMatches(scope, staffScopeById.get(record.staff_id))) return false;
     if (searchQuery) {
       const search = searchQuery.toLowerCase();
       return (
@@ -208,6 +218,7 @@ export default function LeaveRecords() {
   });
 
   const filteredAbsences = absences.filter((a) => {
+    if (!scopeMatches(scope, staffScopeById.get(a.staff_id))) return false;
     if (!searchQuery) return true;
     const s = searchQuery.toLowerCase();
     return a.staff_name.toLowerCase().includes(s) || a.employee_id.toLowerCase().includes(s);
@@ -447,6 +458,8 @@ export default function LeaveRecords() {
                 </SelectContent>
               </Select>
             )}
+
+            {!isStaff && <ScopeFilters staff={staff} value={scope} onChange={setScope} />}
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
               <SelectTrigger className="w-full md:w-32 h-9"><SelectValue /></SelectTrigger>

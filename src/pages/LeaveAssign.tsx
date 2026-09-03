@@ -15,8 +15,9 @@ import {
 import { toast } from '@/lib/toast';
 import { validateEmployeeSelection } from '@/lib/leave-allocation';
 import { listLeaveTypes, assignLeaveTypes, listBalances, type LeaveType } from '@/lib/leave-service';
+import { ScopeFilters, scopeMatches, EMPTY_SCOPE, type StaffScope } from '@/components/common/ScopeFilters';
 
-interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null }
+interface StaffRow { id: string; employee_id: string; full_name: string; department: string | null; designation: string | null; outlet_id: string | null }
 
 export default function LeaveAssign() {
   const { isOwner, isAdmin, isHR } = useAuth();
@@ -28,6 +29,7 @@ export default function LeaveAssign() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<StaffScope>(EMPTY_SCOPE);
   const [modal, setModal] = useState(false);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -36,7 +38,7 @@ export default function LeaveAssign() {
     setLoading(true);
     try {
       const [{ data: st }, tp, bal] = await Promise.all([
-        supabase.from('staff').select('id, employee_id, full_name, department, designation').eq('is_active', true).order('full_name'),
+        supabase.from('staff').select('id, employee_id, full_name, department, designation, outlet_id').eq('is_active', true).order('full_name'),
         listLeaveTypes(),
         listBalances(),
       ]);
@@ -51,8 +53,10 @@ export default function LeaveAssign() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? staff.filter((s) => s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q)) : staff;
-  }, [staff, search]);
+    return staff
+      .filter((s) => scopeMatches(scope, s))
+      .filter((s) => !q || s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q));
+  }, [staff, search, scope]);
 
   const toggle = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allShown = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
@@ -92,7 +96,12 @@ export default function LeaveAssign() {
         <Button onClick={openModal} disabled={selected.size === 0} className="gap-1.5"><UserPlus className="h-4 w-4" /><span className="hidden sm:inline">Bulk Assign</span> ({selected.size})</Button>
       </PageHeader>
 
-      <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search staff…" />
+      <FilterBar
+        filters={<ScopeFilters staff={staff} value={scope} onChange={setScope} />}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search staff…"
+      />
 
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
