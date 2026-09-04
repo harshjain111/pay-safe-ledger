@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import { toAmount } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Amount } from '@/components/ui/amount';
@@ -244,14 +245,33 @@ export default function FinalizedPayroll() {
           : <Badge variant="outline">{r.locked ? 'Finalized' : 'Settled'}</Badge>,
     },
     {
-      key: 'menu', header: '', align: 'center',
-      render: (r) => (
-        <RowMenu items={[
-          { label: 'View snapshot', icon: Eye, onSelect: () => setSnapshotRun(r) },
-          { label: 'Mark as Paid', icon: CheckCircle2, disabled: r.paidAmount >= r.netFinalized, onSelect: () => setMarkPaidRun(r) },
-          { label: 'De-finalize', icon: Unlock, destructive: true, disabled: !canLock || !r.locked, onSelect: () => setDefinalizeRun(r) },
-        ]} />
-      ),
+      // Marking a run paid is the routine job on this page, so it is a button
+      // on the row rather than a second click inside the menu. It still opens
+      // the same confirmation drawer — this shortens the path to the action, it
+      // does not skip the check. Rarer actions stay behind the three dots.
+      key: 'menu', header: '', align: 'right',
+      render: (r) => {
+        const fullyPaid = r.paidAmount >= r.netFinalized;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 px-2 text-xs whitespace-nowrap"
+              disabled={fullyPaid}
+              onClick={() => setMarkPaidRun(r)}
+              title={fullyPaid ? 'This run is already fully paid' : 'Mark this run as paid'}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Mark Paid
+            </Button>
+            <RowMenu items={[
+              { label: 'View snapshot', icon: Eye, onSelect: () => setSnapshotRun(r) },
+              { label: 'De-finalize', icon: Unlock, destructive: true, disabled: !canLock || !r.locked, onSelect: () => setDefinalizeRun(r) },
+            ]} />
+          </div>
+        );
+      },
     },
   ];
 
@@ -285,6 +305,7 @@ export default function FinalizedPayroll() {
     <div className="space-y-4">
       <PageHeader
         title="Finalized Payroll"
+        description="Payroll months already finalized — review what was settled, record payment, or unlock a month to correct it."
         count={applied ? runs.length : undefined}
         actions={
           <ActionsMenu

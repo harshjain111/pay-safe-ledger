@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FilterBar, DateRangeField, rangeDayCount, type DateRange } from './FilterBar';
 import { DataTable, type DataTableColumn } from './DataTable';
+import { PageHeader } from './PageHeader';
 import { useState } from 'react';
 
 describe('FilterBar (pattern 2)', () => {
@@ -103,5 +104,20 @@ describe('DataTable (pattern 4)', () => {
     expect(screen.getByText('Showing 1–10 of 25')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(screen.getByText('Showing 11–20 of 25')).toBeInTheDocument();
+  });
+});
+
+describe('PageHeader (pattern 1)', () => {
+  it('renders the description under the title, and omits it when not given', () => {
+    const { rerender } = render(
+      <PageHeader title="Finalized Payroll" count={3} description="What this page is for." />,
+    );
+    expect(screen.getByRole('heading', { name: /Finalized Payroll/ })).toBeInTheDocument();
+    expect(screen.getByText('What this page is for.')).toBeInTheDocument();
+    // The count stays part of the heading, not the description.
+    expect(screen.getByRole('heading', { name: /\(3\)/ })).toBeInTheDocument();
+
+    rerender(<PageHeader title="Finalized Payroll" count={3} />);
+    expect(screen.queryByText('What this page is for.')).not.toBeInTheDocument();
   });
 });
