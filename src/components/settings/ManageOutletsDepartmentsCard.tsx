@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
-import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, MapPin } from 'lucide-react';
+import { Store, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, MapPin, CalendarClock } from 'lucide-react';
 
 import { fetchMaster, type MasterRow, type MasterTable } from '@/lib/masters-cache';
 
@@ -166,6 +166,58 @@ function OutletGeofenceAction({ outletId, outletName }: { outletId: string; outl
   );
 }
 
+// Whether a designation banks its unused weekly offs.
+//
+// The weekly off is a monthly quota and normally lapses at month end. Valets
+// work through the month and take the days together, so theirs has to survive
+// — no cap, no expiry. Kept on the designation rather than hardcoded to the
+// name, so any designation can be given it without a migration.
+function CarryForwardToggle({ designationId, name }: { designationId: string; name: string }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('designations').select('weekly_off_carry_forward').eq('id', designationId).maybeSingle();
+      if (!cancelled) setOn(!!(data as { weekly_off_carry_forward?: boolean } | null)?.weekly_off_carry_forward);
+    })();
+    return () => { cancelled = true; };
+  }, [designationId]);
+
+  const toggle = async () => {
+    if (on === null) return;
+    setBusy(true);
+    const next = !on;
+    const { error } = await supabase.from('designations').update({ weekly_off_carry_forward: next }).eq('id', designationId);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setOn(next);
+    toast.success(next
+      ? name + ': unused weekly offs now carry forward'
+      : name + ': unused weekly offs now lapse at month end');
+  };
+
+  if (on === null) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 gap-1.5 px-2 text-xs"
+      disabled={busy}
+      onClick={toggle}
+      title={on
+        ? 'Unused weekly offs roll into the next month. Click to make them lapse.'
+        : 'Unused weekly offs lapse at month end. Click to carry them forward.'}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarClock className="h-3.5 w-3.5" />}
+      <span className={on ? 'text-primary' : 'text-muted-foreground'}>
+        {on ? 'Offs carry forward' : 'Offs lapse'}
+      </span>
+    </Button>
+  );
+}
+
 export function ManageOutletsDepartmentsCard() {
   const { isOwner, isAdmin, isAccountant, isHR } = useAuth();
   const canManage = isOwner || isAdmin || isAccountant || isHR;
@@ -198,7 +250,12 @@ export function ManageOutletsDepartmentsCard() {
         </div>
         <div>
           <p className="text-sm font-medium mb-2">Designations</p>
-          <MasterList table="designations" singular="Designation" placeholder="New designation name" />
+          <MasterList
+            table="designations"
+            singular="Designation"
+            placeholder="New designation name"
+            rowExtra={(row) => <CarryForwardToggle designationId={row.id} name={row.name} />}
+          />
         </div>
       </CardContent>
     </Card>

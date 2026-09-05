@@ -40,6 +40,12 @@ export interface DayBreakdown {
   presentHalf: number; // count of half present days
   paidLeaveDays: number; // sum of (1 - deduction_days) for approved leaves
   offDays: number; // rostered / weekly-off days NOT worked (paid)
+  /** Weekly-off days this month earned in its own right. */
+  offQuota: number;
+  /** Unused weekly-off days brought in from earlier months (carry-forward designations). */
+  offCarriedIn: number;
+  /** Quota left after allocation — what carries into next month, or lapses. */
+  offUnused: number;
   offWorkedDays: number; // off days that were worked (comp-off candidates)
   absentDays: number; // full absent days (working day, no attendance, no leave)
   /** Days to dock from full proration: full absences (1) + unpaid half-days (0.5). */
@@ -68,6 +74,10 @@ export function computeDayBreakdown(params: {
   halfDayMinutes: number;
   /** When true, a day with no shift allotted in the roster is treated as OFF. */
   unscheduledIsOff: boolean;
+  /** Unused weekly-off days brought forward from earlier months. Spendable
+   *  exactly like this month's own quota; only carry-forward designations
+   *  ever get a non-zero value here. */
+  carriedOffDays?: number;
   /** Dates (yyyy-MM-dd) that already incurred a late/early discipline fine; the
    *  short-attendance dock is suppressed on these so a day isn't penalised twice. */
   disciplineFinedDates?: Set<string>;
@@ -79,6 +89,7 @@ export function computeDayBreakdown(params: {
   leaves: LeaveLite[];
 }): DayBreakdown {
   const { monthStart, monthEnd, weeklyOffDay, fullDayMinutes, halfDayMinutes, unscheduledIsOff } = params;
+  const carriedOffDays = Math.max(0, params.carriedOffDays ?? 0);
   const disciplineFinedDates = params.disciplineFinedDates ?? new Set<string>();
   const holidayDates = params.holidayDates ?? new Set<string>();
 
@@ -92,6 +103,9 @@ export function computeDayBreakdown(params: {
     presentHalf: 0,
     paidLeaveDays: 0,
     offDays: 0,
+    offQuota: 0,
+    offCarriedIn: carriedOffDays,
+    offUnused: 0,
     offWorkedDays: 0,
     absentDays: 0,
     absentDeductionDays: 0,
@@ -217,7 +231,10 @@ export function computeDayBreakdown(params: {
       ? a.date.localeCompare(b.date)
       : (a.isAssignedOffDay ? -1 : 1),
   );
-  let quotaLeft = offQuota;
+  result.offQuota = offQuota;
+  // Carried-in days spend exactly like this month's own — the employee cannot
+  // tell them apart, and neither should the allocation.
+  let quotaLeft = offQuota + carriedOffDays;
   const verdicts = new Map<string, DayStatus>();
   for (const p of pendingDays) {
     if (quotaLeft > 0) {
@@ -231,6 +248,9 @@ export function computeDayBreakdown(params: {
       verdicts.set(p.date, 'absent');
     }
   }
+  // Whatever survives is next month's opening balance for a carry-forward
+  // designation, and simply lapses for everyone else.
+  result.offUnused = quotaLeft;
   // Emit the per-day marks in date order so the muster roll stays chronological.
   for (const p of [...pendingDays].sort((a, b) => a.date.localeCompare(b.date))) {
     const status = verdicts.get(p.date) ?? 'absent';

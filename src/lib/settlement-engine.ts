@@ -66,6 +66,12 @@ export interface SettlementResult {
   presentDays: number;
   halfDays: number;
   offDays: number;
+  /** Weekly-off days the month earned in its own right. */
+  offQuota: number;
+  /** Unused weekly-off days brought in from earlier months. */
+  offCarriedIn: number;
+  /** Quota left over — carried into next month, or lapsed. */
+  offUnused: number;
   paidLeaveDays: number;
   absentDays: number;
   compOffEarned: number;
@@ -251,6 +257,9 @@ export function computeSettlement(inp: SettlementInputs, opts: ComputeOpts = {})
     presentDays: bd?.presentFull ?? 0,
     halfDays: bd?.presentHalf ?? 0,
     offDays: bd?.offDays ?? 0,
+    offQuota: bd?.offQuota ?? 0,
+    offCarriedIn: bd?.offCarriedIn ?? 0,
+    offUnused: bd?.offUnused ?? 0,
     paidLeaveDays: bd?.paidLeaveDays ?? 0,
     absentDays: bd?.absentDays ?? 0,
     compOffEarned,
@@ -353,6 +362,9 @@ export interface PayrollRunData {
   loans: Map<string, StaffLoan[]>;
   /** Holiday-template days already resolved per staff member. */
   templateDays: Map<string, TemplateDay[]>;
+  /** Unused weekly-off days brought into this month. Only carry-forward
+   *  designations appear; everyone else is absent from the map and gets 0. */
+  carriedOff: Map<string, number>;
 }
 
 /** Group rows by their staff_id into a Map, preserving order. */
@@ -401,7 +413,7 @@ export async function fetchPayrollRunData(staffIds: string[], month: string): Pr
   const nextMonthStr = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1)
     .toISOString().slice(0, 10);
 
-  const [config, salRes, advRes, leaveRows, arrRows, attRows, rosRows, discRows, loanRows, tplRows] =
+  const [config, salRes, advRes, leaveRows, arrRows, attRows, rosRows, discRows, loanRows, tplRows, carryRes] =
     await Promise.all([
       fetchPayrollRunConfig(),
       supabase.rpc('get_staff_salaries_for_month', { _staff_ids: staffIds, _month: month }),
@@ -420,6 +432,7 @@ export async function fetchPayrollRunData(staffIds: string[], month: string): Pr
         supabase.from('staff_loans').select('*').in('staff_id', staffIds).eq('status', 'active').order('staff_id').order('id').range(f, t)),
       fetchAllPages<{ staff_id: string; template_id: string | null }>((f, t) =>
         anyDb.from('employee_holiday_template').select('staff_id, template_id').in('staff_id', staffIds).order('staff_id').range(f, t)),
+      supabase.rpc('get_weekly_off_carry_forward', { _staff_ids: staffIds, _month: month }),
     ]);
 
   // Holiday templates: one extra query for the distinct templates in use,
@@ -454,6 +467,7 @@ export async function fetchPayrollRunData(staffIds: string[], month: string): Pr
     discipline: byStaff(discRows),
     loans: byStaff(loanRows),
     templateDays,
+    carriedOff: new Map(((carryRes.data ?? []) as { staff_id: string; carried: number }[]).map((r) => [r.staff_id, Number(r.carried)])),
   };
 }
 
@@ -533,6 +547,12 @@ export async function gatherSettlementInputs(
     // the holiday calendar come from the run config. Without either, everything
     // is fetched here exactly as before — the single-staff screen is unchanged.
     const cfg = opts?.config ?? run?.config;
+    // Without a run bundle (the single-staff screen) ask for this one employee.
+    let carriedOffSingle = 0;
+    if (!run) {
+      const { data: cf } = await supabase.rpc('get_weekly_off_carry_forward', { _staff_ids: [staff.id], _month: month });
+      carriedOffSingle = Number(((cf ?? []) as { carried: number }[])[0]?.carried ?? 0);
+    }
     const [attRes, rosRes, rulesRes, holRes, holAssignRes] = await Promise.all([
       run
         ? Promise.resolve({ data: run.attendance.get(staff.id) ?? [] })
@@ -578,6 +598,9 @@ export async function gatherSettlementInputs(
       dateOfJoining: staff.date_of_joining,
       dateOfLeaving: staff.date_of_leaving ?? null,
       weeklyOffDay: (staff as { weekly_off_day?: number | null }).weekly_off_day ?? null,
+      // Days banked from earlier months. Only reaches here for designations
+      // flagged weekly_off_carry_forward; the single-staff path fetches its own.
+      carriedOffDays: run ? (run.carriedOff.get(staff.id) ?? 0) : carriedOffSingle,
       fullDayMinutes: payRules?.full_day_minutes ?? FULL_DAY_MINUTES,
       halfDayMinutes: payRules?.half_day_minutes ?? HALF_DAY_MINUTES,
       unscheduledIsOff: payRules?.unscheduled_is_off ?? true,
@@ -657,6 +680,8 @@ export async function persistGroupSettlement(
       present_days: calc.presentDays,
       half_days: calc.halfDays,
       off_days: calc.offDays,
+      off_quota: calc.offQuota,
+      off_carried_in: calc.offCarriedIn,
       paid_leave_days: calc.paidLeaveDays,
       absent_days: calc.absentDays,
       comp_off_earned: calc.compOffEarned,

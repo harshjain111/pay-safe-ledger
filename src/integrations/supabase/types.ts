@@ -529,6 +529,7 @@ export type Database = {
           is_active: boolean
           name: string
           updated_at: string
+          weekly_off_carry_forward: boolean
         }
         Insert: {
           created_at?: string
@@ -537,6 +538,7 @@ export type Database = {
           is_active?: boolean
           name: string
           updated_at?: string
+          weekly_off_carry_forward?: boolean
         }
         Update: {
           created_at?: string
@@ -545,6 +547,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+          weekly_off_carry_forward?: boolean
         }
         Relationships: []
       }
@@ -2327,7 +2330,9 @@ export type Database = {
           ledger_entry_id: string | null
           loan_emi_total: number
           net_salary: number
+          off_carried_in: number
           off_days: number | null
+          off_quota: number
           opening_advance_balance: number | null
           overtime_amount: number
           overtime_auto: number
@@ -2389,7 +2394,9 @@ export type Database = {
           ledger_entry_id?: string | null
           loan_emi_total?: number
           net_salary: number
+          off_carried_in?: number
           off_days?: number | null
+          off_quota?: number
           opening_advance_balance?: number | null
           overtime_amount?: number
           overtime_auto?: number
@@ -2451,7 +2458,9 @@ export type Database = {
           ledger_entry_id?: string | null
           loan_emi_total?: number
           net_salary?: number
+          off_carried_in?: number
           off_days?: number | null
+          off_quota?: number
           opening_advance_balance?: number | null
           overtime_amount?: number
           overtime_auto?: number
@@ -3337,10 +3346,6 @@ export type Database = {
       }
     }
     Functions: {
-      admin_clear_transaction_data: {
-        Args: { _date_from: string; _date_to: string; _owner_id: string }
-        Returns: Json
-      }
       apply_holiday_group: { Args: { _group_id: string }; Returns: Json }
       assert_finance_or_admin: { Args: never; Returns: undefined }
       assert_owner: { Args: never; Returns: undefined }
@@ -3495,6 +3500,13 @@ export type Database = {
         }[]
       }
       get_user_staff_id: { Args: { _user_id: string }; Returns: string }
+      get_weekly_off_carry_forward: {
+        Args: { _month: string; _staff_ids: string[] }
+        Returns: {
+          carried: number
+          staff_id: string
+        }[]
+      }
       get_working_days_in_month: { Args: { _month: string }; Returns: number }
       has_permission: {
         Args: { _perm: string; _user_id: string }

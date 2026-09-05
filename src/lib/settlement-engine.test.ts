@@ -41,6 +41,7 @@ function inputs(over: Partial<SettlementInputs> = {}): SettlementInputs {
 
 const bd = (over: Partial<DayBreakdown> = {}): DayBreakdown => ({
   presentFull: 25, presentHalf: 0, paidLeaveDays: 0, offDays: 4, offWorkedDays: 0,
+  offQuota: 4, offCarriedIn: 0, offUnused: 0,
   absentDays: 0, absentDeductionDays: 0, presentEquiv: 25, windowDays: 30, workingDays: 26, days: [],
   ...over,
 });
