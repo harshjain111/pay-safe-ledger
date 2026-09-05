@@ -72,6 +72,9 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
     expect(ROLE_PERMISSIONS.hr).toContain('salaries.view'); // payslips expose pay
     expect(ROLE_PERMISSIONS.hr).toContain('staff.edit');
     expect(ROLE_PERMISSIONS.hr).toContain('leave.approve');
+    // A default HR holds out of the box; owners can still revoke it per user or
+    // untick it on the HR template (get_my_permissions applies template minus revoked).
+    expect(ROLE_PERMISSIONS.hr).toContain('approvals.approve');
     expect(ROLE_PERMISSIONS.hr).not.toContain('settings.payroll.edit');
     expect(ROLE_PERMISSIONS.hr).not.toContain('settings.data.manage');
     expect(ROLE_PERMISSIONS.hr).not.toContain('settlements.run');

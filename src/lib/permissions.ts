@@ -193,6 +193,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'roster.manage', 'holidays.manage',
     'leave.view', 'leave.record', 'leave.edit', 'leave.approve',
     'advances.view',
+    // Client-confirmed: HR works the advance/login approval queue. A DEFAULT,
+    // not a fixture — an owner removes it from the HR rights template, or
+    // revokes it for one person, and get_my_permissions() honours that.
+    'approvals.approve',
     'salaries.view', 'payslips.download', 'settlements.lock',
     'reports.view',
     'settings.attendance.edit',
