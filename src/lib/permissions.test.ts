@@ -11,7 +11,6 @@ describe('resolveEffectivePermissions', () => {
     const eff = resolveEffectivePermissions({ isOwner: true, templatePermissions: [] });
     expect(eff.size).toBe(ALL_PERMISSIONS.length);
     expect(eff.has('settings.payroll.edit')).toBe(true);
-    expect(eff.has('settings.data.manage')).toBe(true);
   });
 
   it('a template grants exactly its permissions', () => {
@@ -58,7 +57,6 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
   it('non-owner roles never get owner-only permissions', () => {
     for (const role of ['admin', 'accountant', 'staff', 'ca'] as const) {
       expect(ROLE_PERMISSIONS[role]).not.toContain('settings.payroll.edit');
-      expect(ROLE_PERMISSIONS[role]).not.toContain('settings.data.manage');
       expect(ROLE_PERMISSIONS[role]).not.toContain('salaries.view');
     }
   });
@@ -76,7 +74,6 @@ describe('ROLE_PERMISSIONS (no-lockout mapping)', () => {
     // untick it on the HR template (get_my_permissions applies template minus revoked).
     expect(ROLE_PERMISSIONS.hr).toContain('approvals.approve');
     expect(ROLE_PERMISSIONS.hr).not.toContain('settings.payroll.edit');
-    expect(ROLE_PERMISSIONS.hr).not.toContain('settings.data.manage');
     expect(ROLE_PERMISSIONS.hr).not.toContain('settlements.run');
     expect(ROLE_PERMISSIONS.hr).not.toContain('payouts.execute');
   });

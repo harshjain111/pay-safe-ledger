@@ -48,24 +48,20 @@ import {
   Calculator,
   Building2,
   Store,
-  Database,
   type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
-import { ClearTransactionDataCard } from '@/components/settings/ClearTransactionDataCard';
-import { AttendanceCoverageCard } from '@/components/settings/AttendanceCoverageCard';
 import { SelfCheckinCard } from '@/components/settings/SelfCheckinCard';
 import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCard';
 import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
 import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
-import { HolidaysCard } from '@/components/settings/HolidaysCard';
 import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
 import { OrganizationProfileCard } from '@/components/settings/OrganizationProfileCard';
 import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
 
-type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'masters' | 'data';
+type CategoryId = 'account' | 'payroll' | 'attendance' | 'hardware' | 'organisation' | 'masters';
 
 interface Category {
   id: CategoryId;
@@ -84,7 +80,6 @@ const CATEGORIES: Category[] = [
   { id: 'hardware', label: 'Hardware', icon: Fingerprint, permission: 'settings.attendance.edit' },
   { id: 'organisation', label: 'Organisation', icon: Building2, permission: 'settings.organisation.edit' },
   { id: 'masters', label: 'Lists & Masters', icon: Store, roles: ['owner', 'admin', 'accountant', 'hr'] },
-  { id: 'data', label: 'Data Management', icon: Database, permission: 'settings.data.manage' },
 ];
 
 export default function Settings() {
@@ -418,9 +413,7 @@ export default function Settings() {
               <HrPayRulesCard />
               <LeaveSettingsCard />
               <LeaveTypesCard />
-              <AttendanceCoverageCard />
               <SelfCheckinCard />
-              <HolidaysCard />
             </SettingsPanel>
           )}
 
@@ -442,11 +435,6 @@ export default function Settings() {
             </SettingsPanel>
           )}
 
-          {active.id === 'data' && (
-            <SettingsPanel title="Data Management" description="Back up and clear transactional data.">
-              <ClearTransactionDataCard />
-            </SettingsPanel>
-          )}
         </div>
       </div>
     </div>

@@ -107,7 +107,6 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'settings.payroll.edit', label: 'Edit payroll & statutory settings' },
       { key: 'settings.attendance.edit', label: 'Edit attendance & leave settings' },
       { key: 'settings.organisation.edit', label: 'Edit organisation settings' },
-      { key: 'settings.data.manage', label: 'Data management (backup / clear)' },
     ],
   },
 ];
@@ -127,7 +126,7 @@ export function permissionLabel(key: string): string {
  * Delete for the modules that role manages (these become meaningful once
  * enforcement is switched to permission-based — see docs/RBAC_PLAN.md). Owner is
  * ALL (handled separately). Owner-only confidentials (salaries.view,
- * settings.payroll.edit, settings.data.manage) are never granted to a role here.
+ * settings.payroll.edit) are never granted to a role here.
  */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   owner: [...ALL_PERMISSIONS],
