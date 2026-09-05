@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { exportToPDF, downloadPDF } from '@/lib/pdf-export';
 import { toast } from '@/lib/toast';
+import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 
 interface StaffRow {
   id: string;
@@ -436,6 +437,13 @@ export default function Attendance() {
           title="Attendance"
           description="Analytical attendance report with daily detail and date-matrix views."
         />
+
+        {/* Out-of-geofence check-ins awaiting a decision. Moved here from the
+            approvals inbox: it is an attendance question, and it was sitting on
+            a page about money requests where the people who handle attendance
+            had no reason to look. Renders nothing when there is nothing to
+            review. */}
+        <GeoFlaggedPunches />
 
         <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 ${breaksEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
           <StatCard

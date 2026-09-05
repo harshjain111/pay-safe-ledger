@@ -8,6 +8,8 @@ interface NotificationCounts {
   pendingRequests: number;
   /** Leave requests awaiting a decision — the Approve Leave badge. */
   pendingLeave: number;
+  /** Login-reset requests awaiting an owner — owner-only, so 0 for everyone else. */
+  pendingLoginResets: number;
   approvedAdvances: number;
   unreadNotifications: number;
 }
@@ -15,6 +17,7 @@ interface NotificationCounts {
 const EMPTY: NotificationCounts = {
   pendingRequests: 0,
   pendingLeave: 0,
+  pendingLoginResets: 0,
   approvedAdvances: 0,
   unreadNotifications: 0,
 };
@@ -68,13 +71,14 @@ async function fetchCounts(
   wantsPending: boolean,
   wantsAdvances: boolean,
   wantsLeave: boolean,
+  wantsLoginResets: boolean,
 ): Promise<NotificationCounts> {
   // These are badge numbers, so ask the server to COUNT rather than ship every
   // matching row back to read .length off it — head:true sends no body at all.
   // They also go out together rather than in series: a round trip costs ~150 ms
   // from here, so three sequential awaits burn 450 ms of wall clock to produce
   // three integers.
-  const [unreadRes, pendingRes, advancesRes, leaveRes] = await Promise.all([
+  const [unreadRes, pendingRes, advancesRes, leaveRes, resetRes] = await Promise.all([
     supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
@@ -106,11 +110,21 @@ async function fetchCounts(
           .select('id', { count: 'exact', head: true })
           .eq('status', 'pending')
       : Promise.resolve({ count: 0 }),
+
+    // Login resets waiting on an owner. Only owners can action them, so nobody
+    // else pays for the query.
+    wantsLoginResets
+      ? supabase
+          .from('login_reset_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
   ]);
 
   return {
     pendingRequests: pendingRes.count ?? 0,
     pendingLeave: leaveRes.count ?? 0,
+    pendingLoginResets: resetRes.count ?? 0,
     approvedAdvances: advancesRes.count ?? 0,
     unreadNotifications: unreadRes.count ?? 0,
   };
@@ -124,11 +138,12 @@ export function useNotificationCounts() {
   const wantsAdvances = isAccountant || isOwner || isAdmin;
   // Anyone who can decide leave gets the badge; can() short-circuits for owner.
   const wantsLeave = isOwner || can('leave.approve');
+  const wantsLoginResets = isOwner;
   const userId = user?.id ?? null;
 
   const { data, refetch } = useQuery({
-    queryKey: queryKeys.notificationCounts.forUser(userId, wantsPending, wantsAdvances, wantsLeave),
-    queryFn: () => fetchCounts(userId as string, wantsPending, wantsAdvances, wantsLeave),
+    queryKey: queryKeys.notificationCounts.forUser(userId, wantsPending, wantsAdvances, wantsLeave, wantsLoginResets),
+    queryFn: () => fetchCounts(userId as string, wantsPending, wantsAdvances, wantsLeave, wantsLoginResets),
     enabled: !!userId,
   });
 

@@ -73,6 +73,7 @@ import {
   Clock,
   MessageSquare,
   Fingerprint,
+  KeyRound,
   Phone,
   CalendarCheck,
   CalendarRange,
@@ -104,7 +105,7 @@ function getNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number },
   can: (permission: string) => boolean,
   canSwitch: boolean,
 ): NavSection[] {
@@ -124,13 +125,14 @@ function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number },
   canSwitch: boolean,
 ): NavSection[] {
   // Pending items awaiting approval — surfaced as ONE badge on the merged
   // "Approvals" item (advances).
   const pendingApprovals = counts.pendingRequests;
   const pendingLeave = counts.pendingLeave;
+  const pendingLoginResets = counts.pendingLoginResets;
 
   // Any non-owner staff-linked user (admin / accountant / manager) who has
   // toggled into the personal "employee" view gets the self-service nav — they
@@ -197,7 +199,7 @@ function roleNavSections(
       // out-of-geofence check-ins — none of them leave.
       title: 'Requests',
       items: [
-        { title: 'Advance & Login Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
+        { title: 'Advance Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
       ],
     },
     {
@@ -233,6 +235,9 @@ function roleNavSections(
       title: 'Admin',
       items: [
         { title: 'Users', href: '/users', icon: Users },
+        // Sits with Users, not with the advance queue: it is an access question, and
+        // the page is owner-only because the reset function is.
+        { title: 'Login Resets', href: '/login-resets', icon: KeyRound, badge: pendingLoginResets },
         { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
         { title: 'Settings', href: '/settings', icon: Settings },
       ],
@@ -319,7 +324,7 @@ function roleNavSections(
       {
         title: 'Requests',
         items: [
-          { title: 'Advance & Login Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
+          { title: 'Advance Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
         ],
       },
       {

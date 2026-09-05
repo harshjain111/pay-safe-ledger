@@ -25,6 +25,7 @@ const Ledger = lazy(() => import("./pages/Ledger"));
 const Requests = lazy(() => import("./pages/Requests"));
 const Grievance = lazy(() => import("./pages/Grievance"));
 const Approvals = lazy(() => import("./pages/Approvals"));
+const LoginResets = lazy(() => import("./pages/LoginResets"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
 const Settlements = lazy(() => import("./pages/Settlements"));
 const ProcessPayroll = lazy(() => import("./pages/ProcessPayroll"));
@@ -144,6 +145,7 @@ function AppRoutes() {
         <Route path="/requests" element={<Requests />} />
         <Route path="/requests/new" element={<NewRequest />} />
         <Route path="/approvals" element={<Approvals />} />
+        <Route path="/login-resets" element={<LoginResets />} />
         <Route path="/settlements" element={<Settlements />} />
         <Route path="/my-payslips" element={<MySalarySlips />} />
         <Route path="/leave-records" element={<LeaveRecords />} />
