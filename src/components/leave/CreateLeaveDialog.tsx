@@ -343,9 +343,18 @@ export function CreateLeaveDialog({
                 value={deductionDays}
                 onChange={(e) => setDeductionDays(toAmount(e.target.value))}
               />
-              <p className="text-xs text-muted-foreground">
-                Defaults to the {selectedType?.name ?? 'type'}’s rule; adjust if needed.
-              </p>
+              {/* Same guard as the approval dialog: a number that disagrees with
+                  the chosen type is a real case (half a day, no balance left) but
+                  it should never happen silently. */}
+              {selectedType && deductionDays !== selectedType.default_deduction ? (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  {selectedType.name} normally deducts {selectedType.default_deduction}d — recording {deductionDays}d instead.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Follows the {selectedType?.name ?? 'type'}’s rule. Use 0.5 for a half day.
+                </p>
+              )}
             </div>
           )}
 
