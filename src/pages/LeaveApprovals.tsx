@@ -124,7 +124,7 @@ export default function LeaveApprovals() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Approve Leave"
         description="Leave requested from the employee app — approve or decline it here."

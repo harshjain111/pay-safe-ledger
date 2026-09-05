@@ -277,7 +277,7 @@ export default function Arrears() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Arrears"
         count={loading ? undefined : rows.length}

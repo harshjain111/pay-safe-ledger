@@ -226,7 +226,7 @@ export default function Settlements() {
   const canSettle = calculation && !isAlreadySettled && !isSheetLocked && validation?.valid !== false;
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Single Settlement" description="Settle one salary — the grid on Process Payroll is the main flow">
         <Button variant="ghost" size="sm" onClick={() => navigate('/payroll/process')}>
           <ArrowLeft className="mr-1 h-4 w-4" />

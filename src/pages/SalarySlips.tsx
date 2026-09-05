@@ -157,7 +157,7 @@ export default function SalarySlips() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Salary Slips"
         count={applied ? rows.length : undefined}

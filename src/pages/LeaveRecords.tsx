@@ -270,7 +270,7 @@ export default function LeaveRecords() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title={isStaff ? 'My Leaves' : 'Leave Records'}
         description={isStaff ? 'Track your leave requests and approvals' : 'Manage staff leave and salary deductions'}

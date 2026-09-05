@@ -302,7 +302,7 @@ export default function FinalizedPayroll() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Finalized Payroll"
         description="Payroll months already finalized — review what was settled, record payment, or unlock a month to correct it."

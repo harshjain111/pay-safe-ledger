@@ -175,7 +175,7 @@ export default function LoginResets() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Login Resets"
         description="Staff who cannot get into their account — approving one sets a new password immediately."

@@ -286,7 +286,7 @@ export default function Payouts() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Advance Payouts" count={isLoading ? undefined : items.length} />
 
       <InlineNote>

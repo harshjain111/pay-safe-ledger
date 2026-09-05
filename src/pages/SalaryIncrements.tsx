@@ -217,7 +217,7 @@ export default function SalaryIncrements() {
   const selectedRows = rows.filter((r) => selected.has(r.staff.id));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Salary Increments"
         count={applied ? rows.length : undefined}

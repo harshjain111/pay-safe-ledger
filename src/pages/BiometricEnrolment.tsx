@@ -222,7 +222,7 @@ export default function BiometricEnrolment() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Biometric Enrolment"
         description="Track which attendance-tracked staff are enrolled for device punches."

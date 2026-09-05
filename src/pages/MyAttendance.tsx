@@ -12,7 +12,7 @@ export default function MyAttendance() {
   const tracked = (staffData as unknown as { attendance_tracked?: boolean })?.attendance_tracked !== false;
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader title="My Attendance" description="Track your shifts, sessions and leave" />
 
       {tracked && <AttendanceWidget />}
