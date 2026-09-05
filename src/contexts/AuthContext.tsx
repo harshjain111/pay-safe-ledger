@@ -269,8 +269,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const canRecordAdvancePayments = isOwner || isAdmin || isAccountant;
   const canRecordExpensePayments = isOwner || isAdmin || isAccountant;
   
-  // Request approval - Owner and Admin only (Accountant cannot approve)
-  const canApproveRequests = isOwner || isAdmin;
+  // Advance approval follows the approvals.approve RIGHT, not the role. It was
+  // isOwner || isAdmin, which meant granting approvals.approve to HR let them
+  // open the Advance Requests page while every row stayed read-only. Owner
+  // short-circuits as everywhere else; Accountant still cannot approve because
+  // its template does not carry the right.
+  const canApproveRequests = isOwner || permissions.has('approvals.approve');
   
   // Expense approval - Owner and Admin only (Accountant cannot approve)
   const canApproveExpenses = isOwner || isAdmin;

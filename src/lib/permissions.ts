@@ -88,12 +88,10 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     module: 'Finance',
     permissions: [
       { key: 'ledger.view', label: 'View ledger' },
-      { key: 'pettycash.view', label: 'View petty cash' },
-      { key: 'pettycash.manage', label: 'Manage petty cash' },
-      { key: 'expenses.view', label: 'View expenses' },
-      { key: 'expenses.create', label: 'Create expenses' },
-      { key: 'expenses.edit', label: 'Edit expenses' },
-      { key: 'expenses.delete', label: 'Delete expenses' },
+      // Petty Cash and Expenses were removed from the app — their routes redirect
+      // to the ledger — so their switches are gone too. A toggle that changes
+      // nothing is worse than no toggle: it tells an owner they have revoked
+      // something when they have not.
     ],
   },
   {
@@ -143,8 +141,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'advances.view', 'advances.create', 'advances.edit', 'advances.delete',
     'approvals.approve',
     'payouts.execute',
-    'ledger.view', 'pettycash.view', 'pettycash.manage',
-    'expenses.view', 'expenses.create', 'expenses.edit', 'expenses.delete',
+    'ledger.view',
     'reports.view', 'audit.view',
     'settings.attendance.edit',
     'payslips.download', // client-confirmed: Admin downloads payslips like HR
@@ -156,7 +153,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave.view', 'leave.record',
     'advances.view', 'advances.create',
     'payouts.execute',
-    'ledger.view', 'pettycash.view', 'expenses.view', 'expenses.create',
+    'ledger.view',
     'reports.view',
   ],
   staff: [
@@ -164,7 +161,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'attendance.view',
     'leave.view', 'leave.record',
     'advances.view', 'advances.create',
-    'expenses.view', 'expenses.create',
   ],
   ca: [
     'dashboard.view',
