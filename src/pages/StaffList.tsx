@@ -31,7 +31,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Search, Users, MoreHorizontal, Eye, Edit, FileText, ChevronDown } from 'lucide-react';
+import { Plus, Search, Users, MoreHorizontal, Eye, Edit, FileText, ChevronDown, Upload } from 'lucide-react';
+import { PhoneCell } from '@/components/staff/PhoneCell';
+import { ImportPhonesDialog } from '@/components/staff/ImportPhonesDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
@@ -64,6 +66,7 @@ export default function StaffList() {
   const navigate = useNavigate();
   const { canViewSalaries, isOwner, isAdmin, isAccountant, isHR, canEditStaff } = useAuth();
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<ViewKey>('active');
@@ -86,6 +89,7 @@ export default function StaffList() {
     { key: 'employee', label: 'Employee' },
     { key: 'department', label: 'Department' },
     { key: 'designation', label: 'Designation' },
+    { key: 'phone', label: 'Phone' },
     { key: 'outlet', label: 'Outlet' },
     ...(canViewSalaries ? [{ key: 'salary', label: 'Salary' }] : []),
     { key: 'status', label: 'Status' },
@@ -232,6 +236,13 @@ export default function StaffList() {
           <>
             <ColumnChooser pageId="employees-list" columns={ALL_COLUMNS} visibleKeys={visibleKeys} onSave={saveColumns} onReset={resetColumns} />
             <ExportButton filename="employees" sheetName="Employees" rows={filteredStaff} columns={exportColumns} />
+            {canEditStaff && (
+              <Button variant="outline" className="text-sm" onClick={() => setImportOpen(true)}>
+                <Upload className="mr-1.5 h-4 w-4" />
+                <span className="hidden sm:inline">Import phones</span>
+                <span className="sm:hidden">Phones</span>
+              </Button>
+            )}
             {canAddStaff && (
               <Link to="/staff/new">
                 <Button className="text-sm sm:text-base px-3 sm:px-4">
@@ -373,6 +384,7 @@ export default function StaffList() {
                       {col('employee') && <TableHead>Employee</TableHead>}
                       {col('department') && <TableHead>Department</TableHead>}
                       {col('designation') && <TableHead>Designation</TableHead>}
+                      {col('phone') && <TableHead>Phone</TableHead>}
                       {col('outlet') && <TableHead>Outlet</TableHead>}
                       {canViewSalaries && col('salary') && <TableHead className="text-right">Salary</TableHead>}
                       {col('status') && <TableHead>Status</TableHead>}
@@ -400,6 +412,16 @@ export default function StaffList() {
                         )}
                         {col('department') && <TableCell>{member.department || '-'}</TableCell>}
                         {col('designation') && <TableCell>{member.designation || '-'}</TableCell>}
+                        {col('phone') && (
+                          <TableCell>
+                            <PhoneCell
+                              staffId={member.id}
+                              value={member.phone ?? null}
+                              canEdit={canEditStaff}
+                              onSaved={(phone) => setStaff((prev) => prev.map((x) => (x.id === member.id ? { ...x, phone } : x)))}
+                            />
+                          </TableCell>
+                        )}
                         {col('outlet') && (
                           <TableCell>
                             {outletOf(member) ?? <span className="text-warning text-xs font-medium">Not set</span>}
@@ -464,6 +486,13 @@ export default function StaffList() {
           onSaved={fetchStaff}
         />
       )}
+
+      <ImportPhonesDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        staff={staff.map((s) => ({ id: s.id, employee_id: s.employee_id, full_name: s.full_name, phone: s.phone ?? null }))}
+        onImported={fetchStaff}
+      />
     </div>
   );
 }

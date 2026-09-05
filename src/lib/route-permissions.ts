@@ -32,7 +32,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // for the leave queue, 'Approve advances & expenses' for the advance one.
   { prefix: '/leave-approvals', permission: 'leave.approve' },
   { prefix: '/approvals', permission: 'approvals.approve' },
-  { prefix: '/staff-phones', permission: 'staff.view' },
   { prefix: '/users', permission: 'users.view' },
   { prefix: '/rights-templates', permission: 'users.manage' },
   // PHASE 2 — new payroll paths keep the existing permission keys. Order

@@ -74,7 +74,6 @@ import {
   MessageSquare,
   Fingerprint,
   KeyRound,
-  Phone,
   CalendarCheck,
   CalendarRange,
   Scale,
@@ -170,7 +169,6 @@ function roleNavSections(
       title: 'Employees',
       items: [
         { title: 'Employees', href: '/staff', icon: Briefcase },
-        { title: 'Phone Numbers', href: '/staff-phones', icon: Phone },
         { title: 'Biometric Enrolment', href: '/biometric-enrolment', icon: Fingerprint },
       ],
     },

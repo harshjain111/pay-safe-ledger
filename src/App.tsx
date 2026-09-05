@@ -16,7 +16,6 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const StaffList = lazy(() => import("./pages/StaffList"));
-const StaffPhones = lazy(() => import("./pages/StaffPhones"));
 const StaffForm = lazy(() => import("./pages/StaffForm"));
 const StaffDetails = lazy(() => import("./pages/StaffDetails"));
 const UsersList = lazy(() => import("./pages/UsersList"));
@@ -134,7 +133,6 @@ function AppRoutes() {
       <Route element={<ProtectedLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/staff" element={<StaffList />} />
-        <Route path="/staff-phones" element={<StaffPhones />} />
         <Route path="/staff/new" element={<StaffForm />} />
         <Route path="/staff/:id" element={<StaffDetails />} />
         <Route path="/staff/:id/edit" element={<StaffForm />} />
