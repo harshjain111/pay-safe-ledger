@@ -409,7 +409,7 @@ export default function Settings() {
           )}
 
           {active.id === 'attendance' && (
-            <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, leave entitlement and coverage.">
+            <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, and what leave employees are entitled to.">
               <HrPayRulesCard />
               <LeaveSettingsCard />
               <LeaveTypesCard />
