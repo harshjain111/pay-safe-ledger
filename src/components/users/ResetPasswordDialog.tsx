@@ -14,6 +14,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/lib/toast';
 import { Key, Loader2, Eye, EyeOff } from 'lucide-react';
+import { DEFAULT_NEW_USER_PASSWORD } from '@/lib/auth-defaults';
 
 interface ResetPasswordDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ interface ResetPasswordDialogProps {
   onSuccess?: () => void;
 }
 
-const DEFAULT_PASSWORD = '123456';
+const DEFAULT_PASSWORD = DEFAULT_NEW_USER_PASSWORD;
 
 export function ResetPasswordDialog({ 
   open, 

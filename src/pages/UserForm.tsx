@@ -19,6 +19,7 @@ import { ArrowLeft, Save, UserPlus, Eye, EyeOff, Loader2, Phone, Mail, AlertCirc
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { AppRole, StaffPublic } from '@/types/database';
+import { DEFAULT_NEW_USER_PASSWORD } from '@/lib/auth-defaults';
 
 export default function UserForm() {
   const navigate = useNavigate();
@@ -33,7 +34,10 @@ export default function UserForm() {
   // Form state - Auth & Role only
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  // Prefilled with the shared starting password so enrolment does not depend on
+  // whoever is at the keyboard inventing one. Editable — an admin can still set
+  // something else — and the employee changes it from Settings after logging in.
+  const [password, setPassword] = useState(DEFAULT_NEW_USER_PASSWORD);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<AppRole>('staff');
   const [isActive, setIsActive] = useState(true);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchActiveMaster } from '@/lib/masters-cache';
+import { DEFAULT_NEW_USER_PASSWORD } from '@/lib/auth-defaults';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,10 @@ export default function StaffForm() {
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  // Prefilled with the shared starting password so enrolment does not depend on
+  // whoever is at the keyboard inventing one. Editable — an admin can still set
+  // something else — and the employee changes it from Settings after logging in.
+  const [password, setPassword] = useState(DEFAULT_NEW_USER_PASSWORD);
   const [email, setEmail] = useState('');
   const [department, setDepartment] = useState('');
   const [designation, setDesignation] = useState('');
@@ -282,12 +286,22 @@ export default function StaffForm() {
       toast({ title: 'Validation Error', description: 'Employee ID is required.', variant: 'destructive' });
       return;
     }
+    // Phone is required on EDIT too, not just enrolment: it is how staff sign
+    // in to their own portal, so a record without one is a person who cannot
+    // log in. Most existing records predate this and have no number — see the
+    // Phone Numbers screen for filling them in in bulk rather than one form at
+    // a time.
+    const cleanPhone = formatPhoneInput(phone);
+    if (cleanPhone.length < 10) {
+      toast({
+        title: 'Phone number required',
+        description: 'Staff sign in with their phone number, so every record needs one (min 10 digits).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!isEditing) {
-      const cleanPhone = formatPhoneInput(phone);
-      if (cleanPhone.length < 10) {
-        toast({ title: 'Validation Error', description: 'Please enter a valid phone number (min 10 digits).', variant: 'destructive' });
-        return;
-      }
       if (!password || password.length < 6) {
         toast({ title: 'Validation Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
         return;

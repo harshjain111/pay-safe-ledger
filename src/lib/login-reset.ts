@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getUserDisplayName } from '@/lib/get-user-display-name';
 import type { User } from '@supabase/supabase-js';
 import type { LoginResetRequest, Staff } from '@/types/database';
+import { DEFAULT_NEW_USER_PASSWORD } from '@/lib/auth-defaults';
 
 /**
  * Shared login-reset request mutations.
@@ -18,7 +19,7 @@ import type { LoginResetRequest, Staff } from '@/types/database';
 
 // The credential a reset lands on — the same default the owner-facing
 // ResetPasswordDialog offers. The staff member is told to change it after login.
-export const DEFAULT_RESET_PASSWORD = '123456';
+export const DEFAULT_RESET_PASSWORD = DEFAULT_NEW_USER_PASSWORD;
 
 /**
  * Pure guard for approving a login reset. Returns an error message when the
