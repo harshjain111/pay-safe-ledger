@@ -80,7 +80,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   );
   const qr = await qrPngDataUrl(
     [
-      'VIBRND HR BUDDY - Report verification',
+      'VIBRND Workforce - Report verification',
       ORG_LABEL,
       title,
       subtitle || '',
@@ -103,7 +103,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Powered by VIBRND HR BUDDY', 14, 26);
+  doc.text('Powered by VIBRND Workforce', 14, 26);
   
   // Report title
   doc.setFontSize(14);
@@ -176,7 +176,7 @@ export async function exportToPDF(options: PDFExportOptions): Promise<jsPDF> {
       );
       
       doc.text(
-        `${ORG_LABEL} — Powered by VIBRND HR BUDDY (Confidential)`,
+        `${ORG_LABEL} — Powered by VIBRND Workforce (Confidential)`,
         14,
         doc.internal.pageSize.getHeight() - 10
       );

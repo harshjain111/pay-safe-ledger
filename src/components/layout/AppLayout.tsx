@@ -6,7 +6,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { permissionForPath } from '@/lib/route-permissions';
 import { RequirePermission } from '@/components/auth/RequirePermission';
-import { ORGANIZATION } from '@/lib/brand';
+import { SidebarPromo } from '@/components/layout/SidebarPromo';
+import { BRAND, ORGANIZATION } from '@/lib/brand';
 import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
 import { orgDisplayName } from '@/lib/organization';
 const OrganizationOnboardingDialog = lazy(() =>
@@ -469,11 +470,11 @@ function AppSidebar() {
           isCollapsed && "justify-center"
         )}>
           <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0 p-1">
-            <img src="/vibrnd-logo.png" alt="VIBRND HR BUDDY" className="h-full w-full object-contain" />
+            <img src="/vibrnd-logo.png" alt={BRAND.productName} className="h-full w-full object-contain" />
           </div>
           {!isCollapsed && (
             <div className="animate-fade-in leading-tight min-w-0">
-              <span className="text-sm font-bold text-sidebar-foreground block tracking-wide">VIBRND HR BUDDY</span>
+              <span className="text-sm font-bold text-sidebar-foreground block tracking-wide">{BRAND.productName}</span>
               <p className="text-[10px] text-sidebar-muted">HR & Payroll Suite</p>
             </div>
           )}
@@ -627,6 +628,7 @@ function AppSidebar() {
 
       {/* Footer - User menu */}
       <SidebarFooter className="p-2 mt-auto">
+        <SidebarPromo />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

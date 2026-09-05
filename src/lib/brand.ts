@@ -1,7 +1,7 @@
 /**
  * App branding constants.
  *
- * The PRODUCT is "VIBRND HR BUDDY" by Vibrnd — shared across every deployment.
+ * The PRODUCT is "VIBRND Workforce" by Vibrnd — shared across every deployment.
  *
  * The ORGANIZATION (the customer this deployment serves) is per-instance and set
  * via env, so each deployment brands itself with no code change:
@@ -16,10 +16,10 @@ import vibrndLogo from '@/assets/vibrnd-logo.png';
 import vibrndLogoWhite from '@/assets/vibrnd-logo-white.png';
 
 export const BRAND = {
-  productName: 'VIBRND HR BUDDY',
-  shortName: 'VIBRND HR',
+  productName: 'VIBRND Workforce',
+  shortName: 'Workforce',
   company: 'Vibrnd',
-  tagline: 'HR & Payroll Suite',
+  tagline: 'People. Payroll. Progress.',
   logo: vibrndLogo,
   logoWhite: vibrndLogoWhite,
   logoPath: '/vibrnd-logo.png',

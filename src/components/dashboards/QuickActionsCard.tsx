@@ -21,11 +21,13 @@ interface QuickActionsCardProps {
   description?: string;
 }
 
+// Icon tints drawn from the same tokens as the dashboard's headline tiles, so
+// the actions and the figures above them read as one system rather than two.
 const variantStyles = {
-  primary: 'bg-primary/10 text-primary',
-  secondary: 'bg-secondary text-secondary-foreground',
-  accent: 'bg-accent/50 text-accent-foreground',
-  muted: 'bg-muted text-muted-foreground',
+  primary: 'bg-[hsl(var(--tile-violet))] text-[hsl(var(--tile-violet-ink))]',
+  secondary: 'bg-[hsl(var(--tile-blue))] text-[hsl(var(--tile-blue-ink))]',
+  accent: 'bg-[hsl(var(--tile-green))] text-[hsl(var(--tile-green-ink))]',
+  muted: 'bg-[hsl(var(--tile-amber))] text-[hsl(var(--tile-amber-ink))]',
 };
 
 const badgeVariantStyles = {
@@ -37,7 +39,7 @@ const badgeVariantStyles = {
 export function QuickActionsCard({
   actions,
   title = 'Quick Actions',
-  description = 'Common tasks and shortcuts',
+  description = 'Everything you need, faster',
 }: QuickActionsCardProps) {
   return (
     <Card className="rounded-2xl shadow-card border-0">
@@ -48,26 +50,24 @@ export function QuickActionsCard({
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">{description}</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-2 sm:gap-3 px-4 sm:px-6">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 px-4 sm:px-6">
         {actions.map((action) => (
-          <Link key={action.href} to={action.href}>
+          <Link key={action.href} to={action.href} className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Button
               variant="outline"
-              className="w-full justify-start h-auto py-3 sm:py-4 rounded-xl border-border/50 hover:bg-primary/5 hover:border-primary/20 transition-all active:scale-[0.98]"
+              tabIndex={-1}
+              className="w-full justify-start h-auto py-2.5 rounded-xl border-border/60 hover:-translate-y-0.5 hover:shadow-card-hover transition-all"
             >
               <div
                 className={cn(
-                  'w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mr-2 sm:mr-3 shrink-0',
+                  'h-8 w-8 rounded-lg flex items-center justify-center mr-2.5 shrink-0',
                   variantStyles[action.variant || 'primary']
                 )}
               >
-                <action.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                <action.icon className="h-4 w-4" />
               </div>
               <div className="text-left flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">{action.label}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  {action.description}
-                </p>
+                <p className="truncate text-[13px] font-medium">{action.label}</p>
               </div>
               {action.badge !== undefined && (typeof action.badge === 'string' || action.badge > 0) && (
                 <Badge

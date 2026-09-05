@@ -8,7 +8,6 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "next-themes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 // Pages (lazy-loaded so each route is a separate chunk)
 const Index = lazy(() => import("./pages/Index"));
@@ -214,7 +213,6 @@ const App = () => (
               </ErrorBoundary>
             </AuthProvider>
           </BrowserRouter>
-          <InstallPrompt />
         </TooltipProvider>
       </LanguageProvider>
     </ThemeProvider>

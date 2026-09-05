@@ -1,7 +1,7 @@
 {
-  "name": "VIBRND HR BUDDY",
+  "name": "VIBRND Workforce",
   "short_name": "VIBRND HR",
-  "description": "VIBRND HR BUDDY — HR, payroll, attendance and accounting suite by Vibrnd.",
+  "description": "VIBRND Workforce — HR, payroll, attendance and accounting suite by Vibrnd.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

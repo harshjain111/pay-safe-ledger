@@ -119,9 +119,9 @@ export default function Onboarding() {
         {/* Brand */}
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <div className="rounded-2xl bg-white p-2.5 shadow-lg">
-            <img src={ORGANIZATION.logo ?? BRAND.logoPath} alt="VIBRND HR BUDDY" className="h-14 w-auto" />
+            <img src={ORGANIZATION.logo ?? BRAND.logoPath} alt={BRAND.productName} className="h-14 w-auto" />
           </div>
-          <span className="text-lg font-bold tracking-tight">VIBRND HR BUDDY</span>
+          <span className="text-lg font-bold tracking-tight">{BRAND.productName}</span>
         </div>
 
         <div className="rounded-2xl border bg-card p-6 shadow-xl sm:p-8">
@@ -144,7 +144,7 @@ export default function Onboarding() {
                 <div className="space-y-1.5">
                   <h1 className="text-2xl font-bold">Welcome, {firstName}!</h1>
                   <p className="text-muted-foreground">
-                    You've joined <span className="font-semibold text-foreground">{orgName}</span> on VIBRND HR BUDDY.
+                    You've joined <span className="font-semibold text-foreground">{orgName}</span> on {BRAND.productName}.
                     First, set a password to secure your account.
                   </p>
                 </div>

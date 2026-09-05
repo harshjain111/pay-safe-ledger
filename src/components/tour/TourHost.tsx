@@ -5,7 +5,7 @@ const TOUR_FLAG = 'hrbuddy_run_tour';
 
 const STEPS: TourStep[] = [
   {
-    title: 'Welcome to VIBRND HR BUDDY',
+    title: 'Welcome to VIBRND Workforce',
     body: "This is your home base. Here's a quick 30-second tour of what you can do — you can skip anytime.",
   },
   {

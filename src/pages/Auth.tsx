@@ -332,7 +332,7 @@ export default function Auth() {
             <div className="rounded-2xl bg-white p-3 shadow-lg">
               <img src={ORGANIZATION.logo ?? BRAND.logoPath} alt={ORGANIZATION.name} className="h-20 w-auto" />
             </div>
-            <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND HR BUDDY</span>
+            <span className="text-2xl font-bold text-foreground tracking-tight">VIBRND Workforce</span>
           </div>
           <p className="text-muted-foreground">HR & Payroll Suite</p>
           {ORGANIZATION.name && (
@@ -559,7 +559,7 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Vibrnd. VIBRND HR BUDDY. All rights reserved.</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">© 2026 Vibrnd. VIBRND Workforce. All rights reserved.</p>
       </div>
     </div>
   );
