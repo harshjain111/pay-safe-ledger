@@ -105,7 +105,7 @@ function getNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number; openConcerns: number },
   can: (permission: string) => boolean,
   canSwitch: boolean,
 ): NavSection[] {
@@ -113,6 +113,11 @@ function getNavSections(
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
+        // A screen restricted to certain roles is hidden from everyone else,
+        // rather than shown and then refusing on arrival. NavItem carried a
+        //  field that nothing honoured, so owner-only pages were listed
+        // for admins and HR who could only reach an "Owners only" message.
+        if (item.roles && !item.roles.includes(userRole ?? '')) return false;
         const required = permissionForPath(item.href);
         return !required || can(required);
       }),
@@ -125,7 +130,7 @@ function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number; pendingLoginResets: number; openConcerns: number },
   canSwitch: boolean,
 ): NavSection[] {
   // Pending items awaiting approval — surfaced as ONE badge on the merged
@@ -133,6 +138,7 @@ function roleNavSections(
   const pendingApprovals = counts.pendingRequests;
   const pendingLeave = counts.pendingLeave;
   const pendingLoginResets = counts.pendingLoginResets;
+  const openConcerns = counts.openConcerns;
 
   // Any non-owner staff-linked user (admin / accountant / manager) who has
   // toggled into the personal "employee" view gets the self-service nav — they
@@ -234,9 +240,10 @@ function roleNavSections(
       title: 'Admin',
       items: [
         { title: 'Users', href: '/users', icon: Users },
+        { title: 'Concerns', href: '/grievances', icon: MessageSquareWarning, roles: ['owner'], badge: openConcerns },
         // Sits with Users, not with the advance queue: it is an access question, and
         // the page is owner-only because the reset function is.
-        { title: 'Login Resets', href: '/login-resets', icon: KeyRound, badge: pendingLoginResets },
+        { title: 'Login Resets', href: '/login-resets', icon: KeyRound, roles: ['owner'], badge: pendingLoginResets },
         { title: 'Rights Templates', href: '/rights-templates', icon: ShieldCheck },
         { title: 'Settings', href: '/settings', icon: Settings },
       ],

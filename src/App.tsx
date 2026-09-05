@@ -22,6 +22,7 @@ const UserForm = lazy(() => import("./pages/UserForm"));
 const Ledger = lazy(() => import("./pages/Ledger"));
 const Requests = lazy(() => import("./pages/Requests"));
 const Grievance = lazy(() => import("./pages/Grievance"));
+const Grievances = lazy(() => import("./pages/Grievances"));
 const Approvals = lazy(() => import("./pages/Approvals"));
 const LoginResets = lazy(() => import("./pages/LoginResets"));
 const NewRequest = lazy(() => import("./pages/NewRequest"));
@@ -184,6 +185,7 @@ function AppRoutes() {
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-attendance" element={<MyAttendance />} />
         <Route path="/grievance" element={<Grievance />} />
+        <Route path="/grievances" element={<Grievances />} />
         <Route path="/shifts" element={<Shifts />} />
         <Route path="/week-off" element={<WeekOff />} />
         <Route path="/biometric-enrolment" element={<BiometricEnrolment />} />
