@@ -79,7 +79,12 @@ export function MyLeaveBalanceCard({ staffId, weeklyOffDay }: { staffId?: string
                         <span className="text-xs font-normal text-muted-foreground"> left</span>
                       </span>
                     ) : (
-                      <span className="shrink-0 text-sm text-muted-foreground">Unpaid</span>
+                      // Types that do not accrue have no "left" figure — what matters
+                      // is whether the day costs the employee pay. Keyed on is_paid, not
+                      // on accrual: Weekly Off does not accrue either, and it IS paid.
+                      <span className="shrink-0 text-sm text-muted-foreground">
+                        {b.type.is_paid ? 'Paid' : 'Unpaid'}
+                      </span>
                     )}
                   </li>
                 );
