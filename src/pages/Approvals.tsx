@@ -442,7 +442,19 @@ export default function Approvals() {
             {pendingCount} pending
           </span>
         )}
-        {(isOwner || isAdmin) && (
+        {/*
+          Admins only. This button RAISES a login-reset request for someone
+          else, which an owner then approves — it is the path for a role that
+          cannot reset a password directly (the reset-user-password function is
+          owner-only) and cannot open Users, which is owner-only too.
+
+          An owner has no use for it: Users -> row menu -> Reset Password does
+          the same job in one step instead of raising a request and then
+          approving their own request, and that page lists every staff member
+          who has an app login. On the Approvals inbox the button just read as
+          a stray action unrelated to the queue below it.
+        */}
+        {isAdmin && !isOwner && (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRaiseOpen(true)}>
             <KeyRound className="h-4 w-4" /><span className="hidden sm:inline">Login reset</span>
           </Button>
