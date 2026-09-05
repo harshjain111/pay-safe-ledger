@@ -26,7 +26,7 @@ export const queryKeys = {
   },
   notificationCounts: {
     all: ['notification-counts'] as const,
-    forUser: (userId: string | null | undefined, wantsPending: boolean, wantsAdvances: boolean) =>
-      ['notification-counts', userId, wantsPending, wantsAdvances] as const,
+    forUser: (userId: string | null | undefined, wantsPending: boolean, wantsAdvances: boolean, wantsLeave: boolean) =>
+      ['notification-counts', userId, wantsPending, wantsAdvances, wantsLeave] as const,
   },
 } as const;

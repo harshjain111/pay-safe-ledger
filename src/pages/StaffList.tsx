@@ -98,7 +98,7 @@ export default function StaffList() {
     fetchStaff();
     (async () => {
       const rows = await fetchOutlets().catch(() => []);
-      setOutletMap(new Map(rows.map((o) => [o.id, o.name])));
+      setOutletMap(new Map(rows.map((o) => [o.id, o.name] as [string, string])));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner]);

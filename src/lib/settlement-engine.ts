@@ -26,7 +26,7 @@ import { getMonthlyDisciplineFine, sumDisciplineFine, type DisciplineLogRow } fr
 import { createSalarySettlementEntry, createArrearsEntry } from '@/lib/journal-entries';
 import { supabase as anyDb } from '@/integrations/supabase/anyClient';
 import { mergeTemplateHolidays } from '@/lib/leave-allocation';
-import type { Staff } from '@/types/database';
+import type { Staff, StaffLoan } from '@/types/database';
 
 export interface StatutorySettings {
   pf_enabled: boolean;

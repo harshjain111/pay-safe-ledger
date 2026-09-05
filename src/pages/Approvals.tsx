@@ -53,7 +53,6 @@ import { toast } from '@/lib/toast';
 import type { PaymentRequest, RequestStatus, LoginResetRequest } from '@/types/database';
 import { approveAdvanceRequest, rejectAdvanceRequest } from '@/lib/advance-approvals';
 import { approveLoginResetRequest, rejectLoginResetRequest } from '@/lib/login-reset';
-import { RaiseLoginResetDialog } from '@/components/approvals/RaiseLoginResetDialog';
 import { refetchNotificationCounts } from '@/hooks/useNotificationCounts';
 import { GeoFlaggedPunches } from '@/components/attendance/GeoFlaggedPunches';
 
@@ -171,7 +170,6 @@ export default function Approvals() {
   const [loginResetRejectReason, setLoginResetRejectReason] = useState('');
   const [loginResetApprove, setLoginResetApprove] = useState<ApprovalItem | null>(null);
   const [loginResetReject, setLoginResetReject] = useState<ApprovalItem | null>(null);
-  const [raiseOpen, setRaiseOpen] = useState(false);
   const [drawerItem, setDrawerItem] = useState<ApprovalItem | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -442,23 +440,6 @@ export default function Approvals() {
             {pendingCount} pending
           </span>
         )}
-        {/*
-          Admins only. This button RAISES a login-reset request for someone
-          else, which an owner then approves — it is the path for a role that
-          cannot reset a password directly (the reset-user-password function is
-          owner-only) and cannot open Users, which is owner-only too.
-
-          An owner has no use for it: Users -> row menu -> Reset Password does
-          the same job in one step instead of raising a request and then
-          approving their own request, and that page lists every staff member
-          who has an app login. On the Approvals inbox the button just read as
-          a stray action unrelated to the queue below it.
-        */}
-        {isAdmin && !isOwner && (
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRaiseOpen(true)}>
-            <KeyRound className="h-4 w-4" /><span className="hidden sm:inline">Login reset</span>
-          </Button>
-        )}
       </PageHeader>
 
       {/* Out-of-geofence check-ins awaiting a manager decision */}
@@ -705,8 +686,6 @@ export default function Approvals() {
         </DialogContent>
       </Dialog>
 
-      {/* Raise a login-reset request on behalf of a staff member */}
-      <RaiseLoginResetDialog open={raiseOpen} onOpenChange={setRaiseOpen} onCreated={afterMutation} />
     </div>
   );
 }

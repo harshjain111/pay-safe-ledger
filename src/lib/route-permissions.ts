@@ -27,6 +27,11 @@ interface RoutePermission {
 }
 
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
+  // Approval queues. Listed so an owner controls who works each queue from
+  // Rights Templates rather than it being wired to a role: 'Approve leave'
+  // for the leave queue, 'Approve advances & expenses' for the advance one.
+  { prefix: '/leave-approvals', permission: 'leave.approve' },
+  { prefix: '/approvals', permission: 'approvals.approve' },
   { prefix: '/users', permission: 'users.view' },
   { prefix: '/rights-templates', permission: 'users.manage' },
   // PHASE 2 — new payroll paths keep the existing permission keys. Order

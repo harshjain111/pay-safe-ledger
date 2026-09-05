@@ -38,6 +38,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeaveRecords = lazy(() => import("./pages/LeaveRecords"));
+const LeaveApprovals = lazy(() => import("./pages/LeaveApprovals"));
 const RightsTemplates = lazy(() => import("./pages/RightsTemplates"));
 const BulkAttendance = lazy(() => import("./pages/BulkAttendance"));
 const Arrears = lazy(() => import("./pages/Arrears"));
@@ -144,6 +145,7 @@ function AppRoutes() {
         <Route path="/settlements" element={<Settlements />} />
         <Route path="/my-payslips" element={<MySalarySlips />} />
         <Route path="/leave-records" element={<LeaveRecords />} />
+        <Route path="/leave-approvals" element={<LeaveApprovals />} />
         <Route path="/rights-templates" element={<RightsTemplates />} />
         <Route path="/bulk-attendance" element={<BulkAttendance />} />
         <Route path="/leave-types" element={<LeaveTypes />} />

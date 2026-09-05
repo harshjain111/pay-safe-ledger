@@ -103,7 +103,7 @@ function getNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number },
   can: (permission: string) => boolean,
   canSwitch: boolean,
 ): NavSection[] {
@@ -123,12 +123,13 @@ function roleNavSections(
   userRole: string | null,
   accountingMode: boolean,
   isAccountant: boolean,
-  counts: { pendingRequests: number; approvedAdvances: number },
+  counts: { pendingRequests: number; approvedAdvances: number; pendingLeave: number },
   canSwitch: boolean,
 ): NavSection[] {
   // Pending items awaiting approval — surfaced as ONE badge on the merged
   // "Approvals" item (advances).
   const pendingApprovals = counts.pendingRequests;
+  const pendingLeave = counts.pendingLeave;
 
   // Any non-owner staff-linked user (admin / accountant / manager) who has
   // toggled into the personal "employee" view gets the self-service nav — they
@@ -181,14 +182,20 @@ function roleNavSections(
     {
       title: 'Leave',
       items: [
+        // Approve Leave first: it is the queue with work waiting in it.
+        { title: 'Approve Leave', href: '/leave-approvals', icon: CalendarCheck, badge: pendingLeave },
         { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
         { title: 'Leave Assign', href: '/leave-assign', icon: UserPlus },
         { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
       ],
     },
     {
+      // Titled, and no longer sitting untitled directly under Leave where it
+      // read as a leave screen. It holds advance requests, login resets and
+      // out-of-geofence check-ins — none of them leave.
+      title: 'Requests',
       items: [
-        { title: 'Approval Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
+        { title: 'Advance & Login Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
       ],
     },
     {
@@ -272,6 +279,7 @@ function roleNavSections(
       {
         title: 'Leave',
         items: [
+          { title: 'Approve Leave', href: '/leave-approvals', icon: CalendarCheck, badge: pendingLeave },
           { title: 'Leave Records', href: '/leave-records', icon: CalendarDays },
           { title: 'Leave Balance', href: '/leave-balance', icon: Scale },
         ],
@@ -307,8 +315,9 @@ function roleNavSections(
         ],
       },
       {
+        title: 'Requests',
         items: [
-          { title: 'Approval Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
+          { title: 'Advance & Login Requests', href: '/approvals', icon: ClipboardList, badge: pendingApprovals },
         ],
       },
       {

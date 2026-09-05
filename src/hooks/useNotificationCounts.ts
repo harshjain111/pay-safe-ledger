@@ -6,12 +6,15 @@ import { queryKeys } from '@/lib/query-keys';
 
 interface NotificationCounts {
   pendingRequests: number;
+  /** Leave requests awaiting a decision — the Approve Leave badge. */
+  pendingLeave: number;
   approvedAdvances: number;
   unreadNotifications: number;
 }
 
 const EMPTY: NotificationCounts = {
   pendingRequests: 0,
+  pendingLeave: 0,
   approvedAdvances: 0,
   unreadNotifications: 0,
 };
@@ -64,13 +67,14 @@ async function fetchCounts(
   userId: string,
   wantsPending: boolean,
   wantsAdvances: boolean,
+  wantsLeave: boolean,
 ): Promise<NotificationCounts> {
   // These are badge numbers, so ask the server to COUNT rather than ship every
   // matching row back to read .length off it — head:true sends no body at all.
   // They also go out together rather than in series: a round trip costs ~150 ms
   // from here, so three sequential awaits burn 450 ms of wall clock to produce
   // three integers.
-  const [unreadRes, pendingRes, advancesRes] = await Promise.all([
+  const [unreadRes, pendingRes, advancesRes, leaveRes] = await Promise.all([
     supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
@@ -93,26 +97,38 @@ async function fetchCounts(
           .eq('status', 'approved')
           .is('paid_at', null)
       : Promise.resolve({ count: 0 }),
+
+    // Leave awaiting a decision. RLS scopes it: a manager counts their own
+    // reports, an owner counts everyone, so the badge matches the queue.
+    wantsLeave
+      ? supabase
+          .from('leave_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
   ]);
 
   return {
     pendingRequests: pendingRes.count ?? 0,
+    pendingLeave: leaveRes.count ?? 0,
     approvedAdvances: advancesRes.count ?? 0,
     unreadNotifications: unreadRes.count ?? 0,
   };
 }
 
 export function useNotificationCounts() {
-  const { user, isOwner, isAdmin, isAccountant } = useAuth();
+  const { user, isOwner, isAdmin, isAccountant, can } = useAuth();
   const queryClient = useQueryClient();
 
   const wantsPending = isOwner || isAdmin;
   const wantsAdvances = isAccountant || isOwner || isAdmin;
+  // Anyone who can decide leave gets the badge; can() short-circuits for owner.
+  const wantsLeave = isOwner || can('leave.approve');
   const userId = user?.id ?? null;
 
   const { data, refetch } = useQuery({
-    queryKey: queryKeys.notificationCounts.forUser(userId, wantsPending, wantsAdvances),
-    queryFn: () => fetchCounts(userId as string, wantsPending, wantsAdvances),
+    queryKey: queryKeys.notificationCounts.forUser(userId, wantsPending, wantsAdvances, wantsLeave),
+    queryFn: () => fetchCounts(userId as string, wantsPending, wantsAdvances, wantsLeave),
     enabled: !!userId,
   });
 
