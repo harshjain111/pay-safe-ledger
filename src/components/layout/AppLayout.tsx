@@ -868,7 +868,7 @@ export function AppLayout() {
       </a>
       <div className="min-h-svh flex w-full overflow-x-hidden">
         <AppSidebar />
-        <SidebarInset className="flex min-w-0 flex-col flex-1 overflow-x-hidden">
+        <SidebarInset className="app-canvas flex min-w-0 flex-col flex-1 overflow-x-hidden">
           <AppHeader />
           <div
             id="main-content"

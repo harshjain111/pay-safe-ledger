@@ -9,8 +9,9 @@
 
 @layer base {
   :root {
-    /* Core palette - Clean white with subtle blue undertones */
-    --background: 225 25% 97%;
+    /* Core palette — a pale indigo-tinted white so the flowing background
+       pattern reads as part of the page rather than sitting on top of grey. */
+    --background: 231 60% 98%;
     --foreground: 224 71% 4%;
 
     --card: 0 0% 100%;
@@ -56,20 +57,22 @@
 
     --radius: 0.75rem;
 
-    /* Sidebar - Deep indigo */
-    --sidebar-background: 243 75% 20%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 250 95% 76%;
-    --sidebar-primary-foreground: 243 75% 15%;
-    --sidebar-accent: 243 75% 28%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 243 75% 28%;
-    --sidebar-ring: 250 95% 76%;
-    --sidebar-muted: 243 30% 60%;
+    /* Sidebar — light, with the accent spent on the ACTIVE item rather than
+       on the whole rail. A dark rail competes with the tinted tiles for
+       attention; a white one lets them carry it. */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 226 20% 30%;
+    --sidebar-primary: 243 75% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 243 70% 96%;
+    --sidebar-accent-foreground: 243 60% 40%;
+    --sidebar-border: 231 30% 93%;
+    --sidebar-ring: 243 75% 59%;
+    --sidebar-muted: 226 12% 58%;
 
     /* Custom semantic tokens */
-    --header-bg: 243 75% 20%;
-    --header-foreground: 0 0% 100%;
+    --header-bg: 0 0% 100%;
+    --header-foreground: 226 20% 30%;
     
     --amount-positive: 142 71% 45%;
     --amount-negative: 0 84% 60%;
@@ -82,6 +85,13 @@
     --badge-pending: 38 92% 50%;
     --badge-approved: 142 71% 45%;
     --badge-rejected: 0 84% 60%;
+
+    /* Tinted stat tiles (reference dashboard). Surface + ink as a pair, so a
+       tile is one token choice and never a mismatched fill/text combination. */
+    --tile-blue: 214 100% 96%;   --tile-blue-ink: 217 75% 40%;
+    --tile-green: 152 60% 93%;   --tile-green-ink: 158 70% 24%;
+    --tile-amber: 30 90% 94%;    --tile-amber-ink: 25 75% 34%;
+    --tile-violet: 255 85% 96%;  --tile-violet-ink: 255 60% 48%;
 
     /* Stat card accent colors */
     --stat-blue: 217 91% 60%;
@@ -141,12 +151,12 @@
 
     --sidebar-background: 224 71% 4%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary: 243 75% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 71% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 224 71% 12%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-accent: 240 40% 14%;
+    --sidebar-accent-foreground: 245 60% 85%;
+    --sidebar-border: 232 40% 14%;
+    --sidebar-ring: 243 75% 65%;
     --sidebar-muted: 220 9% 50%;
 
     --header-bg: 224 71% 6%;
@@ -155,6 +165,12 @@
     --table-header: 224 71% 10%;
     --table-row-hover: 224 71% 9%;
     --table-border: 224 71% 15%;
+
+    /* Tile tints, dark. Deep enough to read as a surface, not a highlight. */
+    --tile-blue: 217 60% 14%;    --tile-blue-ink: 213 90% 76%;
+    --tile-green: 158 45% 12%;   --tile-green-ink: 152 65% 66%;
+    --tile-amber: 26 50% 13%;    --tile-amber-ink: 33 85% 66%;
+    --tile-violet: 250 45% 17%;  --tile-violet-ink: 250 90% 82%;
   }
 }
 
@@ -460,4 +476,60 @@
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   The page canvas.
+
+   Soft flowing bands with a thin traced line, weighted to the top-right and
+   bottom-left so the middle — where the content actually sits — stays clear.
+   Fixed to the viewport, so scrolling moves the content across the pattern
+   rather than dragging the pattern along with it; that is what gives the sense
+   of flow rather than of wallpaper.
+
+   background-image only, layered over whatever --background the theme paints,
+   so it works on the same element without a second wrapper.
+   --------------------------------------------------------------------------- */
+.app-canvas {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%201440%20900'%20preserveAspectRatio%3D'xMidYMid%20slice'%3E%3Cg%20fill%3D'none'%20opacity%3D'1'%3E%3Cpath%20d%3D'M1440%200v300c-150-6-268-92-392-150C915%2087%20800%20120%20690%2062%20640%2035%20604%2016%20566%200Z'%20fill%3D'%2523DDE2FA'%2F%3E%3Cpath%20d%3D'M1440%2092v268c-186-14-320-118-460-176-96-40-180-40-258-92Z'%20fill%3D'%2523E8ECFC'%2F%3E%3Cpath%20d%3D'M0%20900v-262c132-10%20236%2060%20352%20118%20118%2060%20226%2042%20340%2088%2052%2021%2096%2038%20132%2056Z'%20fill%3D'%2523DDE2FA'%2F%3E%3Cpath%20d%3D'M0%20900v-166c118%204%20214%2062%20318%20116%2060%2031%20112%2038%20156%2050Z'%20fill%3D'%2523E4E9FB'%2F%3E%3Cpath%20d%3D'M1440%20486c-176%2040-286-56-410-118-140-70-252-16-372-88'%20stroke%3D'%2523BFC7F2'%20stroke-width%3D'1.4'%2F%3E%3Cpath%20d%3D'M0%20604c150-52%20258%2034%20380%2096%20128%2066%20236%2024%20352%2084'%20stroke%3D'%2523BFC7F2'%20stroke-width%3D'1.4'%2F%3E%3Ccircle%20cx%3D'1030'%20cy%3D'368'%20r%3D'7'%20fill%3D'%2523B9C1F0'%2F%3E%3Ccircle%20cx%3D'1379'%20cy%3D'477'%20r%3D'5'%20fill%3D'%2523B9C1F0'%2F%3E%3Ccircle%20cx%3D'380'%20cy%3D'700'%20r%3D'6.5'%20fill%3D'%2523B9C1F0'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+.dark .app-canvas {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%201440%20900'%20preserveAspectRatio%3D'xMidYMid%20slice'%3E%3Cg%20fill%3D'none'%20opacity%3D'1'%3E%3Cpath%20d%3D'M1440%200v300c-150-6-268-92-392-150C915%2087%20800%20120%20690%2062%20640%2035%20604%2016%20566%200Z'%20fill%3D'%25231A1F44'%2F%3E%3Cpath%20d%3D'M1440%2092v268c-186-14-320-118-460-176-96-40-180-40-258-92Z'%20fill%3D'%2523161A38'%2F%3E%3Cpath%20d%3D'M0%20900v-262c132-10%20236%2060%20352%20118%20118%2060%20226%2042%20340%2088%2052%2021%2096%2038%20132%2056Z'%20fill%3D'%25231A1F44'%2F%3E%3Cpath%20d%3D'M0%20900v-166c118%204%20214%2062%20318%20116%2060%2031%20112%2038%20156%2050Z'%20fill%3D'%2523181D3E'%2F%3E%3Cpath%20d%3D'M1440%20486c-176%2040-286-56-410-118-140-70-252-16-372-88'%20stroke%3D'%25232A3160'%20stroke-width%3D'1.4'%2F%3E%3Cpath%20d%3D'M0%20604c150-52%20258%2034%20380%2096%20128%2066%20236%2024%20352%2084'%20stroke%3D'%25232A3160'%20stroke-width%3D'1.4'%2F%3E%3Ccircle%20cx%3D'1030'%20cy%3D'368'%20r%3D'7'%20fill%3D'%25233A4180'%2F%3E%3Ccircle%20cx%3D'1379'%20cy%3D'477'%20r%3D'5'%20fill%3D'%25233A4180'%2F%3E%3Ccircle%20cx%3D'380'%20cy%3D'700'%20r%3D'6.5'%20fill%3D'%25233A4180'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+}
+@media (max-width: 640px) {
+  /* Scrolling a fixed background repaints the whole area on mobile; the pattern
+     is decorative, so it scrolls with the page there instead. */
+  .app-canvas { background-attachment: scroll; }
+}
+
+/* ---------------------------------------------------------------------------
+   Loading sweep. A highlight travelling across the placeholder reads as work
+   in progress; a pulse dimming the whole block reads as something disabled.
+   --------------------------------------------------------------------------- */
+.skeleton-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--foreground) / 0.06),
+    transparent
+  );
+  animation: skeleton-sweep 1.5s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-sweep::after { animation: none; content: none; }
 }

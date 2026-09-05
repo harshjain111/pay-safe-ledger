@@ -187,14 +187,16 @@ export function OwnerDashboard() {
       {/* PHASE 4 — salary reviews due (admin/HR/owner; fires the crossing notification) */}
       <SalaryReviewDueCard />
 
-      {/* Band 1 — KPI strip (max 3 across so 6 cards wrap to 2 rows and titles fit) */}
+      {/* Band 1 — the headline figures, as tinted tiles. Four across on wide
+          screens like the reference; the tint marks these as the numbers you
+          check first, and the bordered cards below as the detail. */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
         <DashboardCard
           icon={Users}
           label="Active Staff"
           value={stats.activeStaff}
           subtitle={stats.staffMissingSalary > 0 ? `${stats.staffMissingSalary} missing salary` : 'All set up'}
-          iconChip={CHIP.blue}
+          tint="blue"
           href="/staff"
           loading={isLoading}
         />
@@ -204,7 +206,7 @@ export function OwnerDashboard() {
             label="Monthly Payroll"
             value={`₹${stats.monthlyPayroll.toLocaleString('en-IN')}`}
             subtitle="Total liability"
-            iconChip={CHIP.purple}
+            tint="green"
             href="/salaries-advances"
             loading={isLoading}
           />
@@ -214,7 +216,7 @@ export function OwnerDashboard() {
           label="Advances Outstanding"
           value={`₹${stats.advancesOutstanding.toLocaleString('en-IN')}`}
           subtitle="To be adjusted"
-          iconChip={CHIP.orange}
+          tint="amber"
           href="/salaries-advances"
           loading={isLoading}
         />
@@ -231,7 +233,7 @@ export function OwnerDashboard() {
           label="Present Today"
           value={today.summary?.present ?? 0}
           subtitle={`of ${today.summary?.totalTracked ?? 0} tracked`}
-          iconChip={CHIP.green}
+          tint="violet"
           href="/attendance?status=present"
           loading={today.isLoading}
         />
