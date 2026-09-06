@@ -79,7 +79,9 @@ export function ProductTour({ steps, onClose }: { steps: TourStep[]; onClose: ()
           className="pointer-events-none absolute rounded-xl transition duration-300 ease-out"
           style={{
             top: rect.top, left: rect.left, width: rect.width, height: rect.height,
-            boxShadow: '0 0 0 9999px rgba(2,6,23,0.72)',
+            // Same dim as DialogOverlay (bg-black/80) so every overlay in the
+            // app reads as one treatment; this was its own slate at 0.72.
+            boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.8)',
             outline: '2px solid hsl(var(--primary))',
           }}
         />
@@ -89,7 +91,7 @@ export function ProductTour({ steps, onClose }: { steps: TourStep[]; onClose: ()
           // a viewport-sized button in the tab order would be worse than none,
           // and keyboard users already have Escape and the Close tour button.
           aria-hidden="true"
-          className="absolute inset-0 bg-slate-950/70"
+          className="absolute inset-0 bg-black/80"
           onClick={onClose}
         />
       )}

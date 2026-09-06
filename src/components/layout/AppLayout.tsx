@@ -875,14 +875,25 @@ export function AppLayout() {
       >
         Skip to content
       </a>
-      <div className="min-h-svh flex w-full overflow-x-hidden">
+      {/* overflow-x-CLIP, not hidden. `overflow-x: hidden` forces the used
+          value of overflow-y to `auto`, which turns this box into a scroll
+          container — and a scroll container that never scrolls is exactly what
+          breaks `position: sticky` inside it. The header below, and the sticky
+          bars on Week Off and the staff dashboard, all silently scrolled away
+          because of it. `clip` clips the same overflow without creating a
+          scrollport, so sticky resolves against the viewport again. */}
+      <div className="min-h-svh flex w-full overflow-x-clip">
         <AppSidebar />
-        <SidebarInset className="app-canvas flex min-w-0 flex-col flex-1 overflow-x-hidden">
+        <SidebarInset className="app-canvas flex min-w-0 flex-col flex-1 overflow-x-clip">
           <AppHeader />
+          {/* Target of the skip link. It had focus:outline-none, so a keyboard
+              user who pressed "Skip to content" got no confirmation the jump
+              had happened — the page looked identical. An inset ring says it
+              landed, and focus-visible keeps it off the mouse path. */}
           <div
             id="main-content"
             tabIndex={-1}
-            className="flex-1 min-w-0 overflow-x-hidden p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] focus:outline-none"
+            className="flex-1 min-w-0 overflow-x-clip p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <Suspense fallback={<ContentSkeleton />}>
               <div key={pathname} className="animate-fade-in">

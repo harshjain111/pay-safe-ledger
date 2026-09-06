@@ -432,7 +432,7 @@ export default function Attendance() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 min-w-0 max-w-full overflow-x-hidden">
+      <div className="space-y-6 min-w-0 max-w-full overflow-x-clip">
         <PageHeader
           title="Attendance"
           description="Analytical attendance report with daily detail and date-matrix views."
