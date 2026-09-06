@@ -412,13 +412,13 @@ export default function Settlements() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-1.5">
+                <div className="flex items-start justify-between gap-3 py-1.5">
                   <span className="text-muted-foreground">Monthly Salary (pro-rata)</span>
-                  <Amount value={calculation.monthlySalary} className="font-medium" />
+                  <Amount value={calculation.monthlySalary} className="shrink-0 whitespace-nowrap font-medium" />
                 </div>
 
                 {(calculation.incentives > 0 || calculation.bonus > 0 || calculation.overtimeAmount > 0) && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">Incentives + Bonus + Overtime</span>
                     <span className="font-medium text-success">
                       +<Amount value={calculation.incentives + calculation.bonus + calculation.overtimeAmount} />
@@ -426,7 +426,7 @@ export default function Settlements() {
                   </div>
                 )}
 
-                <div className="flex justify-between items-center py-1.5">
+                <div className="flex items-start justify-between gap-3 py-1.5">
                   <span className="text-muted-foreground">
                     Leave Deduction ({calculation.finalDeductionDays} days × ₹{calculation.dailySalary.toFixed(2)})
                   </span>
@@ -436,7 +436,7 @@ export default function Settlements() {
                 </div>
 
                 {calculation.absentDeduction > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">
                       Absent Days ({calculation.absentDeductionDays} × ₹{calculation.dailySalary.toFixed(2)})
                     </span>
@@ -455,14 +455,14 @@ export default function Settlements() {
                 </div>
 
                 {calculation.disciplineFine > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">Discipline Fine</span>
                     <span className="text-destructive font-medium">-<Amount value={calculation.disciplineFine} /></span>
                   </div>
                 )}
 
                 {calculation.pfEmployee > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">
                       PF (Employee {calculation.pfRateEmployee}% of ₹{calculation.pfBase.toFixed(0)})
                     </span>
@@ -471,7 +471,7 @@ export default function Settlements() {
                 )}
 
                 {calculation.esiEmployee > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">
                       ESI (Employee {calculation.esiRateEmployee}% of ₹{calculation.esiBase.toFixed(0)})
                     </span>
@@ -480,14 +480,14 @@ export default function Settlements() {
                 )}
 
                 {calculation.ptAmount > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">Professional Tax</span>
                     <span className="text-destructive font-medium">-<Amount value={calculation.ptAmount} /></span>
                   </div>
                 )}
 
                 {calculation.loanEmiTotal > 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="text-muted-foreground">Loan EMI</span>
                     <span className="text-destructive font-medium">-<Amount value={calculation.loanEmiTotal} /></span>
                   </div>
@@ -495,23 +495,23 @@ export default function Settlements() {
 
                 <Separator />
 
-                <div className="flex justify-between items-center py-1.5">
+                <div className="flex items-start justify-between gap-3 py-1.5">
                   <span className="font-medium">Gross Salary</span>
                   <Amount value={calculation.grossSalary} className="font-medium" />
                 </div>
 
                 {calculation.advancesOutstanding > 0 && (
                   <>
-                    <div className="flex justify-between items-center py-1.5 text-sm">
+                    <div className="flex items-start justify-between gap-3 py-1.5 text-sm">
                       <span className="text-muted-foreground">Opening Advance Balance</span>
                       <Amount value={calculation.advancesOutstanding} className="text-warning" />
                     </div>
-                    <div className="flex justify-between items-center py-1.5">
+                    <div className="flex items-start justify-between gap-3 py-1.5">
                       <span className="text-muted-foreground">Advance Adjusted</span>
                       <span className="text-destructive font-medium">-<Amount value={calculation.advanceToAdjust} /></span>
                     </div>
                     {calculation.carryForwardAdvance > 0 && (
-                      <div className="flex justify-between items-center py-1.5 text-sm">
+                      <div className="flex items-start justify-between gap-3 py-1.5 text-sm">
                         <span className="text-muted-foreground">Carry Forward</span>
                         <Amount value={calculation.carryForwardAdvance} className="text-warning" />
                       </div>
@@ -520,7 +520,7 @@ export default function Settlements() {
                 )}
 
                 {calculation.arrears !== 0 && (
-                  <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-start justify-between gap-3 py-1.5">
                     <span className="font-medium">Arrears {calculation.arrears < 0 ? '(recovery)' : '(back-pay)'}</span>
                     <span className={calculation.arrears < 0 ? 'font-medium text-destructive' : 'font-medium text-success'}>
                       {calculation.arrears < 0 ? '-' : '+'}<Amount value={Math.abs(calculation.arrears)} />
@@ -528,7 +528,7 @@ export default function Settlements() {
                   </div>
                 )}
 
-                <div className="flex justify-between items-center py-3 bg-primary/5 rounded-lg px-4 -mx-4">
+                <div className="flex justify-between gap-3 items-center py-3 bg-primary/5 rounded-lg px-4 -mx-4">
                   <span className="font-semibold text-lg">Net Payable</span>
                   <Amount value={calculation.netPayable} size="lg" className="font-bold text-primary" />
                 </div>

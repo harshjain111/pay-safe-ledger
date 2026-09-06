@@ -56,6 +56,74 @@ interface UserWithRole {
   last_sign_in: string | null;
 }
 
+
+// One copy of the row actions, rendered by both the phone card list and the
+// desktop table. Duplicating a DropdownMenu plus an AlertDialog per layout is
+// how the two drift apart.
+function UserActions({ user, deletingId, onDelete, onResetPassword }: {
+  user: UserWithRole;
+  deletingId: string | null;
+  onDelete: (u: UserWithRole) => void;
+  onResetPassword: (u: UserWithRole) => void;
+}) {
+  return (
+    <AlertDialog>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="User actions" className="h-11 w-11 sm:h-8 sm:w-8">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link to={`/users/${user.user_id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit User
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onResetPassword(user)}>
+            <Key className="mr-2 h-4 w-4" />
+            Reset Password
+          </DropdownMenuItem>
+          {user.role !== 'owner' && (
+            <>
+              <DropdownMenuSeparator />
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove Access
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove User Access</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to remove access for{' '}
+            <strong>{user.full_name || 'this user'}</strong>?
+            They will no longer be able to login.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => onDelete(user)}
+            disabled={deletingId === user.id}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {deletingId === user.id ? 'Removing...' : 'Remove'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function UsersList() {
   const { isOwner } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
@@ -209,8 +277,8 @@ export default function UsersList() {
         title="User Management"
         description="Manage user accounts and role assignments"
       >
-        <Link to="/users/new">
-          <Button>
+        <Link to="/users/new" className="block">
+          <Button className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
@@ -244,7 +312,7 @@ export default function UsersList() {
                 variant={loginFilter === key ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setLoginFilter(key)}
-                className="gap-1.5"
+                className="h-11 gap-1.5 sm:h-9"
               >
                 {label}
                 <span className={`rounded-full px-1.5 text-xs ${loginFilter === key ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'}`}>{count}</span>
@@ -273,7 +341,56 @@ export default function UsersList() {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Phone: a card per user. Seven columns cannot be read at 375px,
+                and this page previously had no responsive rule at all — the
+                table simply ran off the side. Same data, stacked. */}
+            <div className="divide-y lg:hidden">
+              {filteredUsers.map((user) => (
+                <div key={user.id} className="flex items-start gap-3 p-3">
+                  <Avatar className="h-9 w-9 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-sm text-primary">
+                      {getInitials(user.full_name || undefined)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate font-medium">{user.full_name || 'Unknown'}</p>
+                      <Badge variant={getRoleBadgeVariant(user.role)}>{getRoleLabel(user.role)}</Badge>
+                    </div>
+                    <p className="truncate text-sm text-muted-foreground">{user.email || '-'}</p>
+                    {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
+                    {user.staff_id ? (
+                      <Link to={`/staff/${user.staff_id}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
+                        <LinkIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{user.staff_name}</span>
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Not linked to a staff record</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {user.last_sign_in ? (
+                        <>
+                          <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                            Logged in
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(user.last_sign_in), 'dd MMM yyyy')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                          Not yet logged in
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <UserActions user={user} deletingId={deletingId} onDelete={handleDelete} onResetPassword={setResetPasswordUser} />
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto lg:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-secondary/50">
@@ -345,66 +462,14 @@ export default function UsersList() {
                         {format(new Date(user.created_at), 'dd MMM yyyy')}
                       </TableCell>
                       <TableCell>
-                        <AlertDialog>
-                          <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="User actions" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link to={`/users/${user.user_id}/edit`}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit User
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setResetPasswordUser(user)}>
-                                <Key className="mr-2 h-4 w-4" />
-                                Reset Password
-                              </DropdownMenuItem>
-                              {user.role !== 'owner' && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Remove Access
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove User Access</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to remove access for{' '}
-                                <strong>{user.full_name || 'this user'}</strong>?
-                                They will no longer be able to login.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(user)}
-                                disabled={deletingId === user.id}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                {deletingId === user.id ? 'Removing...' : 'Remove'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <UserActions user={user} deletingId={deletingId} onDelete={handleDelete} onResetPassword={setResetPasswordUser} />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>

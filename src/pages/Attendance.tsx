@@ -726,10 +726,13 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
         <Table className="min-w-max table-auto">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-[150px] min-w-[150px] whitespace-nowrap">Employee ID</TableHead>
-              <TableHead className="w-[180px] min-w-[180px] whitespace-nowrap">Employee Name</TableHead>
-              <TableHead className="w-[150px] min-w-[150px] whitespace-nowrap">Department</TableHead>
-              <TableHead className="w-[160px] min-w-[160px] whitespace-nowrap">Designation</TableHead>
+              {/* Below lg the four identity columns collapse to one. They cost
+                  640px, so on a 375px phone you had to drag past the width of
+                  the screen twice before reaching a single date. */}
+              <TableHead className="hidden w-[150px] min-w-[150px] whitespace-nowrap lg:table-cell">Employee ID</TableHead>
+              <TableHead className="w-[150px] min-w-[150px] whitespace-nowrap lg:w-[180px] lg:min-w-[180px]">Employee</TableHead>
+              <TableHead className="hidden w-[150px] min-w-[150px] whitespace-nowrap lg:table-cell">Department</TableHead>
+              <TableHead className="hidden w-[160px] min-w-[160px] whitespace-nowrap lg:table-cell">Designation</TableHead>
               {dates.map((d) => (
                 <TableHead key={d} className="w-[110px] min-w-[110px] text-center whitespace-nowrap">
                   <div className="font-semibold">{format(parseISO(d), 'dd-MM-yyyy')}</div>
@@ -743,16 +746,21 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
           <TableBody>
             {visible.map((st) => (
               <TableRow key={st.id} className="align-top">
-                <TableCell className="w-[150px] min-w-[150px] whitespace-nowrap font-medium">
+                <TableCell className="hidden w-[150px] min-w-[150px] whitespace-nowrap font-medium lg:table-cell">
                   {st.employee_id}
                 </TableCell>
-                <TableCell className="w-[180px] min-w-[180px] whitespace-nowrap">
-                  {st.full_name}
+                <TableCell className="w-[150px] min-w-[150px] lg:w-[180px] lg:min-w-[180px] lg:whitespace-nowrap">
+                  <span className="block truncate font-medium lg:font-normal">{st.full_name}</span>
+                  {/* Only below lg — the ID has its own column from lg up. */}
+                  <span className="block truncate text-xs text-muted-foreground lg:hidden">
+                    {st.employee_id}
+                    {st.department ? ` · ${st.department}` : ''}
+                  </span>
                 </TableCell>
-                <TableCell className="w-[150px] min-w-[150px] whitespace-nowrap text-muted-foreground">
+                <TableCell className="hidden w-[150px] min-w-[150px] whitespace-nowrap text-muted-foreground lg:table-cell">
                   {st.department ?? '—'}
                 </TableCell>
-                <TableCell className="w-[160px] min-w-[160px] whitespace-nowrap text-muted-foreground">
+                <TableCell className="hidden w-[160px] min-w-[160px] whitespace-nowrap text-muted-foreground lg:table-cell">
                   {st.designation ?? '—'}
                 </TableCell>
                 {dates.map((d) => {

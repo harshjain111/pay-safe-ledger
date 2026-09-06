@@ -535,14 +535,14 @@ export default function ProcessPayroll() {
           {(draft, setDraft) => (
             <>
               <Select value={draft.outletId} onValueChange={(v) => setDraft({ ...draft, outletId: v })}>
-                <SelectTrigger className="h-9 w-36"><SelectValue placeholder="Outlet" /></SelectTrigger>
+                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-36"><SelectValue placeholder="Outlet" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All outlets</SelectItem>
                   {outlets.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={draft.department} onValueChange={(v) => setDraft({ ...draft, department: v })}>
-                <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Department" /></SelectTrigger>
+                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-40"><SelectValue placeholder="Department" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All departments</SelectItem>
                   {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}

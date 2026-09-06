@@ -166,7 +166,60 @@ export default function LeaveBalance() {
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
-        <div className="rounded-xl border overflow-x-auto bg-card">
+        <>
+        {/* Phone: one card per employee. The table is 6 identity columns plus
+            one per leave type, so its width grows every time a type is added —
+            unbounded by construction, and each sheet cell is a w-20 input. */}
+        <div className="space-y-3 lg:hidden">
+          {filtered.length === 0 ? (
+            <EmptyState icon={Scale} title="No staff" description="No staff to show." />
+          ) : filtered.map((s) => (
+            <div key={s.id} className="rounded-xl border bg-card p-3">
+              <div className="flex items-start gap-2">
+                {view === 'list' && (
+                  <Checkbox
+                    checked={selected.has(s.id)}
+                    onCheckedChange={() => toggle(s.id)}
+                    aria-label={`Select ${s.full_name}`}
+                    className="mt-1"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium leading-tight">{s.full_name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {s.employee_id}
+                    {s.department ? ` · ${s.department}` : ''}
+                    {s.designation ? ` · ${s.designation}` : ''}
+                  </p>
+                </div>
+                <StatusBadge status={statusOf(s)} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 border-t pt-2">
+                {types.map((t) => (
+                  <label key={t.id} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">{t.code}</span>
+                    {view === 'sheet' ? (
+                      <Input
+                        type="number" step="0.5"
+                        value={cellValue(s.id, t.id)}
+                        onChange={(e) => setCell(s.id, t.id, e.target.value)}
+                        className="h-11 w-20 shrink-0 text-center"
+                      />
+                    ) : (
+                      <span className="shrink-0 text-sm tabular-nums">
+                        {balances.has(key(s.id, t.id))
+                          ? Number(balances.get(key(s.id, t.id)))
+                          : <span className="text-xs text-muted-foreground/60">—</span>}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden rounded-xl border overflow-x-auto bg-card lg:block">
           <Table>
             <TableHeader>
               <TableRow className="bg-secondary/60">
@@ -202,6 +255,7 @@ export default function LeaveBalance() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       <Dialog open={modal} onOpenChange={setModal}>

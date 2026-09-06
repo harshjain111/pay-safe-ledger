@@ -76,12 +76,48 @@ export default function ShiftAssignment() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Shift Assignment" description="Recurring weekly shift per employee per weekday.">
-        <Button onClick={save} disabled={saving || dirty.size === 0} className="gap-1.5"><Save className="h-4 w-4" /> Save{dirty.size ? ` (${dirty.size})` : ''}</Button>
+        <Button onClick={save} disabled={saving || dirty.size === 0} className="w-full gap-1.5 sm:w-auto"><Save className="h-4 w-4" /> Save{dirty.size ? ` (${dirty.size})` : ''}</Button>
       </PageHeader>
       <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search staff…" />
 
       {loading ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
-        <div className="rounded-xl border overflow-x-auto bg-card">
+        <>
+        {/* Phone: one card per employee with the seven weekdays stacked. The
+            table is 4 identity columns plus 7 selects at w-28 — about 1,260px,
+            which on a 375px screen means dragging sideways to reach Thursday.
+            A person is assigned one at a time anyway. */}
+        <div className="space-y-3 lg:hidden">
+          {filtered.length === 0 ? (
+            <EmptyState icon={CalendarRange} title="No staff" description="No active staff." />
+          ) : filtered.map((s) => (
+            <div key={s.id} className="rounded-xl border bg-card p-3">
+              <div className="mb-2">
+                <p className="font-medium leading-tight">{s.full_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.employee_id}
+                  {s.department ? ` · ${s.department}` : ''}
+                  {s.designation ? ` · ${s.designation}` : ''}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {WEEKDAYS.map((d, wd) => (
+                  <label key={wd} className="flex items-center gap-2">
+                    <span className="w-9 shrink-0 text-xs font-medium text-muted-foreground">{d}</span>
+                    <Select value={grid.get(key(s.id, wd)) ?? NONE} onValueChange={(v) => setCell(s.id, wd, v)}>
+                      <SelectTrigger className="h-11 min-w-0 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value={NONE}>—</SelectItem>
+                        {shifts.map((sh) => <SelectItem key={sh.id} value={sh.id}>{sh.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden rounded-xl border overflow-x-auto bg-card lg:block">
           <Table>
             <TableHeader>
               <TableRow className="bg-secondary/60">
@@ -114,6 +150,7 @@ export default function ShiftAssignment() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   );

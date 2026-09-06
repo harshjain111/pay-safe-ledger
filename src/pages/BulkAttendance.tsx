@@ -515,28 +515,28 @@ function AttendanceGrid({
           </tr>
           {/* Sub header with searches + day-of-week */}
           <tr>
-            <th className="sticky left-0 z-30 min-w-[110px] border-b border-r bg-background px-2 py-1.5">
+            <th className="hidden min-w-[110px] border-b border-r bg-background px-2 py-1.5 lg:sticky lg:left-0 lg:z-30 lg:table-cell">
               <div className="space-y-1">
                 <div className="text-[11px] font-medium text-muted-foreground">Employee ID</div>
-                <Input value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} placeholder="Filter" className="h-7 text-xs" />
+                <Input value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} placeholder="Filter" className="h-9 text-xs lg:h-7" />
               </div>
             </th>
-            <th className="sticky left-[110px] z-30 min-w-[180px] border-b border-r bg-background px-2 py-1.5">
+            <th className="sticky left-0 z-30 min-w-[140px] border-b border-r bg-background px-2 py-1.5 lg:left-[110px] lg:min-w-[180px]">
               <div className="space-y-1">
                 <div className="text-[11px] font-medium text-muted-foreground">Employee Name</div>
-                <Input value={nameSearch} onChange={(e) => setNameSearch(e.target.value)} placeholder="Filter" className="h-7 text-xs" />
+                <Input value={nameSearch} onChange={(e) => setNameSearch(e.target.value)} placeholder="Filter" className="h-9 text-xs lg:h-7" />
               </div>
             </th>
-            <th className="min-w-[140px] border-b border-r bg-background px-2 py-1.5">
+            <th className="hidden min-w-[140px] border-b border-r bg-background px-2 py-1.5 lg:table-cell">
               <div className="space-y-1">
                 <div className="text-[11px] font-medium text-muted-foreground">Department</div>
-                <Input value={deptSearch} onChange={(e) => setDeptSearch(e.target.value)} placeholder="Filter" className="h-7 text-xs" />
+                <Input value={deptSearch} onChange={(e) => setDeptSearch(e.target.value)} placeholder="Filter" className="h-9 text-xs lg:h-7" />
               </div>
             </th>
-            <th className="min-w-[150px] border-b border-r bg-background px-2 py-1.5">
+            <th className="hidden min-w-[150px] border-b border-r bg-background px-2 py-1.5 lg:table-cell">
               <div className="space-y-1">
                 <div className="text-[11px] font-medium text-muted-foreground">Designation</div>
-                <Input value={desigSearch} onChange={(e) => setDesigSearch(e.target.value)} placeholder="Filter" className="h-7 text-xs" />
+                <Input value={desigSearch} onChange={(e) => setDesigSearch(e.target.value)} placeholder="Filter" className="h-9 text-xs lg:h-7" />
               </div>
             </th>
             {dates.map((d) => (
@@ -549,14 +549,18 @@ function AttendanceGrid({
         <tbody>
           {staff.map((s) => (
             <tr key={s.id} className="hover:bg-muted/30">
-              <td className="sticky left-0 z-10 border-b border-r bg-background px-2 py-1.5 font-mono text-[11px]">
+              <td className="hidden border-b border-r bg-background px-2 py-1.5 font-mono text-[11px] lg:sticky lg:left-0 lg:z-10 lg:table-cell">
                 {s.employee_id || '—'}
               </td>
-              <td className="sticky left-[110px] z-10 border-b border-r bg-background px-2 py-1.5 font-medium">
-                {s.full_name}
+              <td className="sticky left-0 z-10 border-b border-r bg-background px-2 py-1.5 font-medium lg:left-[110px]">
+                <span className="block truncate">{s.full_name}</span>
+                {/* The ID has its own column from lg up. */}
+                <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground lg:hidden">
+                  {s.employee_id || '—'}
+                </span>
               </td>
-              <td className="border-b border-r px-2 py-1.5 text-muted-foreground">{s.department || '—'}</td>
-              <td className="border-b border-r px-2 py-1.5 text-muted-foreground">{s.designation || '—'}</td>
+              <td className="hidden border-b border-r px-2 py-1.5 text-muted-foreground lg:table-cell">{s.department || '—'}</td>
+              <td className="hidden border-b border-r px-2 py-1.5 text-muted-foreground lg:table-cell">{s.designation || '—'}</td>
               {dates.map((d) => {
                 const cell = grid[s.id]?.[d];
                 if (!cell) return <td key={d} className="min-w-[104px] border-b border-r" />;
@@ -609,7 +613,7 @@ function CellSelect({ value, hasLeave, leaveType, onChange }: { value: Code; has
     <Select value={value} onValueChange={(v) => onChange(v as Code)}>
       <SelectTrigger
         className={cn(
-          'h-6 w-[66px] border-transparent bg-transparent px-1 py-0 text-[11px] font-semibold shadow-none hover:border-border focus:ring-1',
+          'h-11 w-[66px] border-transparent bg-transparent px-1 py-0 text-xs font-semibold shadow-none hover:border-border focus:ring-1 lg:h-6 lg:text-[11px]',
           CODE_COLOR[value],
         )}
       >
