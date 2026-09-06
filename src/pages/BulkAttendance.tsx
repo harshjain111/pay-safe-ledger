@@ -414,7 +414,7 @@ export default function BulkAttendance() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-9 w-9"><Info className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" className="h-9 w-9" aria-label="What the codes and cell colours mean"><Info className="h-4 w-4" /></Button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <div className="space-y-1 text-xs">
@@ -438,7 +438,7 @@ export default function BulkAttendance() {
               <Button variant="outline" onClick={resetPending} disabled={pendingCount === 0} className="h-9 gap-1.5">
                 <RotateCcw className="h-4 w-4" /> Reset
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchGrid} disabled={loading}>
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={fetchGrid} disabled={loading} aria-label={loading ? 'Refreshing attendance' : 'Refresh attendance'}>
                 <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
               </Button>
             </div>

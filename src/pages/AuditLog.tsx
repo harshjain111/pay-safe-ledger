@@ -282,6 +282,7 @@ export default function AuditLogPage() {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -325,6 +326,7 @@ export default function AuditLogPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

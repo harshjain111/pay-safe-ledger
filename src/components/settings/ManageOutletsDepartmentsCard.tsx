@@ -122,6 +122,7 @@ function MasterList({
                   onClick={() => toggleActive(row)}
                   disabled={busy?.id === row.id}
                   title={row.is_active ? 'Disable' : 'Enable'}
+                  aria-label={`${row.is_active ? 'Disable' : 'Enable'} ${row.name}`}
                 >
                   {busy?.id === row.id && busy.action === 'toggle' ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
