@@ -18,7 +18,7 @@ import { CalendarClock, Loader2, AlertTriangle } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
 
 export function MyAttendanceLogs() {
-  const { user } = useAuth();
+  const { user, staffData } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [filter, setFilter] = useState<'all' | 'completed' | 'late'>('all');
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -43,10 +43,16 @@ export function MyAttendanceLogs() {
       try {
         const monthStart = startOfMonth(new Date(selectedMonth + '-01'));
         const monthEnd = endOfMonth(new Date(selectedMonth + '-01'));
-        const { data, error } = await supabase
+        // Keyed on staff_id, not the denormalised user_id: device punches are
+        // written against the staff record, and user_id is only a copy of
+        // staff.user_id that nothing guarantees stays in step if the account
+        // is ever re-linked. Falls back to user_id for a signed-in user with
+        // no staff record of their own.
+        let q = supabase
           .from('attendance_sessions' as never)
-          .select('*')
-          .eq('user_id', user!.id)
+          .select('*');
+        q = staffData?.id ? q.eq('staff_id', staffData.id) : q.eq('user_id', user!.id);
+        const { data, error } = await q
           .gte('work_date', format(monthStart, 'yyyy-MM-dd'))
           .lte('work_date', format(monthEnd, 'yyyy-MM-dd'))
           .order('check_in_at', { ascending: false });
@@ -62,7 +68,7 @@ export function MyAttendanceLogs() {
     return () => {
       cancelled = true;
     };
-  }, [user, selectedMonth]);
+  }, [user, staffData?.id, selectedMonth]);
 
   const filtered = useMemo(() => {
     if (filter === 'completed') return sessions.filter((s) => s.status === 'completed');

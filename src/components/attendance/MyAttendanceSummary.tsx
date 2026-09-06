@@ -48,10 +48,15 @@ export function MyAttendanceSummary() {
         const fromStr = format(monthStart, 'yyyy-MM-dd');
         const toStr = format(monthEnd, 'yyyy-MM-dd');
 
-        const sessionsPromise = supabase
+        // See MyAttendanceLogs: staff_id is the key device punches carry.
+        // 85% of sessions had a NULL user_id, so this tab was counting only
+        // app check-ins and reporting far fewer present days than reality.
+        const sessionsBase = supabase
           .from('attendance_sessions' as never)
-          .select('*')
-          .eq('user_id', user!.id)
+          .select('*');
+        const sessionsPromise = (staffData?.id
+          ? sessionsBase.eq('staff_id', staffData.id)
+          : sessionsBase.eq('user_id', user!.id))
           .gte('work_date', fromStr)
           .lte('work_date', toStr)
           .order('check_in_at', { ascending: false });
