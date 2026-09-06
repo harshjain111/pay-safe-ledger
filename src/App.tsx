@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,51 +8,52 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "next-themes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
+import { lazyRoute, clearChunkReloadGuard } from "@/lib/lazy-route";
 
 // Pages (lazy-loaded so each route is a separate chunk)
-const Index = lazy(() => import("./pages/Index"));
-const Auth = lazy(() => import("./pages/Auth"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const StaffList = lazy(() => import("./pages/StaffList"));
-const StaffForm = lazy(() => import("./pages/StaffForm"));
-const StaffDetails = lazy(() => import("./pages/StaffDetails"));
-const UsersList = lazy(() => import("./pages/UsersList"));
-const UserForm = lazy(() => import("./pages/UserForm"));
-const Ledger = lazy(() => import("./pages/Ledger"));
-const Requests = lazy(() => import("./pages/Requests"));
-const Grievance = lazy(() => import("./pages/Grievance"));
-const Grievances = lazy(() => import("./pages/Grievances"));
-const Approvals = lazy(() => import("./pages/Approvals"));
-const LoginResets = lazy(() => import("./pages/LoginResets"));
-const NewRequest = lazy(() => import("./pages/NewRequest"));
-const Settlements = lazy(() => import("./pages/Settlements"));
-const ProcessPayroll = lazy(() => import("./pages/ProcessPayroll"));
-const FinalizedPayroll = lazy(() => import("./pages/FinalizedPayroll"));
-const AdvancesPage = lazy(() => import("./pages/AdvancesPage"));
-const TransactionLog = lazy(() => import("./pages/TransactionLog"));
-const SalaryIncrements = lazy(() => import("./pages/SalaryIncrements"));
-const MySalarySlips = lazy(() => import("./pages/MySalarySlips"));
-const SalarySlips = lazy(() => import("./pages/SalarySlips"));
-const Payouts = lazy(() => import("./pages/Payouts"));
-const Reports = lazy(() => import("./pages/Reports"));
-const AuditLog = lazy(() => import("./pages/AuditLog"));
-const Settings = lazy(() => import("./pages/Settings"));
-const LeaveRecords = lazy(() => import("./pages/LeaveRecords"));
-const LeaveApprovals = lazy(() => import("./pages/LeaveApprovals"));
-const RightsTemplates = lazy(() => import("./pages/RightsTemplates"));
-const BulkAttendance = lazy(() => import("./pages/BulkAttendance"));
-const Arrears = lazy(() => import("./pages/Arrears"));
-const LeaveTypes = lazy(() => import("./pages/LeaveTypes"));
-const LeaveAssign = lazy(() => import("./pages/LeaveAssign"));
-const LeaveBalance = lazy(() => import("./pages/LeaveBalance"));
-const Attendance = lazy(() => import("./pages/Attendance"));
-const MyAttendance = lazy(() => import("./pages/MyAttendance"));
-const Shifts = lazy(() => import("./pages/Shifts"));
-const WeekOff = lazy(() => import("./pages/WeekOff"));
-const BiometricEnrolment = lazy(() => import("./pages/BiometricEnrolment"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const PatternsDemo = lazy(() => import("./pages/PatternsDemo"));
+const Index = lazyRoute(() => import("./pages/Index"));
+const Auth = lazyRoute(() => import("./pages/Auth"));
+const Onboarding = lazyRoute(() => import("./pages/Onboarding"));
+const Dashboard = lazyRoute(() => import("./pages/Dashboard"));
+const StaffList = lazyRoute(() => import("./pages/StaffList"));
+const StaffForm = lazyRoute(() => import("./pages/StaffForm"));
+const StaffDetails = lazyRoute(() => import("./pages/StaffDetails"));
+const UsersList = lazyRoute(() => import("./pages/UsersList"));
+const UserForm = lazyRoute(() => import("./pages/UserForm"));
+const Ledger = lazyRoute(() => import("./pages/Ledger"));
+const Requests = lazyRoute(() => import("./pages/Requests"));
+const Grievance = lazyRoute(() => import("./pages/Grievance"));
+const Grievances = lazyRoute(() => import("./pages/Grievances"));
+const Approvals = lazyRoute(() => import("./pages/Approvals"));
+const LoginResets = lazyRoute(() => import("./pages/LoginResets"));
+const NewRequest = lazyRoute(() => import("./pages/NewRequest"));
+const Settlements = lazyRoute(() => import("./pages/Settlements"));
+const ProcessPayroll = lazyRoute(() => import("./pages/ProcessPayroll"));
+const FinalizedPayroll = lazyRoute(() => import("./pages/FinalizedPayroll"));
+const AdvancesPage = lazyRoute(() => import("./pages/AdvancesPage"));
+const TransactionLog = lazyRoute(() => import("./pages/TransactionLog"));
+const SalaryIncrements = lazyRoute(() => import("./pages/SalaryIncrements"));
+const MySalarySlips = lazyRoute(() => import("./pages/MySalarySlips"));
+const SalarySlips = lazyRoute(() => import("./pages/SalarySlips"));
+const Payouts = lazyRoute(() => import("./pages/Payouts"));
+const Reports = lazyRoute(() => import("./pages/Reports"));
+const AuditLog = lazyRoute(() => import("./pages/AuditLog"));
+const Settings = lazyRoute(() => import("./pages/Settings"));
+const LeaveRecords = lazyRoute(() => import("./pages/LeaveRecords"));
+const LeaveApprovals = lazyRoute(() => import("./pages/LeaveApprovals"));
+const RightsTemplates = lazyRoute(() => import("./pages/RightsTemplates"));
+const BulkAttendance = lazyRoute(() => import("./pages/BulkAttendance"));
+const Arrears = lazyRoute(() => import("./pages/Arrears"));
+const LeaveTypes = lazyRoute(() => import("./pages/LeaveTypes"));
+const LeaveAssign = lazyRoute(() => import("./pages/LeaveAssign"));
+const LeaveBalance = lazyRoute(() => import("./pages/LeaveBalance"));
+const Attendance = lazyRoute(() => import("./pages/Attendance"));
+const MyAttendance = lazyRoute(() => import("./pages/MyAttendance"));
+const Shifts = lazyRoute(() => import("./pages/Shifts"));
+const WeekOff = lazyRoute(() => import("./pages/WeekOff"));
+const BiometricEnrolment = lazyRoute(() => import("./pages/BiometricEnrolment"));
+const NotFound = lazyRoute(() => import("./pages/NotFound"));
+const PatternsDemo = lazyRoute(() => import("./pages/PatternsDemo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,6 +123,10 @@ function PageFallback() {
 
 // App routes
 function AppRoutes() {
+  // A route rendered means the current chunks load, so a tab that reloaded
+  // itself past one deploy is free to do the same for the next one.
+  useEffect(() => { clearChunkReloadGuard(); }, []);
+
   return (
     <Suspense fallback={<PageFallback />}>
     <Routes>

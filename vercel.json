@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "//": "SPA fallback for real routes, but NOT for /assets. It used to be /(.*): Vercel checks the filesystem first, so an asset that exists is served directly, but a hashed chunk from a previous build no longer exists and fell through to this rule, coming back 200 with index.html. The browser will not run HTML as a module, so every lazy route threw 'Failed to fetch dynamically imported module' and the user hit the error boundary on a page that was fine. Excluding /assets makes a stale chunk 404 honestly, which is what src/lib/lazy-route.ts recovers from.",
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
