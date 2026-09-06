@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AmountInput } from '@/components/ui/amount';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, UserX } from 'lucide-react';
+import { EmptyState } from '@/components/patterns';
 import { toast } from '@/lib/toast';
 import { z } from 'zod';
 import type { StaffPublic } from '@/types/database';
@@ -37,12 +38,22 @@ export default function NewRequest() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingStaff, setIsFetchingStaff] = useState(true);
 
-  // Staff creating for themselves
-  // Accountant in personal mode also creates for themselves
-  const isPersonalRequest = isStaff || (isAccountant && !accountingMode);
-  
-  // Admin, Owner, Accountant (in accounting mode) can create for any staff
+  // Admin, Owner, Accountant (in accounting mode) can create for any staff.
   const canRequestForOthers = isOwner || isAdmin || (isAccountant && accountingMode);
+
+  // Everyone else who is linked to a staff record requests for themselves.
+  // This used to be `isStaff || (isAccountant && !accountingMode)`, which left
+  // hr and manager in neither branch: no staff selector AND no personal
+  // panel, so selectedStaff stayed '' and every submit failed validation with
+  // "Please select a staff member" and no way to satisfy it. HR and managers
+  // are employees too — this grants nobody authority over anyone else, it
+  // just lets them raise their own request.
+  const isPersonalRequest = !canRequestForOthers && !!staffData?.id;
+
+  // Linked to no staff record and not allowed to pick one: there is no valid
+  // request this person can make, so say so rather than render a form that
+  // cannot be submitted.
+  const cannotRequest = !canRequestForOthers && !staffData?.id;
 
   useEffect(() => {
     if (isPersonalRequest && staffData?.id) {
@@ -150,6 +161,13 @@ export default function NewRequest() {
         </Button>
       </PageHeader>
 
+      {cannotRequest ? (
+        <EmptyState
+          icon={UserX}
+          title="No employee profile"
+          instruction="A payment request is raised against a staff record, and your account is not linked to one. Ask HR to link it, and this page will work."
+        />
+      ) : (
       <Card className="max-w-2xl">
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-base sm:text-lg">Request Details</CardTitle>
@@ -166,9 +184,11 @@ export default function NewRequest() {
             {canRequestForOthers && (
               <div className="space-y-2">
                 <Label htmlFor="staff" className="text-sm">Staff Member *</Label>
-                <Select value={selectedStaff || undefined} onValueChange={setSelectedStaff}>
+                <Select value={selectedStaff || undefined} onValueChange={setSelectedStaff} disabled={isFetchingStaff}>
                   <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Select staff member" />
+                    {/* isFetchingStaff was set in three places and read in
+                        none, so the selector looked empty rather than busy. */}
+                    <SelectValue placeholder={isFetchingStaff ? 'Loading staff…' : 'Select staff member'} />
                   </SelectTrigger>
                   <SelectContent>
                     {staffList.map((s) => (
@@ -242,6 +262,7 @@ export default function NewRequest() {
           </form>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

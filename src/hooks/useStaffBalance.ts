@@ -96,6 +96,13 @@ export function useStaffBalance(staffId: string | null | undefined): StaffBalanc
     refetchOnWindowFocus: true,
   });
 
+  // The staff dashboard used to print this message into the employee's own
+  // Advance card. It no longer does, so log it here — otherwise removing it
+  // from the UI would also remove the only trace of the failure.
+  useEffect(() => {
+    if (error) console.error('Staff balance load failed:', error);
+  }, [error]);
+
   return {
     ...(data ?? EMPTY_BALANCE),
     isLoading,

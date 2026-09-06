@@ -19,6 +19,7 @@ const translations: Partial<Record<Language, Record<string, string>>> = {
     'tap_to_view': 'Tap to view',
     'hidden': 'Hidden',
     'no_pending': 'No pending advance',
+    'balance_unavailable': 'Balance unavailable right now',
     
     // Action buttons
     'request_advance': 'Request Advance',
@@ -94,6 +95,7 @@ const translations: Partial<Record<Language, Record<string, string>>> = {
     'tap_to_view': 'देखने के लिए टैप करें',
     'hidden': 'छुपा हुआ',
     'no_pending': 'कोई बाकी एडवांस नहीं',
+    'balance_unavailable': 'बैलेंस अभी उपलब्ध नहीं है',
     
     // Action buttons
     'request_advance': 'एडवांस मांगें',
@@ -169,6 +171,7 @@ const translations: Partial<Record<Language, Record<string, string>>> = {
     'tap_to_view': 'চাবলৈ টেপ কৰক',
     'hidden': 'লুকুৱা',
     'no_pending': 'কোনো বাকী এডভান্স নাই',
+    'balance_unavailable': 'বেলেঞ্চ এতিয়া পোৱা নাযায়',
     
     // Action buttons
     'request_advance': 'এডভান্স বিচাৰক',

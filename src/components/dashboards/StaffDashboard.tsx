@@ -266,9 +266,14 @@ export function StaffDashboard() {
               ) : (
                 <p className="text-sm text-muted-foreground">{t('no_pending')}</p>
               )}
-              {/* Debug: Show if there's a balance mismatch */}
+              {/* A failed balance read used to render the raw Postgres error
+                  here, under a "Debug" comment, in the employee's own app.
+                  They cannot act on that text and it should never have been
+                  visible; the console keeps the detail for whoever can. */}
               {balanceData.error && (
-                <p className="text-xs text-destructive mt-1">{balanceData.error}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('balance_unavailable')}
+                </p>
               )}
             </CardContent>
           </Card>

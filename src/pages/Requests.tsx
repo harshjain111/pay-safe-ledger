@@ -167,9 +167,12 @@ export default function Requests() {
   // Owner and Admin can approve - Accountant CANNOT approve
   const canApprove = canApproveRequests;
   
-  // Staff, Accountant, and Admin can create requests
-  // Owner can also create but usually doesn't need to
-  const canCreateRequest = isStaff || isAccountant || isAdmin || isOwner;
+  // Anyone linked to a staff record can raise a request for themselves, plus
+  // the roles that can raise one on someone else's behalf. The old list —
+  // isStaff || isAccountant || isAdmin || isOwner — hid the button from hr
+  // and manager, who are employees with advances of their own; the page they
+  // were sent to was broken for them too (see NewRequest.tsx).
+  const canCreateRequest = isOwner || isAdmin || isAccountant || !!staffData?.id;
   const [loginResetOpen, setLoginResetOpen] = useState(false);
 
   return (

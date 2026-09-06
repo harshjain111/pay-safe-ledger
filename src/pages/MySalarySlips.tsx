@@ -28,6 +28,10 @@ export default function MySalarySlips() {
   const [rows, setRows] = useState<SettlementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+  // Set when the read failed outright, or when the lock table could not be
+  // read and the list is therefore known to be missing finalized months.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [locksUnavailable, setLocksUnavailable] = useState(false);
 
   const staff = staffData as unknown as (PayslipStaff & { id?: string }) | null;
 
@@ -36,22 +40,46 @@ export default function MySalarySlips() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [setRes, lockRes] = await Promise.all([
-        supabase
-          .from('salary_settlements')
-          .select('*')
-          .eq('staff_id', staff.id)
-          .order('settlement_month', { ascending: false }),
-        supabase.from('salary_sheet_locks' as never).select('month'),
-      ]);
+      setLoadError(null);
+      setLocksUnavailable(false);
+
+      const setRes = await supabase
+        .from('salary_settlements')
+        .select('*')
+        .eq('staff_id', staff.id)
+        .order('settlement_month', { ascending: false });
       if (cancelled) return;
-      if (setRes.error) toast.error('Could not load your salary slips');
-      const lockedMonths = new Set((((lockRes.data ?? []) as unknown) as { month: string }[]).map((l) => l.month));
-      // FINALIZED ONLY: the month's sheet is locked, or the slip is paid.
-      const finalised = ((setRes.data ?? []) as unknown as SettlementRow[]).filter(
-        (r) => lockedMonths.has(r.settlement_month) || !!r.paid_at,
+
+      if (setRes.error) {
+        // Do not fall through to "No salary slips yet" — that tells the
+        // employee they have never been paid, which is a different and
+        // alarming statement from "this did not load".
+        setLoadError('Your salary slips could not be loaded.');
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const settlements = (setRes.data ?? []) as unknown as SettlementRow[];
+      const months = [...new Set(settlements.map((r) => r.settlement_month))];
+
+      // Only the months this employee actually has, rather than every lock
+      // row in the organisation.
+      const lockRes = months.length
+        ? await supabase.from('salary_sheet_locks' as never).select('month').in('month', months)
+        : { data: [] as unknown, error: null };
+      if (cancelled) return;
+
+      // A month shows once it is FINALIZED: its sheet is locked, or it is
+      // paid. If the lock table cannot be read we still refuse to show
+      // unlocked months — an employee must never see a draft slip — but we
+      // say so, because silently hiding a finalized month reads to them as
+      // "HR never ran my payroll".
+      if (lockRes.error) setLocksUnavailable(true);
+      const lockedMonths = new Set(
+        (((lockRes.data ?? []) as unknown) as { month: string }[]).map((l) => l.month),
       );
-      setRows(finalised);
+      setRows(settlements.filter((r) => lockedMonths.has(r.settlement_month) || !!r.paid_at));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -96,8 +124,18 @@ export default function MySalarySlips() {
       </Card>
 
       {/* Slips */}
+      {locksUnavailable && (
+        <InlineNote className="bg-warning/10 text-warning">
+          Some finalized months may be missing from this list — we could not
+          check which payroll months are closed. Refresh in a moment, or ask HR
+          if a slip you expect is not here.
+        </InlineNote>
+      )}
+
       {!staff?.id ? (
         <EmptyState icon={FileText} title="No employee profile" instruction="Salary slips are available to employees linked to a staff record — ask HR to link yours." />
+      ) : loadError ? (
+        <EmptyState icon={FileText} title="Couldn't load your salary slips" instruction={`${loadError} Check your connection and refresh the page.`} />
       ) : loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : rows.length === 0 ? (
