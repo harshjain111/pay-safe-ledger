@@ -1303,6 +1303,7 @@ export type Database = {
           leave_type_id: string | null
           rejection_reason: string | null
           remarks: string | null
+          request_group_id: string | null
           staff_id: string
           status: Database["public"]["Enums"]["leave_status"]
           updated_at: string
@@ -1321,6 +1322,7 @@ export type Database = {
           leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
+          request_group_id?: string | null
           staff_id: string
           status?: Database["public"]["Enums"]["leave_status"]
           updated_at?: string
@@ -1339,6 +1341,7 @@ export type Database = {
           leave_type_id?: string | null
           rejection_reason?: string | null
           remarks?: string | null
+          request_group_id?: string | null
           staff_id?: string
           status?: Database["public"]["Enums"]["leave_status"]
           updated_at?: string

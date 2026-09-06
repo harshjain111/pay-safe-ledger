@@ -789,7 +789,10 @@ function AppHeader() {
             <DropdownMenuContent align="end" className="w-48 rounded-lg">
               <DropdownMenuLabel className="text-xs">My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="rounded-md text-sm cursor-pointer">
+              {/* Had no onClick at all — a menu item every user could see and
+                  click that did nothing. There is no separate profile page;
+                  the profile lives in Settings → My Account, so point at it. */}
+              <DropdownMenuItem className="rounded-md text-sm cursor-pointer" onClick={() => navigate('/settings/account')}>
                 <User className="mr-2 h-3.5 w-3.5" />
                 Profile
               </DropdownMenuItem>

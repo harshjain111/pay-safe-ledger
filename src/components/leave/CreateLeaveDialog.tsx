@@ -160,6 +160,10 @@ export function CreateLeaveDialog({
         .lte('leave_date', toStr);
       const taken = new Set((existing ?? []).map((r) => (r as { leave_date: string }).leave_date));
 
+      // One id for the whole submission, so the approver sees "3 days" and
+      // decides once instead of meeting the same request three times.
+      const requestGroupId = crypto.randomUUID();
+
       const rows = days
         .map((d) => format(d, 'yyyy-MM-dd'))
         .filter((d) => !taken.has(d))
@@ -174,6 +178,7 @@ export function CreateLeaveDialog({
                 status: 'pending' as const,
                 remarks: remarks || undefined,
                 created_by: user?.id,
+                request_group_id: requestGroupId,
               }
             : {
                 staff_id: targetStaffId,
@@ -187,6 +192,7 @@ export function CreateLeaveDialog({
                 created_by: user?.id,
                 approved_by: user?.id,
                 approved_at: new Date().toISOString(),
+                request_group_id: requestGroupId,
               },
         );
 

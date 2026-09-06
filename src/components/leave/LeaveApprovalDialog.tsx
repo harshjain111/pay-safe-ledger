@@ -35,6 +35,15 @@ interface LeaveApprovalDialogProps {
   onOpenChange: (open: boolean) => void;
   leaveRecord: LeaveRecord | null;
   onSuccess: () => void;
+  /**
+   * Every row of the request being decided. A range picked in the staff app
+   * becomes one leave_records row per day; they share a request_group_id and
+   * are one decision, so the whole set is written together. Omit for a single
+   * standalone row — the default is just leaveRecord itself.
+   */
+  groupIds?: string[];
+  /** Human label for the range, e.g. "12 – 16 Aug 2026". Defaults to the one date. */
+  groupLabel?: string;
 }
 
 export function LeaveApprovalDialog({
@@ -42,6 +51,8 @@ export function LeaveApprovalDialog({
   onOpenChange,
   leaveRecord,
   onSuccess,
+  groupIds,
+  groupLabel,
 }: LeaveApprovalDialogProps) {
   const { user } = useAuth();
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeRow[]>([]);
@@ -57,6 +68,11 @@ export function LeaveApprovalDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedType = leaveTypes.find((t) => t.id === selectedTypeId) ?? null;
+
+  // The rows this decision writes. Falls back to the single record so every
+  // existing caller keeps working unchanged.
+  const targetIds = groupIds?.length ? groupIds : leaveRecord ? [leaveRecord.id] : [];
+  const dayCount = targetIds.length;
 
   useEffect(() => {
     if (!open) return;
@@ -118,11 +134,11 @@ export function LeaveApprovalDialog({
           approved_by: user?.id,
           approved_at: new Date().toISOString(),
         })
-        .eq('id', leaveRecord.id);
+        .in('id', targetIds);
 
       if (error) throw error;
 
-      const dateStr = format(new Date(leaveRecord.leave_date), 'dd MMM yyyy');
+      const dateStr = groupLabel ?? format(new Date(leaveRecord.leave_date), 'dd MMM yyyy');
       if (leaveRecord.staff?.user_id) {
         NotificationEvents.leaveApproved(
           leaveRecord.staff.user_id,
@@ -132,7 +148,12 @@ export function LeaveApprovalDialog({
         );
       }
 
-      toast({ title: 'Leave Approved', description: `Leave record for ${dateStr} has been approved.` });
+      toast({
+        title: 'Leave Approved',
+        description: dayCount > 1
+          ? `${dayCount} days approved — ${dateStr}.`
+          : `Leave record for ${dateStr} has been approved.`,
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -159,12 +180,12 @@ export function LeaveApprovalDialog({
           approved_by: user?.id,
           approved_at: new Date().toISOString(),
         })
-        .eq('id', leaveRecord.id);
+        .in('id', targetIds);
 
       if (error) throw error;
 
       if (leaveRecord.staff?.user_id) {
-        const dateStr = format(new Date(leaveRecord.leave_date), 'dd MMM yyyy');
+        const dateStr = groupLabel ?? format(new Date(leaveRecord.leave_date), 'dd MMM yyyy');
         NotificationEvents.leaveRejected(
           leaveRecord.staff.user_id,
           leaveRecord.staff.full_name || 'Staff',
@@ -191,7 +212,10 @@ export function LeaveApprovalDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Review Leave Request</DialogTitle>
-          <DialogDescription>Pick the leave type — it decides the salary effect shown below.</DialogDescription>
+          <DialogDescription>
+            Pick the leave type — it decides the salary effect shown below.
+            {dayCount > 1 && ' Your choice applies to every day of this request.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -203,7 +227,16 @@ export function LeaveApprovalDialog({
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>{format(new Date(leaveRecord.leave_date), 'EEEE, dd MMMM yyyy')}</span>
+              {/* A range shows as the range, not as whichever day happens to
+                  be first — the approver is deciding all of them at once. */}
+              <span>
+                {dayCount > 1 && groupLabel
+                  ? groupLabel
+                  : format(new Date(leaveRecord.leave_date), 'EEEE, dd MMMM yyyy')}
+              </span>
+              {dayCount > 1 && (
+                <Badge variant="secondary" className="ml-auto">{dayCount} days</Badge>
+              )}
             </div>
             {leaveRecord.remarks && (
               <div className="text-sm text-muted-foreground pt-2 border-t">

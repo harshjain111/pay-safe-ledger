@@ -18,6 +18,8 @@
    approved_by?: string;
    approved_at?: string;
    is_immutable: boolean;
+   /** Rows submitted together as one request. Null/absent = a standalone day. */
+   request_group_id?: string | null;
    created_at: string;
    updated_at: string;
     staff?: {

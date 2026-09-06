@@ -29,14 +29,17 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+// One source, so no discriminator. `type: 'advance'` was hardcoded on every
+// row — a leftover from when this list merged advances with something else.
 type RecentItem = {
   id: string;
-  type: 'advance';
   amount: number;
   status: string;
   created_at: string;
   description?: string;
 };
+
+const RECENT_LIMIT = 5;
 
 export function StaffDashboard() {
   const navigate = useNavigate();
@@ -55,31 +58,31 @@ export function StaffDashboard() {
   const [showLeaveForm, setShowLeaveForm] = useState(false);
 
   const fetchRecentItems = useCallback(async () => {
-    if (!staffData?.id) return;
+    // Clear the flag before returning: this used to bail ahead of the
+    // `finally`, so a session with a staff record but no id left the
+    // skeleton spinning forever with nothing on its way.
+    if (!staffData?.id) { setIsLoadingRecent(false); return; }
 
     try {
-      // Fetch recent payment requests
+      // payout_type was selected and never read; the query is already ordered
+      // by created_at, so the client-side re-sort was doing nothing; and the
+      // .slice(0, 6) could never trim a list the database capped at 5.
       const { data: requests } = await supabase
         .from('payment_requests')
-        .select('id, amount, status, created_at, reason, payout_type, paid_at')
+        .select('id, amount, status, created_at, reason, paid_at')
         .eq('staff_id', staffData.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(RECENT_LIMIT);
 
-      // Combine and sort
-      const combined: RecentItem[] = (requests || [])
-        .map((r) => ({
+      setRecentItems(
+        (requests || []).map((r) => ({
           id: r.id,
-          type: 'advance' as const,
           amount: r.amount,
           status: r.paid_at ? 'paid' : r.status,
           created_at: r.created_at,
           description: r.reason,
-        }))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 6);
-
-      setRecentItems(combined);
+        })),
+      );
     } catch (error) {
       console.error('Error fetching recent items:', error);
     } finally {
@@ -87,11 +90,9 @@ export function StaffDashboard() {
     }
   }, [staffData?.id]);
 
-  useEffect(() => {
-    if (staffData?.id) {
-      fetchRecentItems();
-    }
-  }, [fetchRecentItems, staffData?.id]);
+  // Unconditional: fetchRecentItems handles the no-id case itself, and
+  // guarding here as well is what left the flag stuck.
+  useEffect(() => { void fetchRecentItems(); }, [fetchRecentItems]);
 
   const handleFormSuccess = () => {
     // Refetch recent items - balance will auto-update via useStaffBalance

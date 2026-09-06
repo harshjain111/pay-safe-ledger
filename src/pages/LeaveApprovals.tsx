@@ -10,6 +10,7 @@ import { ScopeFilters, scopeMatches, EMPTY_SCOPE, type StaffScope } from '@/comp
 import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
 import { StatusTabs, DEFAULT_STATUS_TABS } from '@/components/ui/status-tabs';
 import type { LeaveRecord, LeaveStatus } from '@/types/leave';
+import { groupLeaveRequests, type LeaveRequestGroup } from '@/lib/leave-requests';
 
 // ---------------------------------------------------------------------------
 // Approve Leave — the queue for leave the staff app raised.
@@ -26,7 +27,7 @@ import type { LeaveRecord, LeaveStatus } from '@/types/leave';
 // reports, an owner's returns everyone.
 // ---------------------------------------------------------------------------
 
-interface Row extends LeaveRecord {
+interface Row extends LeaveRequestGroup {
   staffName: string;
   employeeCode: string;
 }
@@ -37,7 +38,7 @@ export default function LeaveApprovals() {
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<StaffScope>(EMPTY_SCOPE);
   const [status, setStatus] = useState<LeaveStatus | 'all'>('pending');
-  const [selected, setSelected] = useState<LeaveRecord | null>(null);
+  const [selected, setSelected] = useState<Row | null>(null);
 
   const canApprove = isOwner || can('leave.approve');
 
@@ -58,7 +59,7 @@ export default function LeaveApprovals() {
         return true;
       });
 
-      setRows(all.map((r) => ({
+      setRows(groupLeaveRequests(all).map((r) => ({
         ...r,
         staffName: r.staff?.full_name ?? 'Unknown',
         employeeCode: r.staff?.employee_id ?? '—',
@@ -85,6 +86,7 @@ export default function LeaveApprovals() {
     [rows],
   );
 
+  // Requests, not days: five days from one person is one thing to decide.
   const pendingCount = rows.filter((r) => r.status === 'pending').length;
 
   const statusBadge = (s: LeaveStatus) =>
@@ -102,7 +104,17 @@ export default function LeaveApprovals() {
         </div>
       ),
     },
-    { key: 'date', header: 'Leave Date', render: (r) => format(parseISO(r.leave_date), 'dd MMM yyyy') },
+    {
+      key: 'date', header: 'Leave Dates',
+      render: (r) => (
+        <span className="whitespace-nowrap">
+          {r.dateLabel}
+          {r.ids.length > 1 && (
+            <span className="ml-1.5 text-xs text-muted-foreground">({r.ids.length} days)</span>
+          )}
+        </span>
+      ),
+    },
     { key: 'reason', header: 'Reason', render: (r) => r.remarks || '—' },
     { key: 'status', header: 'Status', align: 'center', render: (r) => statusBadge(r.status) },
     {
@@ -167,7 +179,7 @@ export default function LeaveApprovals() {
         <DataTable<Row>
           rows={visible}
           columns={columns}
-          rowKey={(r) => r.id}
+          rowKey={(r) => r.ids.join(',')}
         />
       )}
 
@@ -175,6 +187,8 @@ export default function LeaveApprovals() {
         open={!!selected}
         onOpenChange={(o) => { if (!o) setSelected(null); }}
         leaveRecord={selected}
+        groupIds={selected?.ids}
+        groupLabel={selected?.dateLabel}
         onSuccess={() => { setSelected(null); void load(); }}
       />
     </div>
