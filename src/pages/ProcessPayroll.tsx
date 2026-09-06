@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Progress } from '@/components/ui/progress';
 import {
   PageHeader, FilterBar, DateRangeField, ActionsMenu, DataTable, Drawer,
-  ConfigurableHeader, RowMenu, EmptyState, InlineNote,
+  ConfigurableHeader, RowMenu, EmptyState, InlineNote, BlockedButton,
   type DataTableColumn, type DateRange,
 } from '@/components/patterns';
 import { PayrollDataIntegrityBanner } from '@/components/payroll/PayrollDataIntegrityBanner';
@@ -475,8 +475,20 @@ export default function ProcessPayroll() {
 
   const stillComputing = loadingGrid || rows.some((r) => r.status === 'pending' && !r.calc && !r.error);
 
+  // Why Finalize cannot be pressed, in the order the user should hear it: a
+  // locked sheet is a decision someone made, still-computing is temporary, and
+  // nothing selected is the one they can fix immediately.
+  const finalizeBlockedReason =
+    lock
+      ? monthLabel + " is finalized and locked. De-finalize it from Finalized Payroll to make changes."
+      : stillComputing
+        ? 'Still working out this month’s pay. The button turns on when every row has a figure.'
+        : selectedRows.length === 0
+          ? 'Tick the rows you want to finalize first.'
+          : null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Process Payroll"
         count={applied ? rows.length : undefined}
@@ -496,13 +508,13 @@ export default function ProcessPayroll() {
             <ActionsMenu
               exportConfig={{ filename: `payroll-${month ?? 'period'}`, title: `Process Payroll — ${monthLabel}`, columns: exportColumns, rows }}
             />
-            <Button
-              disabled={selectedRows.length === 0 || !!lock || stillComputing}
+            <BlockedButton
+              blockedReason={finalizeBlockedReason}
               onClick={runFinalize}
               className="gap-1.5"
             >
               <Calculator className="h-4 w-4" /> Finalize {selectedRows.length > 0 ? selectedRows.length : ''} Selected
-            </Button>
+            </BlockedButton>
           </>
         }
       />

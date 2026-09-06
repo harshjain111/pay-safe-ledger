@@ -61,7 +61,7 @@ function PermissionGrid({
     onChange(next);
   };
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 sm:space-y-6">
       {PERMISSION_MODULES.map((m) => {
         const keys = m.permissions.map((p) => p.key);
         const allOn = keys.every((k) => value.has(k));

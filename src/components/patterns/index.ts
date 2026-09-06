@@ -17,3 +17,4 @@ export { EmptyState } from './EmptyState';
 export { InlineNote } from './InlineNote';
 export { ColumnChooser, useColumnPrefs, type ChooserColumn } from './ColumnChooser';
 export { ConfirmDestructive } from './ConfirmDestructive';
+export { BlockedButton } from './BlockedButton';

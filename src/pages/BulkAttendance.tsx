@@ -375,7 +375,7 @@ export default function BulkAttendance() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Bulk Attendance Adjustments" description="Edit attendance for many staff across a date range. Changes highlight until you save." />
 
       {/* Toolbar */}
