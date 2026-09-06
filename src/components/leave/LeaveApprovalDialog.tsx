@@ -277,13 +277,13 @@ export function LeaveApprovalDialog({
 
             {/* The two things that make an override legitimate — or a mistake. */}
             {selectedType && deductionDays !== selectedType.default_deduction && (
-              <p className="text-xs text-amber-600 dark:text-amber-500">
+              <p className="text-xs text-warning">
                 {selectedType.name} normally deducts {selectedType.default_deduction}d.
                 You are approving it with {deductionDays}d.
               </p>
             )}
             {balance !== null && (
-              <p className={`text-xs ${balance <= 0 ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'}`}>
+              <p className={`text-xs ${balance <= 0 ? 'text-warning' : 'text-muted-foreground'}`}>
                 {balance <= 0
                   ? `No ${selectedType?.name} balance left (${balance}d) — approving this as paid gives a day they have not earned.`
                   : `${balance}d of ${selectedType?.name} remaining after previous approvals.`}

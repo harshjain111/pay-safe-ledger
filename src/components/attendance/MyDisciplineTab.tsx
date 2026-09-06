@@ -85,7 +85,7 @@ export function MyDisciplineTab() {
         <Card className="rounded-2xl border-0 shadow-card">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">On time</p>
-            <p className="text-xl font-bold text-emerald-600">{totals.onTime}</p>
+            <p className="text-xl font-bold text-success">{totals.onTime}</p>
           </CardContent>
         </Card>
       </div>
@@ -124,7 +124,7 @@ export function MyDisciplineTab() {
                       {r.is_cancelled && (
                         <Badge
                           variant="secondary"
-                          className="text-[10px] bg-emerald-500/15 text-emerald-700"
+                          className="text-[10px] bg-success/15 text-success"
                         >
                           Cancelled
                         </Badge>
@@ -143,7 +143,7 @@ export function MyDisciplineTab() {
                       <p className="text-xs mt-0.5">{r.fine_reason}</p>
                     )}
                     {r.is_cancelled && r.cancellation_reason && (
-                      <p className="text-[11px] mt-0.5 text-emerald-600">
+                      <p className="text-[11px] mt-0.5 text-success">
                         Waived: {r.cancellation_reason}
                       </p>
                     )}

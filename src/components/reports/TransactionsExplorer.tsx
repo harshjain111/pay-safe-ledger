@@ -112,10 +112,10 @@ export function TransactionsExplorer() {
   const getTxnTypeBadge = (type: string) => {
     const colorMap: Record<string, string> = {
       salary_settlement: 'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-      salary_payout: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-      expense_approval: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+      salary_payout: 'bg-success/10 text-success',
+      expense_approval: 'bg-info/10 text-info',
       expense_payout: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
-      advance_paid: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+      advance_paid: 'bg-warning/10 text-warning',
       advance_adjustment: 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
     };
     const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

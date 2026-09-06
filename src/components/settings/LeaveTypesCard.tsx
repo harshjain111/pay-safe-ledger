@@ -346,7 +346,7 @@ export function LeaveTypesCard() {
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-sm font-medium">{t.name}</span>
                   <Badge variant="outline" className="text-[10px]">{t.code}</Badge>
-                  <Badge variant="outline" className={t.is_paid ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' : 'border-amber-300 text-amber-700 dark:text-amber-400'}>
+                  <Badge variant="outline" className={t.is_paid ? 'border-success text-success' : 'border-warning text-warning'}>
                     {t.is_paid ? 'Paid' : 'Unpaid'}
                   </Badge>
                   {t.is_default && <Badge variant="outline" className="text-[10px]">Default</Badge>}

@@ -29,16 +29,16 @@ interface StatusBadgeProps {
 
 const toneStyles: Record<StatusTone, { className: string; dot: string }> = {
   green: {
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
+    className: 'bg-success/10 text-success',
+    dot: 'bg-success',
   },
   amber: {
-    className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-    dot: 'bg-amber-500',
+    className: 'bg-warning/10 text-warning',
+    dot: 'bg-warning',
   },
   red: {
-    className: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-    dot: 'bg-red-500',
+    className: 'bg-destructive/10 text-destructive',
+    dot: 'bg-destructive',
   },
   grey: {
     className: 'bg-muted text-muted-foreground',

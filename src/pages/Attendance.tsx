@@ -90,16 +90,16 @@ function deriveStatus(worked: number, hasSession: boolean, onLeave: boolean): St
 
 function statusBadge(status: Status, late?: boolean) {
   const colors: Record<Status, string> = {
-    FD: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    HD: 'bg-amber-100 text-amber-800 border-amber-200',
-    P: 'bg-blue-100 text-blue-800 border-blue-200',
-    Absent: 'bg-rose-100 text-rose-800 border-rose-200',
+    FD: 'bg-success/10 text-success border-success/25',
+    HD: 'bg-warning/10 text-warning border-warning/25',
+    P: 'bg-info/10 text-info border-info/25',
+    Absent: 'bg-destructive/10 text-destructive border-destructive/25',
     Leave: 'bg-violet-100 text-violet-800 border-violet-200',
   };
   return (
     <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${colors[status]}`}>
       {status}
-      {late && <AlertTriangle className="h-3 w-3 text-amber-600" />}
+      {late && <AlertTriangle className="h-3 w-3 text-warning" />}
     </span>
   );
 }
@@ -527,7 +527,7 @@ export default function Attendance() {
                             <TableCell className="whitespace-nowrap">{format(new Date(r.scheduledISO), 'hh:mm a')}</TableCell>
                             <TableCell className="whitespace-nowrap">{format(new Date(r.checkInISO), 'dd MMM, hh:mm a')}</TableCell>
                             <TableCell>
-                              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                              <span className="inline-flex rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                                 {r.lateMinutes >= 60 ? `${Math.floor(r.lateMinutes / 60)}h ${r.lateMinutes % 60}m` : `${r.lateMinutes}m`}
                               </span>
                             </TableCell>
@@ -570,11 +570,11 @@ export default function Attendance() {
                           <TableCell>{s?.worked_minutes != null ? formatMinutes(s.worked_minutes) : '—'}</TableCell>
                           <TableCell>
                             {!s ? (
-                              <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/15 dark:text-red-400">Absent</span>
+                              <span className="inline-flex rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">Absent</span>
                             ) : s.status === 'active' ? (
-                              <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Checked in</span>
+                              <span className="inline-flex rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">Checked in</span>
                             ) : s.status === 'completed' ? (
-                              <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">Completed</span>
+                              <span className="inline-flex rounded-full bg-info/10 px-2 py-0.5 text-xs font-medium text-info">Completed</span>
                             ) : (
                               <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize">{s.status}</span>
                             )}
@@ -766,15 +766,15 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
                   }
                   const cellBg =
                     c.status === 'Absent'
-                      ? 'bg-rose-50/60'
+                      ? 'bg-destructive/60'
                       : c.status === 'Leave'
                         ? 'bg-violet-50/60'
                         : c.status === 'FD'
-                          ? 'bg-emerald-50/60'
+                          ? 'bg-success/60'
                           : c.status === 'HD'
-                            ? 'bg-amber-50/60'
+                            ? 'bg-warning/60'
                             : c.sessions.length > 0
-                              ? 'bg-amber-50/40'
+                              ? 'bg-warning/40'
                               : '';
                   const clickable = c.sessions.length > 0;
                   return (
@@ -788,7 +788,7 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
                             className="w-full inline-flex flex-col items-center justify-center gap-0.5 disabled:cursor-default"
                           >
                             {c.status === 'Absent' ? (
-                              <span className="font-semibold text-rose-700">A</span>
+                              <span className="font-semibold text-destructive">A</span>
                             ) : c.status === 'Leave' ? (
                               <span className="font-semibold text-violet-700">L</span>
                             ) : (
@@ -804,10 +804,10 @@ function AttendanceMatrix({ loading, staff, dates, grid, onSelectSession }: Matr
                               </>
                             )}
                             {c.late && (
-                              <AlertTriangle className="h-3 w-3 text-amber-600 mt-0.5" />
+                              <AlertTriangle className="h-3 w-3 text-warning mt-0.5" />
                             )}
                             {c.geoFlagged && (
-                              <MapPinOff className="h-3 w-3 text-amber-600 mt-0.5" aria-label="Out of geofence" />
+                              <MapPinOff className="h-3 w-3 text-warning mt-0.5" aria-label="Out of geofence" />
                             )}
                           </button>
                         </TooltipTrigger>

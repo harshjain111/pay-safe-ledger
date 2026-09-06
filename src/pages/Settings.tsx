@@ -296,9 +296,9 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                   {passwordChangeSuccess ? (
-                    <div className="flex items-center gap-3 p-3 sm:p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                      <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 shrink-0" />
-                      <span className="text-green-600 dark:text-green-400 font-medium text-sm sm:text-base">Password changed successfully!</span>
+                    <div className="flex items-center gap-3 p-3 sm:p-4 bg-success/10 border border-success/20 rounded-lg">
+                      <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-success shrink-0" />
+                      <span className="text-success font-medium text-sm sm:text-base">Password changed successfully!</span>
                     </div>
                   ) : (
                     <div className="grid gap-4 sm:grid-cols-3">

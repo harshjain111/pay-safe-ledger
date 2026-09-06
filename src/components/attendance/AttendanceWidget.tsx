@@ -175,7 +175,7 @@ export function AttendanceWidget() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <CheckCircle2 className="h-5 w-5 text-success" />
                 <h3 className="font-semibold">Shift completed</h3>
                 <Badge variant="secondary" className="text-[10px]">
                   {format(new Date(todayCompleted.work_date), 'dd MMM')}
@@ -289,12 +289,12 @@ export function AttendanceWidget() {
               <span className="relative flex h-2.5 w-2.5">
                 <span
                   className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
-                    onBreak ? 'bg-amber-500' : 'bg-emerald-500'
+                    onBreak ? 'bg-warning' : 'bg-success'
                   }`}
                 />
                 <span
                   className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                    onBreak ? 'bg-amber-500' : 'bg-emerald-500'
+                    onBreak ? 'bg-warning' : 'bg-success'
                   }`}
                 />
               </span>
@@ -308,7 +308,7 @@ export function AttendanceWidget() {
             <div className="mt-3 flex items-baseline gap-3">
               <p className="font-mono text-3xl font-bold tabular-nums">{elapsed}</p>
               {breaksEnabled && onBreak && breakElapsed && (
-                <p className="text-sm text-amber-600">
+                <p className="text-sm text-warning">
                   Break: <span className="font-mono font-semibold">{breakElapsed}</span>
                 </p>
               )}

@@ -41,13 +41,13 @@ import {
 import { format } from 'date-fns';
 
 const CHIP = {
-  blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+  blue: 'bg-info/10 text-info',
   purple: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
   orange: 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
   pink: 'bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-400',
-  green: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
-  red: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  green: 'bg-success/10 text-success',
+  amber: 'bg-warning/10 text-warning',
+  red: 'bg-destructive/10 text-destructive',
   grey: 'bg-muted text-muted-foreground',
 };
 

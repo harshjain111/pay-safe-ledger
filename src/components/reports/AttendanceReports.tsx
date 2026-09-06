@@ -45,12 +45,12 @@ const fmtMin = (m: number | null | undefined) => (m == null ? '—' : formatHM(m
 
 // ---- muster-roll cell ------------------------------------------------------
 const MARK_STYLE: Record<string, string> = {
-  P: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
-  HD: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
-  L: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400',
+  P: 'bg-success/10 text-success',
+  HD: 'bg-warning/10 text-warning',
+  L: 'bg-info/10 text-info',
   WO: 'bg-muted text-muted-foreground',
   H: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400',
-  A: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400',
+  A: 'bg-destructive/10 text-destructive',
 };
 function MarkBadge({ mark }: { mark: string }) {
   if (!mark) return <span className="text-muted-foreground/40">·</span>;

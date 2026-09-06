@@ -182,8 +182,8 @@ export function AdvanceExplorer() {
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Total Requested</p><p className="text-lg font-bold"><Amount value={totals.total} className="text-foreground" /></p></CardHeader></Card>
-        <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Paid Out</p><p className="text-lg font-bold text-emerald-600"><Amount value={totals.paid} /></p></CardHeader></Card>
-        <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Pending</p><p className="text-lg font-bold text-amber-600"><Amount value={totals.pending} /></p></CardHeader></Card>
+        <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Paid Out</p><p className="text-lg font-bold text-success"><Amount value={totals.paid} /></p></CardHeader></Card>
+        <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Pending</p><p className="text-lg font-bold text-warning"><Amount value={totals.pending} /></p></CardHeader></Card>
         <Card><CardHeader className="pb-2 p-3"><p className="text-xs text-muted-foreground">Requests</p><p className="text-lg font-bold">{totals.count}</p></CardHeader></Card>
       </div>
 
@@ -198,7 +198,7 @@ export function AdvanceExplorer() {
                 <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: number) => `₹${v.toLocaleString('en-IN')}`} />
                 <Bar dataKey="paid" fill="hsl(var(--primary))" stackId="a" radius={[0, 0, 0, 0]} name="Paid" />
-                <Bar dataKey="pending" fill="#f59e0b" stackId="a" radius={[4, 4, 0, 0]} name="Pending" />
+                <Bar dataKey="pending" fill="hsl(var(--stat-orange))" stackId="a" radius={[4, 4, 0, 0]} name="Pending" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -228,7 +228,7 @@ export function AdvanceExplorer() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-sm"><Amount value={s.total} /></p>
-                        {s.pending > 0 && <p className="text-xs text-amber-600">₹{s.pending.toLocaleString('en-IN')} pending</p>}
+                        {s.pending > 0 && <p className="text-xs text-warning">₹{s.pending.toLocaleString('en-IN')} pending</p>}
                       </div>
                     </div>
                   </CollapsibleTrigger>

@@ -330,13 +330,13 @@ export default function UsersList() {
                       <TableCell>
                         {user.last_sign_in ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+                            <span className="inline-flex w-fit items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
                               Logged in
                             </span>
                             <span className="text-xs text-muted-foreground">{format(new Date(user.last_sign_in), 'dd MMM yyyy')}</span>
                           </div>
                         ) : (
-                          <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                          <span className="inline-flex w-fit items-center rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                             Not yet logged in
                           </span>
                         )}

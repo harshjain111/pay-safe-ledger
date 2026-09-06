@@ -162,7 +162,7 @@ export function TrialBalance() {
                     <TableCell className="text-right">
                       {toAmount(row.total_credit) > 0 ? <Amount value={row.total_credit} /> : '-'}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${toAmount(row.balance) < 0 ? 'text-red-600' : ''}`}>
+                    <TableCell className={`text-right font-medium ${toAmount(row.balance) < 0 ? 'text-destructive' : ''}`}>
                       <Amount value={Math.abs(row.balance)} />
                       {toAmount(row.balance) < 0 && ' Cr'}
                     </TableCell>
@@ -180,7 +180,7 @@ export function TrialBalance() {
                   <TableCell className="text-right">
                     <Amount value={totalCredits} />
                   </TableCell>
-                  <TableCell className={`text-right ${!isBalanced ? 'text-destructive' : 'text-green-600'}`}>
+                  <TableCell className={`text-right ${!isBalanced ? 'text-destructive' : 'text-success'}`}>
                     {isBalanced ? (
                       <span className="flex items-center justify-end gap-1">
                         <CheckCircle2 className="h-4 w-4" />

@@ -133,12 +133,12 @@ export function MyAttendanceSummary() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatTile icon={CheckCircle2} label="Days Present" value={String(stats.presentDays)} accent="text-emerald-600" />
+            <StatTile icon={CheckCircle2} label="Days Present" value={String(stats.presentDays)} accent="text-success" />
             <StatTile icon={Clock} label="Hours Worked" value={formatMinutes(stats.totalMinutes)} accent="text-primary" />
             <StatTile icon={TrendingUp} label="Avg / Day" value={formatMinutes(stats.avg)} accent="text-indigo-600" />
-            <StatTile icon={Coffee} label="Break Total" value={formatMinutes(stats.breakMinutes)} accent="text-amber-600" />
+            <StatTile icon={Coffee} label="Break Total" value={formatMinutes(stats.breakMinutes)} accent="text-warning" />
             <StatTile icon={AlertTriangle} label="Late Outs" value={String(stats.lateCount)} accent="text-orange-600" />
-            <StatTile icon={CalendarMinus} label="Leave Days" value={String(stats.leaveDays)} accent="text-rose-600" />
+            <StatTile icon={CalendarMinus} label="Leave Days" value={String(stats.leaveDays)} accent="text-destructive" />
           </div>
 
           <Card className="rounded-2xl border-0 shadow-card">
@@ -163,8 +163,8 @@ export function MyAttendanceSummary() {
                       key={d.toISOString()}
                       className={cn(
                         'aspect-square rounded-md text-xs flex items-center justify-center font-medium border',
-                        st === 'present' && 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
-                        st === 'leave' && 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400',
+                        st === 'present' && 'bg-success/15 border-success/30 text-success',
+                        st === 'leave' && 'bg-warning/15 border-warning/30 text-warning',
                         st === 'absent' && 'bg-muted/40 border-transparent text-muted-foreground',
                         st === 'future' && 'border-dashed border-muted text-muted-foreground/50',
                         isToday && 'ring-2 ring-primary',
@@ -176,8 +176,8 @@ export function MyAttendanceSummary() {
                 })}
               </div>
               <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <LegendDot color="bg-emerald-500" label="Present" />
-                <LegendDot color="bg-amber-500" label="Leave" />
+                <LegendDot color="bg-success" label="Present" />
+                <LegendDot color="bg-warning" label="Leave" />
                 <LegendDot color="bg-muted" label="Absent" />
               </div>
             </CardContent>

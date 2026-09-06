@@ -71,12 +71,12 @@ export function GeoFlaggedPunches({ onChange }: { onChange?: () => void }) {
   if (loading || rows.length === 0) return null;
 
   return (
-    <Card className="border-amber-300/60">
+    <Card className="border-warning/60">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <MapPinOff className="h-4 w-4 text-amber-600" />
+          <MapPinOff className="h-4 w-4 text-warning" />
           Out-of-geofence check-ins
-          <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400">{rows.length}</Badge>
+          <Badge variant="outline" className="border-warning text-warning">{rows.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -94,7 +94,7 @@ export function GeoFlaggedPunches({ onChange }: { onChange?: () => void }) {
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {format(new Date(r.check_in_at), 'dd MMM, hh:mm a')}
                   {r.geo_distance_m != null && (
-                    <> · <span className="font-medium text-amber-600">{Math.round(r.geo_distance_m)} m away</span></>
+                    <> · <span className="font-medium text-warning">{Math.round(r.geo_distance_m)} m away</span></>
                   )}
                   {maps && (
                     <> · <a href={maps} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-primary underline">map<ExternalLink className="h-3 w-3" /></a></>

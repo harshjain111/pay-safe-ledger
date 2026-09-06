@@ -29,9 +29,9 @@ const variantStyles = {
     badge: 'bg-destructive text-destructive-foreground',
   },
   success: {
-    iconBg: 'bg-emerald-500/10',
-    iconColor: 'text-emerald-600',
-    badge: 'bg-emerald-500/10 text-emerald-600',
+    iconBg: 'bg-success/10',
+    iconColor: 'text-success',
+    badge: 'bg-success/10 text-success',
   },
   info: {
     iconBg: 'bg-primary/10',

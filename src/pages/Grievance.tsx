@@ -59,7 +59,7 @@ export default function Grievance() {
       <div className="mx-auto max-w-lg p-4 sm:p-6">
         <Card className="text-center">
           <CardContent className="py-12 space-y-4">
-            <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
+            <CheckCircle2 className="mx-auto h-14 w-14 text-success" />
             <h2 className="text-xl font-semibold">{anonymous ? 'Submitted anonymously' : 'Concern submitted'}</h2>
             <p className="text-sm text-muted-foreground">
               {anonymous ? (
@@ -95,7 +95,7 @@ export default function Grievance() {
             htmlFor="grievance-anon"
             className={cn(
               'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors',
-              anonymous ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-amber-500/50 bg-amber-500/10',
+              anonymous ? 'border-success/50 bg-success/10' : 'border-warning/50 bg-warning/10',
             )}
           >
             <Checkbox
@@ -106,7 +106,7 @@ export default function Grievance() {
             />
             <div className="space-y-0.5">
               <span className="flex items-center gap-2 text-base font-semibold">
-                <ShieldCheck className={cn('h-5 w-5', anonymous ? 'text-emerald-600' : 'text-amber-600')} />
+                <ShieldCheck className={cn('h-5 w-5', anonymous ? 'text-success' : 'text-warning')} />
                 Submit anonymously
               </span>
               <p className="text-sm text-muted-foreground">

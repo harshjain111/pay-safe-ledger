@@ -402,7 +402,7 @@ export default function LeaveRecords() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{b.type.name}</span>
-                      <Badge variant="outline" className={b.type.is_paid ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' : 'border-amber-300 text-amber-700 dark:text-amber-400'}>
+                      <Badge variant="outline" className={b.type.is_paid ? 'border-success text-success' : 'border-warning text-warning'}>
                         {b.type.is_paid ? 'Paid' : 'Unpaid'}
                       </Badge>
                     </div>

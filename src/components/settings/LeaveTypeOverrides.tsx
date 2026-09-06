@@ -93,12 +93,12 @@ export function LeaveTypeOverrides({ leaveTypeId }: { leaveTypeId: string }) {
                     <Badge variant="outline" className="text-[10px] capitalize">{o.scope}</Badge>
                     <span className="font-medium capitalize">{targetLabel(o)}</span>
                     {o.is_exempt ? (
-                      <Badge variant="outline" className="text-[10px] text-amber-700 dark:text-amber-400">Exempt</Badge>
+                      <Badge variant="outline" className="text-[10px] text-warning">Exempt</Badge>
                     ) : o.quota_override != null ? (
                       <span className="text-muted-foreground">Quota: {o.quota_override}d/yr</span>
                     ) : null}
                     {o.carry_forward_override != null && (
-                      <Badge variant="outline" className={o.carry_forward_override ? 'text-[10px] text-emerald-700 dark:text-emerald-400' : 'text-[10px] text-rose-700 dark:text-rose-400'}>
+                      <Badge variant="outline" className={o.carry_forward_override ? 'text-[10px] text-success' : 'text-[10px] text-destructive'}>
                         {o.carry_forward_override ? 'Carries forward' : 'No carry forward'}
                       </Badge>
                     )}

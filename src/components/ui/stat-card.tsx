@@ -26,8 +26,8 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
   ({ title, value, subtitle, icon: Icon, trend, variant = 'default', color = 'blue', className, loading = false, href }, ref) => {
     const colorStyles: Record<ColorVariant, { icon: string; indicator: string }> = {
       blue: {
-        icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-        indicator: 'bg-blue-500',
+        icon: 'bg-info/10 text-info',
+        indicator: 'bg-info',
       },
       purple: {
         icon: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
@@ -38,8 +38,8 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         indicator: 'bg-orange-500',
       },
       green: {
-        icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-        indicator: 'bg-emerald-500',
+        icon: 'bg-success/10 text-success',
+        indicator: 'bg-success',
       },
       pink: {
         icon: 'bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-400',
@@ -124,8 +124,8 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
                 <span className={cn(
                   'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                   trend.value >= 0 
-                    ? isGradient ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
-                    : isGradient ? 'bg-white/20 text-white' : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                    ? isGradient ? 'bg-white/20 text-white' : 'bg-success/10 text-success'
+                    : isGradient ? 'bg-white/20 text-white' : 'bg-destructive/10 text-destructive'
                 )}>
                   {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}%
                 </span>

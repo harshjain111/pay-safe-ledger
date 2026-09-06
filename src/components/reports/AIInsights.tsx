@@ -13,7 +13,17 @@ import { toast } from '@/hooks/use-toast';
 
 type DatePreset = 'last30' | 'last3Months' | 'last6Months' | 'thisMonth';
 
-const COLORS = ['hsl(var(--primary))', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+// Series colours from the stat tokens, so a palette change reaches the charts
+// instead of leaving them on their own set of hexes.
+const COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--stat-green))',
+  'hsl(var(--stat-orange))',
+  'hsl(var(--destructive))',
+  'hsl(var(--stat-purple))',
+  'hsl(var(--stat-cyan))',
+  'hsl(var(--stat-pink))',
+];
 
 const CATEGORY_LABELS: Record<string, string> = {
   travel: 'Travel', food: 'Food & Meals', logistics: 'Logistics', equipment: 'Equipment',
@@ -65,8 +75,8 @@ export function AIInsights() {
   };
 
   const getTrendIcon = (trend: string) => {
-    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-emerald-500" />;
-    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-500" />;
+    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-success" />;
+    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-destructive" />;
     return <Minus className="h-4 w-4 text-muted-foreground" />;
   };
 
@@ -202,7 +212,7 @@ export function AIInsights() {
                         <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
                         <Tooltip formatter={(v: number) => `₹${v.toLocaleString('en-IN')}`} />
                         <Bar dataKey="expenses" fill="hsl(var(--primary))" name="Expenses" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="advances" fill="#f59e0b" name="Advances" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="advances" fill="hsl(var(--stat-orange))" name="Advances" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>

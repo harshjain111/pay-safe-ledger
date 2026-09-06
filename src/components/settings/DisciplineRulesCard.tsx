@@ -177,14 +177,14 @@ export function DisciplineRulesCard() {
           className={cn(
             'flex items-start justify-between gap-4 rounded-lg border p-4',
             rules.penalties_enabled
-              ? 'bg-emerald-500/5 border-emerald-500/30'
-              : 'bg-amber-500/5 border-amber-500/40',
+              ? 'bg-success/5 border-success/30'
+              : 'bg-warning/5 border-warning/40',
           )}
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               {!rules.penalties_enabled && (
-                <PowerOff className="h-4 w-4 text-amber-600" />
+                <PowerOff className="h-4 w-4 text-warning" />
               )}
               <p className="font-semibold text-sm">
                 Apply penalties for late / early / absent

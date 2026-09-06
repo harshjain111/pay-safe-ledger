@@ -268,15 +268,15 @@ export function PenaltiesPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         {unscheduledStaff.length > 0 && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
               <div className="space-y-1">
-                <p className="font-semibold text-amber-900 dark:text-amber-200">
+                <p className="font-semibold text-warning">
                   {unscheduledStaff.length} tracked staff have no shift assigned — penalties and
                   WhatsApp messages are being SKIPPED for them.
                 </p>
-                <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
+                <p className="text-xs text-warning/90/80">
                   Without a scheduled check-in / check-out time, the system can't tell if anyone
                   is late, so no fine is logged and no message is sent. Assign a shift to fix.
                 </p>
@@ -368,7 +368,7 @@ export function PenaltiesPanel() {
                         {r.fine_reason || (r.is_absent ? r.absent_reason || 'Absent' : '—')}
                       </span>
                       {r.is_cancelled && (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">
+                        <p className="text-[10px] text-success mt-0.5">
                           Cancelled by {r.cancelled_by_name || 'system'} —{' '}
                           {r.cancellation_reason}
                         </p>
@@ -387,7 +387,7 @@ export function PenaltiesPanel() {
                     </TableCell>
                     <TableCell>
                       {r.is_cancelled ? (
-                        <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700">
+                        <Badge variant="secondary" className="bg-success/15 text-success">
                           Cancelled
                         </Badge>
                       ) : (

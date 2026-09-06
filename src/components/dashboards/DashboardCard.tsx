@@ -25,7 +25,7 @@ interface DashboardCardProps {
   label: string;
   value: React.ReactNode;
   subtitle?: React.ReactNode;
-  /** Icon-chip colour classes, e.g. 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'. */
+  /** Icon-chip colour classes, e.g. 'bg-info/10 text-info'. */
   iconChip?: string;
   /** Makes the whole card a link. */
   href?: string;

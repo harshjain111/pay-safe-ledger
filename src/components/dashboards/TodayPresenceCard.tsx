@@ -16,13 +16,13 @@ export function TodayPresenceCard({ userId }: { userId?: string }) {
 
   const state: 'on_shift' | 'completed' | 'absent' = active ? 'on_shift' : done ? 'completed' : 'absent';
   const label = state === 'on_shift' ? 'On shift' : state === 'completed' ? 'Completed' : 'Not checked in';
-  const dot = state === 'on_shift' ? 'bg-emerald-500' : state === 'completed' ? 'bg-blue-500' : 'bg-amber-500';
+  const dot = state === 'on_shift' ? 'bg-success' : state === 'completed' ? 'bg-info' : 'bg-warning';
   const chip =
     state === 'on_shift'
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+      ? 'bg-success/10 text-success'
       : state === 'completed'
-        ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400'
-        : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400';
+        ? 'bg-info/10 text-info'
+        : 'bg-warning/10 text-warning';
 
   const time = (iso: string | null) => (iso ? format(new Date(iso), 'hh:mm a') : '—');
 

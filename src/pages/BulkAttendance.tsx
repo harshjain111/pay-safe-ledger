@@ -39,9 +39,9 @@ const CODE_LABEL: Record<Code, string> = {
   LV: 'Leave',
 };
 const CODE_COLOR: Record<Code, string> = {
-  FD: 'text-emerald-700 dark:text-emerald-400',
-  HD: 'text-amber-700 dark:text-amber-400',
-  A: 'text-rose-700 dark:text-rose-400',
+  FD: 'text-success',
+  HD: 'text-warning',
+  A: 'text-destructive',
   WO: 'text-slate-600 dark:text-slate-300',
   LV: 'text-violet-700 dark:text-violet-400',
 };
@@ -568,22 +568,22 @@ function AttendanceGrid({
                 if (cell.designated && cell.worked != null && cell.worked < cell.designated - 15) problems.push('Short');
                 const short = !!(cell.designated && cell.worked != null && cell.worked < cell.designated);
                 return (
-                  <td key={d} className={cn('min-w-[104px] border-b border-r p-1 align-top', isWeekend(d) && 'bg-muted/40', isPending && 'bg-amber-100/60 dark:bg-amber-900/30')}>
+                  <td key={d} className={cn('min-w-[104px] border-b border-r p-1 align-top', isWeekend(d) && 'bg-muted/40', isPending && 'bg-warning/60')}>
                     <div className="flex flex-col items-center gap-0.5">
                       {cell.leaveType ? (
                         <span className="max-w-[96px] truncate text-[11px] font-medium text-violet-700 dark:text-violet-400" title={cell.leaveType}>{cell.leaveType}</span>
                       ) : cell.checkIn ? (
                         <>
                           <div className="text-[11px] leading-tight">
-                            <span className={cn('font-mono', cell.late && 'font-semibold text-rose-600 dark:text-rose-400')}>{fmtTime(cell.checkIn)}</span>
+                            <span className={cn('font-mono', cell.late && 'font-semibold text-destructive')}>{fmtTime(cell.checkIn)}</span>
                             <span className="text-muted-foreground"> → </span>
-                            <span className={cn('font-mono', cell.earlyOut && 'font-semibold text-rose-600 dark:text-rose-400')}>{fmtTime(cell.checkOut)}</span>
+                            <span className={cn('font-mono', cell.earlyOut && 'font-semibold text-destructive')}>{fmtTime(cell.checkOut)}</span>
                           </div>
-                          <span className={cn('text-[10px] leading-none', problems.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                          <span className={cn('text-[10px] leading-none', problems.length ? 'text-warning' : 'text-success')}>
                             {problems.length ? problems.join(' · ') : 'On time'}
                           </span>
                           {cell.worked != null && (
-                            <span className={cn('text-[10px] font-medium leading-none', short ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                            <span className={cn('text-[10px] font-medium leading-none', short ? 'text-destructive' : 'text-success')}>
                               {fmtDur(cell.worked)}{cell.designated ? ` / ${fmtDur(cell.designated)}` : ''}
                             </span>
                           )}

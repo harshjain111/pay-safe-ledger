@@ -33,7 +33,7 @@ const variantStyles = {
 const badgeVariantStyles = {
   default: 'bg-primary/20 text-primary',
   destructive: 'bg-destructive text-destructive-foreground',
-  success: 'bg-emerald-500/20 text-emerald-600',
+  success: 'bg-success/20 text-success',
 };
 
 export function QuickActionsCard({

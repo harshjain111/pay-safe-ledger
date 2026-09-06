@@ -284,7 +284,7 @@ export function BiometricDevicesCard() {
         d.api_key_prefix ? (
           <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{d.api_key_prefix}…</code>
         ) : (
-          <span className="text-xs text-amber-600 dark:text-amber-400">Not provisioned</span>
+          <span className="text-xs text-warning">Not provisioned</span>
         ),
     },
   ];

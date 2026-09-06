@@ -395,7 +395,7 @@ export default function Approvals() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 shrink-0 text-amber-500" />
+                  <Wallet className="h-4 w-4 shrink-0 text-warning" />
                   {drawerItem.requestedBy}
                 </SheetTitle>
                 <SheetDescription>Request details and accounting impact.</SheetDescription>

@@ -347,7 +347,7 @@ export function CreateLeaveDialog({
                   the chosen type is a real case (half a day, no balance left) but
                   it should never happen silently. */}
               {selectedType && deductionDays !== selectedType.default_deduction ? (
-                <p className="text-xs text-amber-600 dark:text-amber-500">
+                <p className="text-xs text-warning">
                   {selectedType.name} normally deducts {selectedType.default_deduction}d — recording {deductionDays}d instead.
                 </p>
               ) : (
