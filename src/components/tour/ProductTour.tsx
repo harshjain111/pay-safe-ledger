@@ -84,7 +84,14 @@ export function ProductTour({ steps, onClose }: { steps: TourStep[]; onClose: ()
           }}
         />
       ) : (
-        <div className="absolute inset-0 bg-slate-950/70" onClick={onClose} />
+        <div
+          // Decorative dismiss surface. Hidden from assistive tech on purpose:
+          // a viewport-sized button in the tab order would be worse than none,
+          // and keyboard users already have Escape and the Close tour button.
+          aria-hidden="true"
+          className="absolute inset-0 bg-slate-950/70"
+          onClick={onClose}
+        />
       )}
 
       {/* Callout */}

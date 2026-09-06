@@ -218,7 +218,7 @@ export function AdvanceExplorer() {
               {staffSummary.map(s => (
                 <Collapsible key={s.staffId} open={expandedStaff.has(s.staffId)}>
                   <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(s.staffId)}>
+                    <button type="button" className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => toggleExpand(s.staffId)}>
                       <div className="flex items-center gap-2">
                         {expandedStaff.has(s.staffId) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         <div>
@@ -230,7 +230,7 @@ export function AdvanceExplorer() {
                         <p className="font-bold text-sm"><Amount value={s.total} /></p>
                         {s.pending > 0 && <p className="text-xs text-warning">₹{s.pending.toLocaleString('en-IN')} pending</p>}
                       </div>
-                    </div>
+                    </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="ml-6 mt-1 border-l-2 border-muted pl-4 space-y-1">

@@ -109,18 +109,27 @@ export function ResetPasswordDialog({
 
             <div className="flex items-start space-x-2 p-3 border rounded-lg hover:bg-accent/50 cursor-pointer">
               <RadioGroupItem value="custom" id="custom" className="mt-1" />
-              <Label htmlFor="custom" className="flex-1 cursor-pointer">
-                <div className="font-medium">Set Custom Password</div>
-                <div className="text-sm text-muted-foreground mb-2">
-                  Enter a specific password for this user
-                </div>
+              {/* The password field is a SIBLING of the label, not inside it.
+                  Nested, every click on the input or the eye button also
+                  activated the label and re-selected the radio, which is why a
+                  stopPropagation guard sat on a plain div here. Moving it out
+                  removes both the guard and the reason for it. */}
+              <div className="flex-1">
+                <Label htmlFor="custom" className="cursor-pointer">
+                  <div className="font-medium">Set Custom Password</div>
+                  <div className="text-sm text-muted-foreground">
+                    Enter a specific password for this user
+                  </div>
+                </Label>
+
                 {resetType === 'custom' && (
-                  <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <div className="relative mt-2">
                     <Input
                       type={showPassword ? 'text' : 'password'}
                       value={customPassword}
                       onChange={(e) => setCustomPassword(e.target.value)}
                       placeholder="Enter new password"
+                      aria-label="New password"
                       className="pr-10"
                     />
                     <Button
@@ -139,7 +148,7 @@ export function ResetPasswordDialog({
                     </Button>
                   </div>
                 )}
-              </Label>
+              </div>
             </div>
           </RadioGroup>
         </div>
