@@ -183,30 +183,34 @@ export function CADashboard() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table-ledger">
+              {/* `table-ledger` was never defined — not in index.css, which is the
+                  only stylesheet, nor anywhere else. This table has been
+                  rendering with browser defaults: no padding, no borders, no
+                  alignment. Styled to match the rest of the app instead. */}
+              <table className="w-full border-collapse text-sm [font-variant-numeric:tabular-nums]">
                 <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Base Salary</th>
-                    <th>Deductions</th>
-                    <th>Net Salary</th>
-                    <th>Settled On</th>
+                  <tr className="border-b bg-secondary/40 text-xs font-medium text-muted-foreground">
+                    <th className="whitespace-nowrap px-2.5 py-1.5 text-left">Month</th>
+                    <th className="whitespace-nowrap px-2.5 py-1.5 text-right">Base Salary</th>
+                    <th className="whitespace-nowrap px-2.5 py-1.5 text-right">Deductions</th>
+                    <th className="whitespace-nowrap px-2.5 py-1.5 text-right">Net Salary</th>
+                    <th className="whitespace-nowrap px-2.5 py-1.5 text-left">Settled On</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y">
                   {recentSettlements.map((settlement) => (
                     <tr key={settlement.id}>
-                      <td>{settlement.settlement_month}</td>
-                      <td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5">{settlement.settlement_month}</td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right">
                         <Amount value={settlement.base_salary} />
                       </td>
-                      <td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right">
                         <Amount value={-settlement.leave_deduction} />
                       </td>
-                      <td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right font-semibold">
                         <Amount value={settlement.net_salary} />
                       </td>
-                      <td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5">
                         {settlement.settled_at
                           ? format(new Date(settlement.settled_at), 'dd MMM yyyy')
                           : '-'}

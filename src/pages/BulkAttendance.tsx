@@ -382,7 +382,7 @@ export default function BulkAttendance() {
       <Card>
         <CardContent className="p-3 sm:p-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex items-end gap-2">
+            <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1">
                 <label className="text-[11px] text-muted-foreground">From</label>
                 <Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="h-9 w-[140px]" />

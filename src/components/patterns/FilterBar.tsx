@@ -36,13 +36,16 @@ export function DateRangeField({
 }) {
   const days = rangeDayCount(value);
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    // Wraps, because the two date inputs + arrow + day count need 386px and a
+    // phone is 375. Without this the whole page gained a sideways scroll and
+    // the day count sat off-screen — on every page with a date filter.
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <Input
         type="date"
         aria-label="From date"
         value={value.from}
         onChange={(e) => onChange({ ...value, from: e.target.value })}
-        className="h-9 w-[9.5rem]"
+        className="h-9 min-w-0 flex-1 basis-[9.5rem] sm:w-[9.5rem] sm:flex-none"
       />
       <span className="text-muted-foreground">→</span>
       <Input
@@ -50,7 +53,7 @@ export function DateRangeField({
         aria-label="To date"
         value={value.to}
         onChange={(e) => onChange({ ...value, to: e.target.value })}
-        className="h-9 w-[9.5rem]"
+        className="h-9 min-w-0 flex-1 basis-[9.5rem] sm:w-[9.5rem] sm:flex-none"
       />
       {days != null && (
         <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">

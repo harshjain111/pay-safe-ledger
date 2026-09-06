@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +32,8 @@ export interface DataTableColumn<T> {
 const PAGE_SIZES = [10, 20, 50, 100];
 const DEFAULT_STICKY_WIDTH = 180;
 const CHECKBOX_COL_WIDTH = 40;
+/** Frozen columns may claim at most this share of the visible table width. */
+const MAX_FROZEN_RATIO = 0.6;
 
 /**
  * Pattern 4 — the data table. Sticky left columns with a right shadow edge,
@@ -87,6 +89,56 @@ export function DataTable<T>({
   const firstShown = total === 0 ? 0 : safePage * pageSize + 1;
   const lastShown = Math.min(total, (safePage + 1) * pageSize);
 
+  // ---------------------------------------------------------------------
+  // Sticky columns have to earn their place on a narrow screen.
+  //
+  // Freezing is measured in absolute pixels, so a config that reads fine on a
+  // desktop can freeze more than a phone even has. Process Payroll asks for
+  // two sticky columns of 210 and 150 plus a 40px checkbox — 400px — while a
+  // 375px phone offers 343px of content. The frozen block was wider than the
+  // screen, so the scrollable part started off-screen and no pay column could
+  // ever be reached.
+  //
+  // So: measure the container and keep only as many leading columns as fit in
+  // MAX_FROZEN_RATIO of it. Dropping to zero is fine — the table still scrolls
+  // horizontally, which is the same thing every other narrow table does.
+  // ---------------------------------------------------------------------
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  // A callback ref, not useEffect + useRef: the scroll container is not always
+  // mounted on the first render (an empty table shows a placeholder instead),
+  // and an effect with [] deps would have observed nothing and never run
+  // again. This attaches the moment the node appears, however late that is.
+  const attachScrollRef = useCallback((el: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    setContainerWidth(el.clientWidth);
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    ro.observe(el);
+    observerRef.current = ro;
+  }, []);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  const effectiveStickyColumns = useMemo(() => {
+    if (stickyColumns <= 0) return 0;
+    // Until the container has been measured, honour what was asked for — on a
+    // desktop that is correct, and one frame of over-freezing is invisible.
+    if (containerWidth == null || containerWidth === 0) return stickyColumns;
+
+    const budget = containerWidth * MAX_FROZEN_RATIO;
+    let used = selectable ? CHECKBOX_COL_WIDTH : 0;
+    let allowed = 0;
+    for (let i = 0; i < stickyColumns && i < visible.length; i++) {
+      used += visible[i].width ?? DEFAULT_STICKY_WIDTH;
+      if (used > budget) break;
+      allowed++;
+    }
+    return allowed;
+  }, [stickyColumns, containerWidth, selectable, visible]);
+
   // Cumulative left offsets for sticky cells (checkbox column counts first).
   const stickyOffsets = useMemo(() => {
     const offsets: number[] = [];
@@ -99,7 +151,7 @@ export function DataTable<T>({
   }, [visible, selectable]);
 
   const stickyStyle = (i: number): React.CSSProperties | undefined => {
-    if (i >= stickyColumns) return undefined;
+    if (i >= effectiveStickyColumns) return undefined;
     const style: React.CSSProperties = {
       position: 'sticky',
       left: stickyOffsets[i],
@@ -108,7 +160,7 @@ export function DataTable<T>({
       minWidth: visible[i].width ?? DEFAULT_STICKY_WIDTH,
       maxWidth: visible[i].width ?? DEFAULT_STICKY_WIDTH,
     };
-    if (i === stickyColumns - 1) style.boxShadow = '2px 0 4px -2px hsl(var(--foreground) / 0.18)';
+    if (i === effectiveStickyColumns - 1) style.boxShadow = '2px 0 4px -2px hsl(var(--foreground) / 0.18)';
     return style;
   };
 
@@ -141,7 +193,7 @@ export function DataTable<T>({
   return (
     <div className={cn('rounded-xl border bg-card', className)}>
       {/* The table scrolls horizontally inside its OWN container. */}
-      <div className="overflow-x-auto" data-testid="datatable-scroll">
+      <div ref={attachScrollRef} className="overflow-x-auto" data-testid="datatable-scroll">
         <table className="w-full border-collapse text-sm [font-variant-numeric:tabular-nums]">
           <thead>
             <tr className="border-b bg-secondary/40">
@@ -156,10 +208,10 @@ export function DataTable<T>({
               {visible.map((c, i) => (
                 <th
                   key={c.key}
-                  data-sticky={i < stickyColumns ? 'true' : undefined}
+                  data-sticky={i < effectiveStickyColumns ? 'true' : undefined}
                   className={cn(
                     'whitespace-nowrap px-2.5 py-1.5 text-xs font-medium text-muted-foreground',
-                    i < stickyColumns && 'bg-secondary',
+                    i < effectiveStickyColumns && 'bg-secondary',
                     alignClass(c),
                     c.headerClassName,
                   )}
@@ -203,10 +255,10 @@ export function DataTable<T>({
                         return (
                           <td
                             key={c.key}
-                            data-sticky={i < stickyColumns ? 'true' : undefined}
+                            data-sticky={i < effectiveStickyColumns ? 'true' : undefined}
                             className={cn(
                               'whitespace-nowrap px-2.5 py-0.5',
-                              i < stickyColumns && 'bg-card',
+                              i < effectiveStickyColumns && 'bg-card',
                               alignClass(c),
                               c.bold && 'font-semibold',
                               toneClass(tone),
@@ -237,13 +289,13 @@ export function DataTable<T>({
         <span>Showing {firstShown}–{lastShown} of {total}</span>
         <div className="ml-auto flex items-center gap-2">
           <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}>
-            <SelectTrigger className="h-7 w-[4.5rem] text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-11 w-[4.5rem] text-xs sm:h-7"><SelectValue /></SelectTrigger>
             <SelectContent>
               {PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button
-            variant="outline" size="icon" className="h-7 w-7"
+            variant="outline" size="icon" className="h-11 w-11 sm:h-7 sm:w-7"
             disabled={safePage === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             aria-label="Previous page"
@@ -252,7 +304,7 @@ export function DataTable<T>({
           </Button>
           <span>{safePage + 1} / {pageCount}</span>
           <Button
-            variant="outline" size="icon" className="h-7 w-7"
+            variant="outline" size="icon" className="h-11 w-11 sm:h-7 sm:w-7"
             disabled={safePage >= pageCount - 1}
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
             aria-label="Next page"

@@ -27,7 +27,7 @@ export function RowMenu({ items, ariaLabel = 'Row actions' }: { items: RowMenuIt
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={ariaLabel}>
+        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-7 sm:w-7" aria-label={ariaLabel}>
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

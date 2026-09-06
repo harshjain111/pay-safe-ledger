@@ -87,7 +87,7 @@ export function Drawer({
             <h2 className="truncate text-base font-semibold">{title}</h2>
             {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onOpenChange(false)} aria-label="Close">
+          <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-7 sm:w-7 shrink-0" onClick={() => onOpenChange(false)} aria-label="Close">
             <X className="h-4 w-4" />
           </Button>
         </div>

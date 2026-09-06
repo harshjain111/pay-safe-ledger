@@ -37,7 +37,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger,
   SidebarInset,
   SidebarGroup,
   SidebarGroupLabel,
@@ -688,7 +687,7 @@ function AppHeader() {
   const canSwitch = !isOwner && userRole !== 'staff' && userRole !== 'ca' && !!staffData;
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, toggleSidebar } = useSidebar();
+  const { state, toggleSidebar, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const counts = useNotificationCounts();
 
@@ -723,12 +722,16 @@ function AppHeader() {
   return (
     <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-xl px-4 lg:px-6 pt-[env(safe-area-inset-top)]">
       <div className="flex items-center gap-3">
+        {/* On a phone this is the ONLY way to reach navigation, and it was a
+            32px target. 44px on touch, back to the denser 32 from sm up where
+            there is a mouse. The label follows what it actually does: on
+            mobile the sidebar is a drawer, not a collapsible rail. */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-lg"
+          className="h-11 w-11 rounded-lg sm:h-8 sm:w-8"
           onClick={toggleSidebar}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isMobile ? 'Open navigation menu' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? (
             <PanelLeft className="h-4 w-4" />
@@ -759,7 +762,7 @@ function AppHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-lg"
+          className="h-11 w-11 rounded-lg sm:h-8 sm:w-8"
           onClick={() => window.location.reload()}
           aria-label="Refresh page"
           title="Refresh"
