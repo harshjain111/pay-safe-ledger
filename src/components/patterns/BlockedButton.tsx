@@ -49,7 +49,9 @@ export function BlockedButton({
           // Focusable and hoverable so the reason is actually reachable; the
           // action itself is refused here rather than by the browser.
           onClick={(e) => { e.preventDefault(); }}
-          className={cn('cursor-not-allowed opacity-50 hover:bg-primary', className)}
+          // Variant-agnostic: opacity and cursor only, so an outline or icon
+          // button is not repainted with the primary colour.
+          className={cn('cursor-not-allowed opacity-50', className)}
         >
           {children}
         </Button>

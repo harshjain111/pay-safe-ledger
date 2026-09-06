@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { ListSkeleton } from '@/components/layout/ListSkeleton';
 import { Button } from '@/components/ui/button';
+import { BlockedButton } from '@/components/patterns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Amount } from '@/components/ui/amount';
@@ -216,7 +217,19 @@ export default function Approvals() {
     });
   }, [items, activeTab, search]);
 
-  const canActOn = (item: ApprovalItem) => item.status === 'pending' && canApproveRequests;
+  // A pending row the user cannot action still shows its buttons, greyed with
+  // the reason — hiding them left someone wondering where Approve went. Rows
+  // that are already decided show nothing, because the status badge beside
+  // them already says so and greying two buttons on every historical row is
+  // noise, not an explanation.
+  const actionBlockedReason = (item: ApprovalItem): string | null => {
+    if (item.status !== 'pending') return null;
+    if (!canApproveRequests) {
+      return 'You need the ‘Approve advances & expenses’ right to action this. An owner grants it from Rights Templates.';
+    }
+    if (processingId !== null) return 'Finishing the previous decision…';
+    return null;
+  };
 
   const afterMutation = () => {
     refetchNotificationCounts();
@@ -273,28 +286,28 @@ export default function Approvals() {
       <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="View details" onClick={() => setDrawerItem(item)}>
         <Eye className="h-4 w-4" />
       </Button>
-      {canActOn(item) && (
+      {item.status === 'pending' && (
         <>
-          <Button
+          <BlockedButton
+            blockedReason={actionBlockedReason(item)}
             variant="outline"
             size="icon"
             aria-label="Approve"
             className="text-success hover:text-success h-8 w-8"
-            disabled={processingId !== null}
-            onClick={() => onApprove(item)}
+            onClick={() => processingId === null && onApprove(item)}
           >
             {processingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-          </Button>
-          <Button
+          </BlockedButton>
+          <BlockedButton
+            blockedReason={actionBlockedReason(item)}
             variant="outline"
             size="icon"
             aria-label="Reject"
             className="text-destructive hover:text-destructive h-8 w-8"
-            disabled={processingId !== null}
-            onClick={() => onReject(item)}
+            onClick={() => processingId === null && onReject(item)}
           >
             <X className="h-4 w-4" />
-          </Button>
+          </BlockedButton>
         </>
       )}
     </div>
@@ -426,23 +439,23 @@ export default function Approvals() {
 
                 <LedgerImpactPreview item={drawerItem} />
 
-                {canActOn(drawerItem) && (
+                {drawerItem.status === 'pending' && (
                   <div className="flex gap-2 pt-2">
-                    <Button
+                    <BlockedButton
+                      blockedReason={actionBlockedReason(drawerItem)}
                       className="flex-1 bg-success text-success-foreground hover:bg-success/90"
-                      disabled={processingId !== null}
-                      onClick={() => onApprove(drawerItem)}
+                      onClick={() => processingId === null && onApprove(drawerItem)}
                     >
                       <Check className="mr-2 h-4 w-4" /> Approve
-                    </Button>
-                    <Button
+                    </BlockedButton>
+                    <BlockedButton
+                      blockedReason={actionBlockedReason(drawerItem)}
                       variant="outline"
                       className="flex-1 text-destructive hover:text-destructive"
-                      disabled={processingId !== null}
-                      onClick={() => onReject(drawerItem)}
+                      onClick={() => processingId === null && onReject(drawerItem)}
                     >
                       <X className="mr-2 h-4 w-4" /> Reject
-                    </Button>
+                    </BlockedButton>
                   </div>
                 )}
               </div>
