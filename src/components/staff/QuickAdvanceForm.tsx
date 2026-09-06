@@ -108,7 +108,7 @@ export function QuickAdvanceForm({ open, onOpenChange, onSuccess }: QuickAdvance
         <div className="space-y-6 py-4">
           {/* Amount Input - Large and prominent */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
+            <label htmlFor="advance-amount" className="text-sm font-medium text-muted-foreground">
               {t('amount')}
             </label>
             <div className="relative">
@@ -116,6 +116,7 @@ export function QuickAdvanceForm({ open, onOpenChange, onSuccess }: QuickAdvance
                 ₹
               </span>
               <Input
+                id="advance-amount"
                 type="number"
                 inputMode="numeric"
                 value={amount}
@@ -129,10 +130,11 @@ export function QuickAdvanceForm({ open, onOpenChange, onSuccess }: QuickAdvance
 
           {/* Note - Optional */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
+            <label htmlFor="advance-note" className="text-sm font-medium text-muted-foreground">
               {t('note')}
             </label>
             <Textarea
+              id="advance-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={t('add_note')}
