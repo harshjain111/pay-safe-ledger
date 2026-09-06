@@ -188,7 +188,7 @@ export default function StaffList() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="rounded-md px-2 py-1 hover:bg-secondary/60 focus:outline-none focus:ring-2 focus:ring-ring"
+            className="rounded-md px-2 py-1 hover:bg-secondary/60 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Change status"
           >
             {pill}

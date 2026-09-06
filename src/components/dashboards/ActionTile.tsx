@@ -67,7 +67,7 @@ export function ActionTile({
         'rounded-2xl shadow-card border-0 transition duration-200',
         isEmpty
           ? 'opacity-60 cursor-default'
-          : 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+          : 'cursor-pointer hover:shadow-lg motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98]'
       )}
       onClick={handleClick}
     >

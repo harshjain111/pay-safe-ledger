@@ -290,7 +290,7 @@ export default function Shifts() {
                   <TableRow key={s.id} className="even:bg-muted/30">
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color ?? '#64748b' }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color ?? 'hsl(var(--muted-foreground))' }} />
                         <span className="font-medium whitespace-nowrap">{s.name}</span>
                         {s.is_open && <Badge variant="secondary" className="text-[10px]">Open</Badge>}
                       </div>
