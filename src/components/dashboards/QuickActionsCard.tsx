@@ -56,7 +56,7 @@ export function QuickActionsCard({
             <Button
               variant="outline"
               tabIndex={-1}
-              className="w-full justify-start h-auto py-2.5 rounded-xl border-border/60 hover:-translate-y-0.5 hover:shadow-card-hover transition-all"
+              className="w-full justify-start h-auto py-2.5 rounded-xl border-border/60 hover:-translate-y-0.5 hover:shadow-card-hover transition"
             >
               <div
                 className={cn(

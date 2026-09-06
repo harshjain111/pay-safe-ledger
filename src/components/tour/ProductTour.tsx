@@ -76,7 +76,7 @@ export function ProductTour({ steps, onClose }: { steps: TourStep[]; onClose: ()
       {/* Dim + spotlight (box-shadow ring cuts a hole around the target) */}
       {rect ? (
         <div
-          className="pointer-events-none absolute rounded-xl transition-all duration-300 ease-out"
+          className="pointer-events-none absolute rounded-xl transition duration-300 ease-out"
           style={{
             top: rect.top, left: rect.left, width: rect.width, height: rect.height,
             boxShadow: '0 0 0 9999px rgba(2,6,23,0.72)',
@@ -116,7 +116,7 @@ export function ProductTour({ steps, onClose }: { steps: TourStep[]; onClose: ()
           <div className="mt-4 flex items-center justify-between">
             <div className="flex gap-1">
               {steps.map((_, idx) => (
-                <span key={idx} className={`h-1.5 rounded-full transition-all ${idx === i ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`} />
+                <span key={idx} className={`h-1.5 rounded-full transition ${idx === i ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`} />
               ))}
             </div>
             <div className="flex gap-1.5">

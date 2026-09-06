@@ -473,7 +473,7 @@ function AppSidebar() {
       {/* Header */}
       <SidebarHeader className="p-3 pb-2">
         <div className={cn(
-          "flex items-center gap-3 transition-all duration-200",
+          "flex items-center gap-3 transition duration-200",
           isCollapsed && "justify-center"
         )}>
           <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0 p-1">
@@ -512,7 +512,7 @@ function AppSidebar() {
                 size="sm"
                 variant="ghost"
                 className={cn(
-                  'flex-1 text-xs rounded-md h-8 transition-all gap-1.5',
+                  'flex-1 text-xs rounded-md h-8 transition gap-1.5',
                   !accountingMode
                     ? 'bg-sidebar-foreground/10 text-sidebar-foreground font-medium shadow-sm'
                     : 'text-sidebar-muted hover:text-sidebar-foreground hover:bg-transparent'
@@ -526,7 +526,7 @@ function AppSidebar() {
                 size="sm"
                 variant="ghost"
                 className={cn(
-                  'flex-1 text-xs rounded-md h-8 transition-all gap-1.5',
+                  'flex-1 text-xs rounded-md h-8 transition gap-1.5',
                   accountingMode
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
                     : 'text-sidebar-muted hover:text-sidebar-foreground hover:bg-transparent'
@@ -544,7 +544,7 @@ function AppSidebar() {
                   size="icon"
                   variant="ghost"
                   className={cn(
-                    'w-full h-9 rounded-lg transition-all',
+                    'w-full h-9 rounded-lg transition',
                     accountingMode
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                       : 'bg-sidebar-accent/40 text-sidebar-muted hover:text-sidebar-foreground'
@@ -587,7 +587,7 @@ function AppSidebar() {
                             isActive={isActive}
                             tooltip={item.title}
                             className={cn(
-                              "relative h-9 transition-all duration-150",
+                              "relative h-9 transition duration-150",
                               isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                             )}
                           >
@@ -641,7 +641,7 @@ function AppSidebar() {
             <button
               aria-label={`Account menu for ${displayName}`}
               className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all hover:bg-sidebar-accent/50 group",
+              "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sidebar-accent/50 group",
               isCollapsed && "justify-center px-2"
             )}>
               <Avatar className="h-8 w-8 border border-sidebar-accent shrink-0">

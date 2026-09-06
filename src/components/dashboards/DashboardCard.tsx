@@ -66,7 +66,7 @@ export function DashboardCard({
   const body = (
     <div
       className={cn(
-        'relative flex h-full items-start gap-3 rounded-2xl border p-4 sm:p-5 transition-all duration-200',
+        'relative flex h-full items-start gap-3 rounded-2xl border p-4 sm:p-5 transition duration-200',
         tint ? TINT[tint] : 'bg-card',
         tone === 'accent' && 'border-primary/30 ring-1 ring-primary/10',
         tone === 'muted' && 'opacity-60',

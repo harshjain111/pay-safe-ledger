@@ -65,7 +65,7 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
       <div
         ref={ref}
         className={cn(
-          'relative rounded-2xl p-4 sm:p-6 transition-all duration-300 hover-scale overflow-hidden',
+          'relative rounded-2xl p-4 sm:p-6 transition duration-300 hover-scale overflow-hidden',
           'shadow-card hover:shadow-card-hover',
           href && 'cursor-pointer',
           variantStyles[variant],

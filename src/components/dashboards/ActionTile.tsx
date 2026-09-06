@@ -64,7 +64,7 @@ export function ActionTile({
   return (
     <Card
       className={cn(
-        'rounded-2xl shadow-card border-0 transition-all duration-200',
+        'rounded-2xl shadow-card border-0 transition duration-200',
         isEmpty
           ? 'opacity-60 cursor-default'
           : 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'

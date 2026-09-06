@@ -324,7 +324,7 @@ export default function LeaveRecords() {
       {/* Summary tiles */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card
-          className={cn('cursor-pointer transition-all hover:shadow-md hover:border-primary/50', selectedStatus === 'approved' && 'ring-2 ring-primary')}
+          className={cn('cursor-pointer transition hover:shadow-md hover:border-primary/50', selectedStatus === 'approved' && 'ring-2 ring-primary')}
           onClick={() => setSelectedStatus('approved')}
         >
           <CardHeader className="pb-2">
@@ -340,7 +340,7 @@ export default function LeaveRecords() {
         </Card>
 
         {!isStaff && (
-          <Card className="cursor-pointer transition-all hover:shadow-md hover:border-destructive/50" onClick={() => setSelectedStatus('approved')}>
+          <Card className="cursor-pointer transition hover:shadow-md hover:border-destructive/50" onClick={() => setSelectedStatus('approved')}>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <CalendarX className="h-3.5 w-3.5" />
@@ -354,7 +354,7 @@ export default function LeaveRecords() {
           </Card>
         )}
 
-        <Card className="cursor-pointer transition-all hover:shadow-md" onClick={() => setSelectedStatus('approved')}>
+        <Card className="cursor-pointer transition hover:shadow-md" onClick={() => setSelectedStatus('approved')}>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <CalendarMinus className="h-3.5 w-3.5" />
@@ -370,7 +370,7 @@ export default function LeaveRecords() {
         </Card>
 
         <Card
-          className={cn('cursor-pointer transition-all hover:shadow-md', selectedStatus === 'pending' && 'ring-2 ring-warning', pendingCount > 0 && 'border-warning/50')}
+          className={cn('cursor-pointer transition hover:shadow-md', selectedStatus === 'pending' && 'ring-2 ring-warning', pendingCount > 0 && 'border-warning/50')}
           onClick={() => setSelectedStatus('pending')}
         >
           <CardHeader className="pb-2">
