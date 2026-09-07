@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { ShieldAlert, CalendarRange, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +52,9 @@ export default function ShiftAssignment() {
     return q ? staff.filter((s) => s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q)) : staff;
   }, [staff, search]);
 
+  // 214 employees rendered in one go, each with seven selects.
+  const pager = usePagination(filtered);
+
   const setCell = (sid: string, wd: number, shiftId: string) => {
     const k = key(sid, wd);
     setGrid((p) => { const n = new Map(p); if (shiftId === NONE) n.delete(k); else n.set(k, shiftId); return n; });
@@ -89,7 +94,7 @@ export default function ShiftAssignment() {
         <div className="space-y-3 lg:hidden">
           {filtered.length === 0 ? (
             <EmptyState icon={CalendarRange} title="No staff" description="No active staff." />
-          ) : filtered.map((s) => (
+          ) : pager.pageRows.map((s) => (
             <div key={s.id} className="rounded-xl border bg-card p-3">
               <div className="mb-2">
                 <p className="font-medium leading-tight">{s.full_name}</p>
@@ -128,7 +133,7 @@ export default function ShiftAssignment() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={4 + 7} className="p-0"><EmptyState icon={CalendarRange} title="No staff" description="No active staff." /></TableCell></TableRow>
-              ) : filtered.map((s) => (
+              ) : pager.pageRows.map((s) => (
                 <TableRow key={s.id} className="even:bg-muted/30">
                   <TableCell className="text-sm">{s.employee_id}</TableCell>
                   <TableCell className="font-medium whitespace-nowrap">{s.full_name}</TableCell>
@@ -150,6 +155,7 @@ export default function ShiftAssignment() {
             </TableBody>
           </Table>
         </div>
+        {filtered.length > 0 && <Paginator {...pager} noun="Employees" className="rounded-xl border bg-card" />}
         </>
       )}
     </div>

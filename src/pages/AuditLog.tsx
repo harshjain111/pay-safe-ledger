@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +68,10 @@ export default function AuditLogPage() {
   const { isOwner, isCA } = useAuth();
   
   const [logs, setLogs] = useState<AuditLog[]>([]);
+
+  // The whole log rendered at once — it only grows, so this page scrolled
+  // further every day it was used.
+  const pager = usePagination(logs);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState('all');
   const [selectedAction, setSelectedAction] = useState('all');
@@ -294,7 +300,7 @@ export default function AuditLogPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.map((log) => (
+                {pager.pageRows.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="whitespace-nowrap">
                       {format(new Date(log.performed_at), 'dd MMM yyyy HH:mm')}
@@ -328,6 +334,7 @@ export default function AuditLogPage() {
             </Table>
             </div>
           )}
+          {!isLoading && logs.length > 0 && <Paginator {...pager} noun="Entries" />}
         </CardContent>
       </Card>
 
@@ -353,7 +360,7 @@ export default function AuditLogPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {logs.map((log) => (
+            {pager.pageRows.map((log) => (
               <Card key={log.id} className="overflow-hidden">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -382,6 +389,9 @@ export default function AuditLogPage() {
               </Card>
             ))}
           </div>
+        )}
+        {!isLoading && logs.length > 0 && (
+          <Paginator {...pager} noun="Entries" className="rounded-xl border bg-card" />
         )}
       </div>
 

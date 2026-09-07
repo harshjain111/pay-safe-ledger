@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -216,6 +218,9 @@ export default function LeaveRecords() {
     }
     return true;
   });
+
+  // Leave history only grows; it was rendered in full.
+  const pager = usePagination(filteredRecords);
 
   const filteredAbsences = absences.filter((a) => {
     if (!scopeMatches(scope, staffScopeById.get(a.staff_id))) return false;
@@ -507,7 +512,7 @@ export default function LeaveRecords() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecords.map((record) => (
+                  {pager.pageRows.map((record) => (
                     <TableRow key={record.id}>
                       {!isStaff && (
                         <TableCell>
@@ -570,6 +575,7 @@ export default function LeaveRecords() {
               </Table>
             </div>
           )}
+          {filteredRecords.length > 0 && <Paginator {...pager} noun="Records" />}
         </CardContent>
       </Card>
       ) : (

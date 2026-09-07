@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Paginator } from './Paginator';
 
 export type CellTone = 'positive' | 'negative' | undefined;
 
@@ -29,7 +29,6 @@ export interface DataTableColumn<T> {
   headerClassName?: string;
 }
 
-const PAGE_SIZES = [10, 20, 50, 100];
 const DEFAULT_STICKY_WIDTH = 180;
 const CHECKBOX_COL_WIDTH = 40;
 /** Frozen columns may claim at most this share of the visible table width. */
@@ -284,35 +283,18 @@ export function DataTable<T>({
         </div>
       )}
 
-      {/* Standard footer: Showing X–Y of Z + page size + pager. */}
-      <div className="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span>Showing {firstShown}–{lastShown} of {total}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}>
-            <SelectTrigger className="h-11 w-[4.5rem] text-xs sm:h-7"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline" size="icon" className="h-11 w-11 sm:h-7 sm:w-7"
-            disabled={safePage === 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span>{safePage + 1} / {pageCount}</span>
-          <Button
-            variant="outline" size="icon" className="h-11 w-11 sm:h-7 sm:w-7"
-            disabled={safePage >= pageCount - 1}
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {/* The shared pager, so this and every raw-table page look and behave
+          identically. */}
+      <Paginator
+        page={safePage}
+        pageCount={pageCount}
+        pageSize={pageSize}
+        total={total}
+        firstShown={firstShown}
+        lastShown={lastShown}
+        setPage={setPage}
+        setPageSize={(n) => { setPageSize(n); setPage(0); }}
+      />
     </div>
   );
 }

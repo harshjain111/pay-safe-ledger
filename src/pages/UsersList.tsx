@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { ResetPasswordDialog } from '@/components/users/ResetPasswordDialog';
 import type { AppRole } from '@/types/database';
 
@@ -198,6 +200,9 @@ export default function UsersList() {
     return true;
   });
 
+  // 215 user rows rendered in one go — this page had no pager at all.
+  const pager = usePagination(filteredUsers);
+
   const getInitials = (name?: string) => {
     if (!name) return 'U';
     return name
@@ -346,7 +351,7 @@ export default function UsersList() {
                 and this page previously had no responsive rule at all — the
                 table simply ran off the side. Same data, stacked. */}
             <div className="divide-y lg:hidden">
-              {filteredUsers.map((user) => (
+              {pager.pageRows.map((user) => (
                 <div key={user.id} className="flex items-start gap-3 p-3">
                   <Avatar className="h-9 w-9 shrink-0">
                     <AvatarFallback className="bg-primary/10 text-sm text-primary">
@@ -404,7 +409,7 @@ export default function UsersList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {pager.pageRows.map((user) => (
                     <TableRow key={user.id} className="hover:bg-secondary/30">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -469,6 +474,7 @@ export default function UsersList() {
                 </TableBody>
               </Table>
             </div>
+            <Paginator {...pager} noun="Users" />
             </>
           )}
         </CardContent>

@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toAmount } from '@/lib/utils';
@@ -115,6 +117,11 @@ export default function Ledger() {
   const { user, isOwner, isAdmin, isStaff, isCA, staffData, isAccountant, accountingMode } = useAuth();
   
   const [journalLines, setJournalLines] = useState<JournalLineWithDetails[]>([]);
+
+  // The ledger rendered every line it had loaded. Each row already carries its
+  // own running balance, computed over the full set before this slice, so
+  // paging the view does not change any figure.
+  const pager = usePagination(journalLines, 50);
   const [staffList, setStaffList] = useState<StaffPublic[]>([]);
   const [staffBalances, setStaffBalances] = useState<StaffBalance[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string>(
@@ -644,7 +651,7 @@ export default function Ledger() {
             <>
               {/* Mobile Card View */}
               <div className="block lg:hidden divide-y">
-                {journalLines.map((line) => (
+                {pager.pageRows.map((line) => (
                   <div key={line.id} className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -728,7 +735,7 @@ export default function Ledger() {
                     {/* The balance carried into the period, so the Balance
                         column below is read as a continuation rather than as a
                         ledger that restarts at zero each month. */}
-                    {selectedMonth !== 'all' && (
+                    {selectedMonth !== 'all' && pager.page === 0 && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell className="whitespace-nowrap text-muted-foreground italic">
                           {format(new Date(`${selectedMonth}-01`), 'dd MMM yyyy')}
@@ -744,7 +751,7 @@ export default function Ledger() {
                         {isOwner && <TableCell />}
                       </TableRow>
                     )}
-                    {journalLines.map((line) => (
+                    {pager.pageRows.map((line) => (
                       <TableRow key={line.id} className="group">
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {line.journal_entry?.entry_date ? format(new Date(line.journal_entry.entry_date), 'dd MMM yyyy') : '-'}
@@ -822,6 +829,7 @@ export default function Ledger() {
                   </TableBody>
                 </Table>
               </div>
+              <Paginator {...pager} noun="Entries" />
             </>
           )}
         </CardContent>

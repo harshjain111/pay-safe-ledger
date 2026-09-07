@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchOutlets } from '@/lib/masters-cache';
@@ -157,6 +159,9 @@ export default function StaffList() {
       return outletFilter === NONE ? !o : o === outletFilter;
     });
 
+
+  // 214 staff rendered in one go; the list is paged now.
+  const pager = usePagination(filteredStaff);
   const getInitials = (name: string) =>
     name
       .split(' ')
@@ -330,7 +335,7 @@ export default function StaffList() {
             <>
               {/* Mobile Card View */}
               <div className="block lg:hidden divide-y">
-                {filteredStaff.map((member) => (
+                {pager.pageRows.map((member) => (
                   <div key={member.id} className="p-3 sm:p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -393,7 +398,7 @@ export default function StaffList() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStaff.map((member) => (
+                    {pager.pageRows.map((member) => (
                       <TableRow key={member.id} className="hover:bg-secondary/30">
                         {col('employee') && (
                           <TableCell>
@@ -470,6 +475,7 @@ export default function StaffList() {
                   </TableBody>
                 </Table>
               </div>
+              <Paginator {...pager} noun="Employees" />
             </>
           )}
         </CardContent>

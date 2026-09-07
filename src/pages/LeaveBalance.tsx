@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Paginator } from '@/components/patterns';
+import { usePagination } from '@/hooks/usePagination';
 import { ShieldAlert, SlidersHorizontal, FileSpreadsheet, Save, Loader2, Scale } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +79,9 @@ export default function LeaveBalance() {
       .filter((s) => scopeMatches(scope, s))
       .filter((s) => !q || s.full_name.toLowerCase().includes(q) || s.employee_id.toLowerCase().includes(q));
   }, [staff, search, scope]);
+
+  // 214 employees, each with one cell per leave type.
+  const pager = usePagination(filtered);
 
   const toggle = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allShown = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
@@ -173,7 +178,7 @@ export default function LeaveBalance() {
         <div className="space-y-3 lg:hidden">
           {filtered.length === 0 ? (
             <EmptyState icon={Scale} title="No staff" description="No staff to show." />
-          ) : filtered.map((s) => (
+          ) : pager.pageRows.map((s) => (
             <div key={s.id} className="rounded-xl border bg-card p-3">
               <div className="flex items-start gap-2">
                 {view === 'list' && (
@@ -232,7 +237,7 @@ export default function LeaveBalance() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={6 + types.length} className="p-0"><EmptyState icon={Scale} title="No staff" description="No staff to show." /></TableCell></TableRow>
-              ) : filtered.map((s) => (
+              ) : pager.pageRows.map((s) => (
                 <TableRow key={s.id} className="even:bg-muted/30">
                   {view === 'list' && <TableCell><Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} aria-label={`Select ${s.full_name}`} /></TableCell>}
                   <TableCell className="text-sm">{s.employee_id}</TableCell>
@@ -255,6 +260,7 @@ export default function LeaveBalance() {
             </TableBody>
           </Table>
         </div>
+        {filtered.length > 0 && <Paginator {...pager} noun="Employees" className="rounded-xl border bg-card" />}
         </>
       )}
 
