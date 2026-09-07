@@ -7,6 +7,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from '@/lib/toast';
 
 type Scope = 'department' | 'outlet' | 'role';
@@ -18,6 +22,7 @@ const ROLES = ['staff', 'accountant', 'admin', 'ca', 'owner'];
  *  a different quota, a full exemption, and a carry-forward decision. */
 export function LeaveTypeOverrides({ leaveTypeId }: { leaveTypeId: string }) {
   const [overrides, setOverrides] = useState<Ovr[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState<Ovr | null>(null);
   const [depts, setDepts] = useState<Named[]>([]);
   const [outlets, setOutlets] = useState<Named[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,10 +74,21 @@ export function LeaveTypeOverrides({ leaveTypeId }: { leaveTypeId: string }) {
     load();
   };
 
-  const remove = async (id: string) => {
-    const { error } = await supabase.from('leave_type_overrides').delete().eq('id', id);
+  // Asked for, not fired on the click. An override sets the quota — or a full
+  // exemption — for a whole department, outlet or role, so removing one
+  // silently changes what a group of people are entitled to.
+  const remove = async (o: Ovr) => {
+    const { error } = await supabase.from('leave_type_overrides').delete().eq('id', o.id);
+    setConfirmRemove(null);
     if (error) toast.error(error.message); else load();
   };
+
+  const scopeLabel = (o: Ovr) =>
+    o.scope === 'role'
+      ? o.role_type ?? 'role'
+      : (o.scope === 'department' ? depts : outlets)
+          .find((n) => n.id === (o.scope === 'department' ? o.department_id : o.outlet_id))?.name
+        ?? o.scope;
 
   const options = scope === 'department' ? depts : scope === 'outlet' ? outlets : ROLES.map((r) => ({ id: r, name: r }));
 
@@ -103,7 +119,7 @@ export function LeaveTypeOverrides({ leaveTypeId }: { leaveTypeId: string }) {
                       </Badge>
                     )}
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(o.id)} aria-label="Remove rule"><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-11 w-11 text-destructive sm:h-7 sm:w-7" onClick={() => setConfirmRemove(o)} aria-label="Remove rule"><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
             </div>
@@ -145,6 +161,32 @@ export function LeaveTypeOverrides({ leaveTypeId }: { leaveTypeId: string }) {
           </div>
         </>
       )}
+
+      <AlertDialog open={!!confirmRemove} onOpenChange={(o) => { if (!o) setConfirmRemove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this override?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmRemove && (
+                <>
+                  {scopeLabel(confirmRemove)} goes back to the leave type&rsquo;s standard
+                  entitlement. Anyone currently covered by this rule is affected from the
+                  next calculation.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmRemove && remove(confirmRemove)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -57,6 +57,7 @@ import { StatutorySettingsCard } from '@/components/settings/StatutorySettingsCa
 import { LeaveSettingsCard } from '@/components/settings/LeaveSettingsCard';
 import { LeaveTypesCard } from '@/components/settings/LeaveTypesCard';
 import { HrPayRulesCard } from '@/components/settings/HrPayRulesCard';
+import { DisciplineRulesCard } from '@/components/settings/DisciplineRulesCard';
 import { ManageOutletsDepartmentsCard } from '@/components/settings/ManageOutletsDepartmentsCard';
 import { OrganizationProfileCard } from '@/components/settings/OrganizationProfileCard';
 import { BiometricDevicesCard } from '@/components/settings/BiometricDevicesCard';
@@ -411,6 +412,11 @@ export default function Settings() {
           {active.id === 'attendance' && (
             <SettingsPanel title="Attendance & Leave" description="How attendance becomes paid days, and what leave employees are entitled to.">
               <HrPayRulesCard />
+              {/* discipline_rules.grace_minutes_in / _out decide who counts as
+                  late — read by BulkAttendance and the nightly discipline
+                  sweep — but this card was never rendered anywhere, so those
+                  values could only be changed with direct SQL. */}
+              <DisciplineRulesCard />
               <LeaveSettingsCard />
               <LeaveTypesCard />
               <SelfCheckinCard />
