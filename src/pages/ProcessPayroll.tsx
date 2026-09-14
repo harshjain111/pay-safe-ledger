@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { StatusTabs } from '@/components/ui/status-tabs';
 import { useNavigate } from 'react-router-dom';
 import { format, getDaysInMonth, parseISO, subMonths } from 'date-fns';
 import {
@@ -128,6 +129,9 @@ export default function ProcessPayroll() {
   const [loadingGrid, setLoadingGrid] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Paid and finalized rows sit among the pending ones and cannot be actioned,
+  // so there has to be a way to look at one group at a time.
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'settled' | 'paid'>('all');
   const [lock, setLock] = useState<SheetLock | null>(null);
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -257,6 +261,25 @@ export default function ProcessPayroll() {
   const daysInM = month ? getDaysInMonth(parseISO(month + '-01')) : 30;
 
   // ---- finalize -------------------------------------------------------------
+  // Said once, used by the checkbox tooltip and by the filter counts, so the
+  // rule and the explanation cannot drift apart.
+  const unselectableReason = (r: GridRow): string | null => {
+    if (r.status === 'paid') return 'Already paid — de-finalize from Finalized Payroll to change it';
+    if (r.status === 'settled') return 'Already finalized — de-finalize from Finalized Payroll to change it';
+    if (lock) return 'This month’s sheet is locked';
+    if (r.error) return `Could not compute: ${r.error}`;
+    if (!r.calc) return 'Still computing…';
+    return null;
+  };
+
+  const visibleRows = statusFilter === 'all' ? rows : rows.filter((r) => r.status === statusFilter);
+  const statusCounts = {
+    all: rows.length,
+    pending: rows.filter((r) => r.status === 'pending').length,
+    settled: rows.filter((r) => r.status === 'settled').length,
+    paid: rows.filter((r) => r.status === 'paid').length,
+  };
+
   const selectedRows = rows.filter((r) => selected.has(r.staff.id) && r.status === 'pending' && r.calc);
   const selectedNetTotal = selectedRows.reduce((sum, r) => sum + (r.calc?.netPayable ?? 0), 0);
 
@@ -570,18 +593,28 @@ export default function ProcessPayroll() {
         <p className="text-xs text-muted-foreground">Computing {loadedCount} of {rows.filter((r) => !r.stored).length} settlements…</p>
       )}
 
+      {applied && rows.length > 0 && (
+        <StatusTabs
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          tabs={[
+            { value: 'all', label: 'All', count: statusCounts.all },
+            { value: 'pending', label: 'Pending', count: statusCounts.pending },
+            { value: 'settled', label: 'Finalized', count: statusCounts.settled },
+            { value: 'paid', label: 'Paid', count: statusCounts.paid },
+          ]}
+        />
+      )}
+
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={visibleRows}
         rowKey={(r) => r.staff.id}
         stickyColumns={2}
         selectable
+        rowUnselectableReason={unselectableReason}
         selected={selected}
-        onSelectedChange={(next) => {
-          // Only pending, computed rows are selectable.
-          const allowed = new Set(rows.filter((r) => r.status === 'pending' && r.calc).map((r) => r.staff.id));
-          setSelected(new Set([...next].filter((k) => allowed.has(k))));
-        }}
+        onSelectedChange={setSelected}
         loading={loadingGrid && rows.length === 0}
         defaultPageSize={50}
         selectionSummary={
@@ -592,8 +625,16 @@ export default function ProcessPayroll() {
         empty={
           <EmptyState
             icon={Inbox}
-            title={applied ? 'No staff in this scope' : 'No payroll loaded yet'}
-            instruction={applied ? 'Widen the outlet or department filters above and press Search again.' : 'Choose an outlet and date range above and press Search.'}
+            title={
+              !applied ? 'No payroll loaded yet'
+                : statusFilter !== 'all' ? `Nothing ${statusFilter === 'settled' ? 'finalized' : statusFilter} in this month`
+                  : 'No staff in this scope'
+            }
+            instruction={
+              !applied ? 'Choose an outlet and date range above and press Search.'
+                : statusFilter !== 'all' ? 'Switch back to All to see the rest of the month.'
+                  : 'Widen the outlet or department filters above and press Search again.'
+            }
           />
         }
       />

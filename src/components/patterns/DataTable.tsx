@@ -46,6 +46,7 @@ export function DataTable<T>({
   rowKey,
   stickyColumns = 0,
   selectable = false,
+  rowUnselectableReason,
   selected,
   onSelectedChange,
   loading = false,
@@ -68,6 +69,13 @@ export function DataTable<T>({
   empty?: ReactNode;
   /** When provided (from <ColumnChooser>), only these column keys render. */
   visibleColumnKeys?: string[];
+  /**
+   * Why this row cannot be selected, or null if it can. When it returns a
+   * reason the checkbox is disabled and says so on hover, and the row is
+   * tinted — rather than the row silently refusing to tick, which is what
+   * happens when a caller filters the selection set behind the table's back.
+   */
+  rowUnselectableReason?: (row: T) => string | null;
   /** Left side of the selection footer bar, e.g. "3 selected · Net ₹X". */
   selectionSummary?: ReactNode;
   defaultPageSize?: number;
@@ -163,13 +171,19 @@ export function DataTable<T>({
     return style;
   };
 
-  const pageKeys = pageRows.map(rowKey);
-  const allPageSelected = selectable && pageKeys.length > 0 && pageKeys.every((k) => selected?.has(k));
+  // Select-all works on the rows that CAN be selected. Counting the others
+  // meant "all selected" was never true on a page holding one locked row, so
+  // the header checkbox only ever added and clicking it again did nothing.
+  const selectableKeys = pageRows
+    .filter((r) => !rowUnselectableReason?.(r))
+    .map(rowKey);
+  const allPageSelected = selectable && selectableKeys.length > 0
+    && selectableKeys.every((k) => selected?.has(k));
   const toggleAllPage = () => {
     if (!onSelectedChange) return;
     const next = new Set(selected ?? []);
-    if (allPageSelected) for (const k of pageKeys) next.delete(k);
-    else for (const k of pageKeys) next.add(k);
+    if (allPageSelected) for (const k of selectableKeys) next.delete(k);
+    else for (const k of selectableKeys) next.add(k);
     onSelectedChange(next);
   };
   const toggleRow = (key: string) => {
@@ -235,18 +249,32 @@ export function DataTable<T>({
                 ))
               : pageRows.map((row) => {
                   const key = rowKey(row);
+                  const locked = rowUnselectableReason?.(row) ?? null;
+                  // Sticky cells paint their own background, so the row tint
+                  // has to be handed to them or it stops at the frozen columns.
+                  const rowBg = locked ? 'bg-muted/50' : 'bg-card';
                   return (
-                    <tr key={key} className="h-[30px] hover:bg-muted/40">
+                    <tr
+                      key={key}
+                      className={cn('h-[30px] hover:bg-muted/40', locked && 'bg-muted/50 text-muted-foreground')}
+                      aria-disabled={locked ? true : undefined}
+                    >
                       {selectable && (
                         <td
-                          className="bg-card px-2 py-0.5"
+                          className={cn('px-2 py-0.5', rowBg)}
                           style={{ position: 'sticky', left: 0, zIndex: 2, width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
                         >
-                          <Checkbox
-                            checked={selected?.has(key) ?? false}
-                            onCheckedChange={() => toggleRow(key)}
-                            aria-label="Select row"
-                          />
+                          {/* title on the wrapper, not the control: a disabled
+                              checkbox fires no hover events of its own, so the
+                              explanation would never appear. */}
+                          <span title={locked ?? undefined} className={cn(locked && 'cursor-not-allowed')}>
+                            <Checkbox
+                              checked={!locked && (selected?.has(key) ?? false)}
+                              disabled={!!locked}
+                              onCheckedChange={() => toggleRow(key)}
+                              aria-label={locked ? `Cannot select: ${locked}` : 'Select row'}
+                            />
+                          </span>
                         </td>
                       )}
                       {visible.map((c, i) => {
@@ -257,7 +285,7 @@ export function DataTable<T>({
                             data-sticky={i < effectiveStickyColumns ? 'true' : undefined}
                             className={cn(
                               'whitespace-nowrap px-2.5 py-0.5',
-                              i < effectiveStickyColumns && 'bg-card',
+                              i < effectiveStickyColumns && rowBg,
                               alignClass(c),
                               c.bold && 'font-semibold',
                               toneClass(tone),

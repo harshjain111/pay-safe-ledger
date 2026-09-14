@@ -107,6 +107,77 @@ describe('DataTable (pattern 4)', () => {
   });
 });
 
+describe('DataTable selection with locked rows', () => {
+  // The bug: Process Payroll filtered paid rows out of the selection set after
+  // the fact. The checkbox ticked and immediately un-ticked with no reason
+  // given, and because "every row on the page is selected" could then never be
+  // true, the header checkbox only ever added — clicking it again did nothing.
+  interface R { id: string; name: string; paid: boolean }
+  const rows: R[] = [
+    { id: 'a', name: 'Ann', paid: false },
+    { id: 'b', name: 'Bob', paid: true },
+    { id: 'c', name: 'Cal', paid: false },
+  ];
+  const cols: DataTableColumn<R>[] = [{ key: 'name', header: 'Name', render: (r) => r.name }];
+  const reason = (r: R) => (r.paid ? 'Already paid' : null);
+
+  function Harness() {
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    return (
+      <>
+        <span data-testid="count">{selected.size}</span>
+        <DataTable<R>
+          columns={cols}
+          rows={rows}
+          rowKey={(r) => r.id}
+          selectable
+          rowUnselectableReason={reason}
+          selected={selected}
+          onSelectedChange={setSelected}
+        />
+      </>
+    );
+  }
+
+  it('disables a locked row and says why, instead of refusing silently', () => {
+    render(<Harness />);
+    const locked = screen.getByLabelText('Cannot select: Already paid');
+    expect(locked).toBeDisabled();
+    // The explanation has to sit on a wrapper: a disabled control fires no
+    // hover of its own.
+    expect(locked.closest('[title]')).toHaveAttribute('title', 'Already paid');
+  });
+
+  it('select-all takes only the selectable rows, and clicking again clears them', () => {
+    render(<Harness />);
+    const all = screen.getByLabelText('Select page');
+
+    fireEvent.click(all);
+    expect(screen.getByTestId('count')).toHaveTextContent('2');   // Ann + Cal, not Bob
+
+    fireEvent.click(all);
+    expect(screen.getByTestId('count')).toHaveTextContent('0');   // and it clears
+  });
+
+  it('still selects every row when none are locked', () => {
+    function Open() {
+      const [selected, setSelected] = useState<Set<string>>(new Set());
+      return (
+        <>
+          <span data-testid="n">{selected.size}</span>
+          <DataTable<R> columns={cols} rows={rows} rowKey={(r) => r.id} selectable
+            selected={selected} onSelectedChange={setSelected} />
+        </>
+      );
+    }
+    render(<Open />);
+    fireEvent.click(screen.getByLabelText('Select page'));
+    expect(screen.getByTestId('n')).toHaveTextContent('3');
+    fireEvent.click(screen.getByLabelText('Select page'));
+    expect(screen.getByTestId('n')).toHaveTextContent('0');
+  });
+});
+
 describe('PageHeader (pattern 1)', () => {
   it('renders the description under the title, and omits it when not given', () => {
     const { rerender } = render(
