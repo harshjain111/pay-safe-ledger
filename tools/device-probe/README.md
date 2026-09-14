@@ -5,10 +5,12 @@ never enrols, deletes, or changes anything on the device.
 
 ```bash
 node probe.cjs 192.168.1.201
+node probe.cjs 192.168.1.201 4370 123456     # if a Comm Password is set
 ```
 
-Use the IP shown on the device under **Menu → Comm → Ethernet**. If the
-terminal uses a non-standard port, pass it second: `node probe.cjs <ip> 4370`.
+The three arguments are exactly the values on the device under **Menu → Comm**:
+the IP from **Ethernet**, the **TCP Port** (default 4370), and the
+**Comm Password** if one has been set.
 
 Nothing to install — it speaks the protocol over a plain TCP socket, so any
 Node 18+ will run it.
@@ -23,9 +25,22 @@ is present and reachable.
 **TCP connect fails.** Wrong IP, different subnet/VLAN, a firewall, or a
 non-standard port. The script says which to check.
 
-**Connects but the handshake is refused.** The device has a Comm Key set
-(**Menu → Comm → Security → Comm Key**). Either clear it for the test or tell
-me the value so the connector can authenticate.
+**It asks for the Comm Password.** The device answered, but it is protected.
+Read **Menu → Comm → Comm Password** and pass it as the third argument. The
+script performs the real authentication handshake, so there is no need to
+clear the password on the device.
+
+## About the other Comm settings
+
+**Event Transfer Mode** and **Host PC Port** let the terminal push punches to a
+host as they happen, rather than being polled. Useful once the agent exists --
+it makes attendance real-time instead of on a timer -- but it does not change
+the architecture: there is no field for a public URL, so the target is still a
+machine on your LAN, not our cloud.
+
+**Device ID** matters when several terminals share a network; it is how they
+are told apart on the wire. Two of the devices currently registered in the app
+share the serial `PHY724470138`, which cannot be right for two physical units.
 
 ## Why a probe first
 
