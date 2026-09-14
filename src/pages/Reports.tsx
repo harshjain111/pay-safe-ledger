@@ -27,6 +27,7 @@ import { TrialBalance } from '@/components/reports/TrialBalance';
 import { AdvanceExplorer } from '@/components/reports/AdvanceExplorer';
 import { TransactionsExplorer } from '@/components/reports/TransactionsExplorer';
 import { AIInsights } from '@/components/reports/AIInsights';
+import { SalaryRegisterReport } from '@/components/reports/SalaryRegisterReport';
 import { AttendanceReports } from '@/components/reports/AttendanceReports';
 import { ReportBuilder } from '@/components/reports/ReportBuilder';
 import type { Staff } from '@/types/database';
@@ -229,6 +230,11 @@ export default function Reports() {
               <FileText className="h-4 w-4" /><span className="text-xs sm:text-sm">Ledger</span>
             </TabsTrigger>
             {canSeeSalaryReports && (
+              <TabsTrigger value="register" className="flex items-center gap-1 px-3 whitespace-nowrap">
+                <FileSpreadsheet className="h-4 w-4" /><span className="text-xs sm:text-sm">Salary Register</span>
+              </TabsTrigger>
+            )}
+            {canSeeSalaryReports && (
               <TabsTrigger value="salary" className="flex items-center gap-1 px-3 whitespace-nowrap">
                 <Wallet className="h-4 w-4" /><span className="text-xs sm:text-sm">Salary</span>
               </TabsTrigger>
@@ -304,6 +310,7 @@ export default function Reports() {
         <TabsContent value="transactions" className="mt-4"><TransactionsExplorer /></TabsContent>
         <TabsContent value="ai_insights" className="mt-4"><AIInsights /></TabsContent>
         <TabsContent value="attendance" className="mt-4"><AttendanceReports /></TabsContent>
+        <TabsContent value="register" className="mt-4"><SalaryRegisterReport /></TabsContent>
 
         {/* ===== LEGACY TABS (kept for CA/accounting) ===== */}
         <TabsContent value="summary" className="mt-4">
