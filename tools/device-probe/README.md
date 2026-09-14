@@ -39,8 +39,8 @@ the architecture: there is no field for a public URL, so the target is still a
 machine on your LAN, not our cloud.
 
 **Device ID** matters when several terminals share a network; it is how they
-are told apart on the wire. Two of the devices currently registered in the app
-share the serial `PHY724470138`, which cannot be right for two physical units.
+are told apart on the wire. Worth checking each unit's Device ID against the
+matching row in the app once the probe confirms which serial sits where.
 
 ## Why a probe first
 
