@@ -1,0 +1,236 @@
+employee_id,full_name,user_id,auth_email,phone,monthly_salary,pf,esi
+K2H001,PARAKH CHATURVEDI,2a07dd51-df1a-4e55-af2c-6e0ddff285aa,7003963608@hr-buddy-nine.vercel.app,,42000.00,false,false
+K2H002,SIDDHARTH GHOSH,28304e54-6ac4-40d8-a4fa-e143eb9cf777,k2h002@hr-buddy-nine.vercel.app,,21000.00,true,true
+K2H004,ARUP DAS,5a092b1b-a218-43d1-8916-d9c662e57627,k2h004@hr-buddy-nine.vercel.app,,25000.00,true,false
+K2H005,NEEMA DE,3eb5eb34-3cbc-4abc-8f63-ec490707cd98,k2h005@hr-buddy-nine.vercel.app,,33000.00,false,false
+K2H006,DHARAMBIR LAL,2c68ef5e-c52d-47fc-b5ca-0b4ebaba10f2,k2h006@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H007,WASIM AKRAM,d52d18eb-6f7b-4ebe-ba0a-ff9109b4030f,k2h007@hr-buddy-nine.vercel.app,,24000.00,false,false
+K2H008,SATADAL PATRA,8e2209ec-4764-433c-a207-62c95d116ee3,k2h008@hr-buddy-nine.vercel.app,,15400.00,true,true
+K2H011,AMIR ALAM,080ed6c9-02cc-431c-a4a8-6b21e7e8637b,k2h011@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H013,PRASANTA MANDAL,92240f3e-f5bf-4cb8-a24b-ee573029ecd3,k2h013@hr-buddy-nine.vercel.app,,15500.00,true,true
+K2H014,SAPTENDU MANDAL,31835447-9101-466c-aa03-40bda895834d,k2h014@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H015,RANJIT BHUNIA,97b667ac-4fe5-4dfc-807c-b999b081b061,k2h015@hr-buddy-nine.vercel.app,,26000.00,false,false
+K2H016,RAJKUMAR MANNA,7b823a9b-3827-4996-8b3f-d709348a74ee,k2h016@hr-buddy-nine.vercel.app,,15500.00,true,true
+K2H017,AKASH DAS,7a9f08db-b48c-42ff-89b3-e07056f352fc,k2h017@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H020,TRIDWIP HAZRA,4319fff0-bfe9-4137-a54a-24d84fa4b95c,k2h020@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H022,RAKESH BALA,40558bc0-6c3a-4e2e-99e1-56c8163e8b88,k2h022@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H023,AVIJIT DAS,b2657eb7-d10b-4f38-afc3-7c2132e07d12,k2h023@hr-buddy-nine.vercel.app,,18500.00,true,true
+K2H027,DIPANKAR GHOSH,d13af8ea-573a-4804-b84f-3ad7de89ff1a,k2h027@hr-buddy-nine.vercel.app,,30000.00,false,false
+K2H028,PRABHAT UPADHYAY,242c9cb4-4c63-41c1-a2e6-dbff7c6f0e45,k2h028@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H029,PRASENJIT MAJUMDER,906849bf-70a2-47c3-b70f-f91ab7bd1342,k2h029@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H030,PRAKASH BEHERA,acce6f9a-1000-4761-97e3-ad374310575e,k2h030@hr-buddy-nine.vercel.app,,7500.00,true,true
+K2H032,MD NAUSHAD,59a048c7-53eb-474f-96b6-5f923ce649e3,k2h032@hr-buddy-nine.vercel.app,,24500.00,true,false
+K2H033,SUJOY DAS,f99f49a2-7146-46b7-9baf-dd9c76d51420,k2h033@hr-buddy-nine.vercel.app,,13200.00,true,true
+K2H037,SHYAM CHARAN KANJI,daf58c29-db84-48b5-876b-274ef2926434,k2h037@hr-buddy-nine.vercel.app,,18400.00,true,true
+K2H041,PRASHANTA PARAMANIK,744c651e-e115-45ac-a4b4-fbd630875b65,k2h041@hr-buddy-nine.vercel.app,,19200.00,true,true
+K2H045,SANTOSH KUMAR DAS,ed0d697b-3fe8-466c-a5a8-714b29f3180e,k2h045@hr-buddy-nine.vercel.app,,14000.00,true,true
+K2H046,SATYAJIT GHOSH,b3f6d5d8-49aa-4f05-a18c-822a4421e2f6,k2h046@hr-buddy-nine.vercel.app,,11550.00,true,true
+K2H049,DIPAK KUMAR SAU,1493ffd0-4062-46e5-91a4-4749d2b0e968,k2h049@hr-buddy-nine.vercel.app,,17000.00,true,true
+K2H052,AMIT BARUI,64294be1-ddba-4f68-88c3-e069c32ad4d3,k2h052@hr-buddy-nine.vercel.app,,21000.00,true,true
+K2H053,KIRTI DAGA,6cd90b3b-4726-42f8-8093-d3b1a46e2db8,k2h053@hr-buddy-nine.vercel.app,,33000.00,false,false
+K2H055,PRIYANKA TIWARI,843b4413-7bfd-4f98-b497-06d450678776,k2h055@hr-buddy-nine.vercel.app,,32500.00,false,false
+K2H056,ARUP BHATTACHARJEE,982f36d6-f811-4d3c-bc4b-9ef2e48b755a,k2h056@hr-buddy-nine.vercel.app,,39000.00,false,false
+K2H057,KASEM ALI KHAN,8bb81411-24ce-48f0-a4ac-9fd02fa0ff5b,k2h057@hr-buddy-nine.vercel.app,,19000.00,false,false
+K2H058,DIPSHIKHA GHOSH,bde7a981-5a48-4aff-9e1a-67e2bfac31b9,k2h058@hr-buddy-nine.vercel.app,,36000.00,false,false
+K2H059,AMITAVA SARKAR,3db7c031-cdd8-4606-87d7-cf107b946372,k2h059@hr-buddy-nine.vercel.app,,24500.00,true,false
+K2H062,SUSHIL BAG,e297d819-72e6-4203-88f2-6a9de777457c,k2h062@hr-buddy-nine.vercel.app,,12650.00,true,true
+K2H063,SUPRAVAT MONDAL,29c69c44-5fc7-475a-b290-fc88b5aa9586,k2h063@hr-buddy-nine.vercel.app,,11500.00,true,true
+K2H064,RUDRA HALDER,7185f8fe-9dce-4d02-b927-08bf36dea651,k2h064@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H065,NIMAI PRADHAN,3b9c4e86-ef75-46b5-9ce4-14ac8f5e774b,k2h065@hr-buddy-nine.vercel.app,,12650.00,true,true
+K2H067,SUBHAJIT MAJHI,9a878716-3240-4f96-8ea3-79073da62286,k2h067@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H068,AJIT KUMAR BISWAS,6f21f108-9d36-4d1d-a863-39f1772ba8f1,k2h068@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H069,NASIR SEKH,476d90a1-1550-4474-86e2-1ca160b05b0f,k2h069@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H071,MAIDUL BAIDYA,d6b62a65-7bcf-492a-a722-d00c70778a20,k2h071@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H072,SUROJIT BARUI,967d287d-2118-4f9e-bde2-ac49528956a1,k2h072@hr-buddy-nine.vercel.app,,20300.00,true,true
+K2H073,MIKHEL DAS,3de3f424-69eb-45f5-8989-a111964a6fc4,k2h073@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H076,BIKROMJIT SETT,7efce763-e13a-416f-aa32-77a7532e4a12,k2h076@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H078,SAMIR SARKAR,c22508fe-684c-4937-b8c8-9c30b386619f,k2h078@hr-buddy-nine.vercel.app,,21500.00,true,false
+K2H080,AMALENDU MONDAL,1596e6b8-f4ea-4fad-9c49-dc839c9a0bc1,k2h080@hr-buddy-nine.vercel.app,,10500.00,true,true
+K2H084,GOLAK MONDAL,e5e8512a-b93c-4249-96d5-51a82f7442d8,k2h084@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H088,MD DANISH ANSARI,c373e3a6-0c83-48ee-97f8-fd13a0522a7a,k2h088@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H091,CHHATTUU DAS,06eee89f-d471-4ae1-8874-62bad7da048a,k2h091@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H092,RABI HALDER,84c24a84-fca6-41e3-88ee-c4a5e0c56c01,k2h092@hr-buddy-nine.vercel.app,,10500.00,true,true
+K2H093,TAPASH BOSE,b31f1d58-64d2-4ecf-abc9-61c2a65d1b65,k2h093@hr-buddy-nine.vercel.app,,47000.00,false,false
+K2H095,AMAL CHANDRA DAS,4ae753f8-6480-461c-87a3-4adb9dc205af,k2h095@hr-buddy-nine.vercel.app,,35000.00,false,false
+K2H096,RATAN NANDI,3ac77f3d-eb28-48fe-9a4a-dc53ece24ba5,k2h096@hr-buddy-nine.vercel.app,,60000.00,false,false
+K2H097,MD AZHAR UDDIN,dbd411b3-ad39-4021-8ff2-9c188dc83939,k2h097@hr-buddy-nine.vercel.app,,27500.00,false,false
+K2H098,SHANTU BISWAS,0aa0d705-5f5f-4a33-bea9-154cdd5115b5,k2h098@hr-buddy-nine.vercel.app,,19500.00,true,true
+K2H102,SUBHANKAR BISWAS,28236077-edef-47bd-b5b6-15fac2410cf7,k2h102@hr-buddy-nine.vercel.app,,19000.00,true,true
+K2H103,PRASENJIT BERA,574053fc-ea22-4453-9335-081173f8ebaa,k2h103@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H106,RAHUL MAKAL,ed1c54c3-cc22-4534-9061-8887ebf1f739,k2h106@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H109,NAYAN BASU,bcb3d10c-759d-4b5d-9e07-796f85fa1b92,k2h109@hr-buddy-nine.vercel.app,,25500.00,true,false
+K2H110,RAMU NASKAR,076d636d-b805-4f83-b633-1432107594f3,k2h110@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H111,RAKHIYA KHATUN,81d3060c-508c-4f2a-bb69-1e2e2bfae695,k2h111@hr-buddy-nine.vercel.app,,10450.00,true,true
+K2H112,NITESH KUMAR SARKAR,b417c6da-a02b-478f-9cfc-80b03486aff3,k2h112@hr-buddy-nine.vercel.app,,25000.00,true,false
+K2H113,DEBASHIS BERA,0524f8ec-086f-4a7a-8da9-7fc12a426fff,k2h113@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H115,SONATAN MANDAL,7dd4f592-8389-4802-8f5f-7a08eabafa4f,k2h115@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H118,NARAYAN GHORAI,7e64c5e8-8b33-48c7-a444-4dbf8113e44f,k2h118@hr-buddy-nine.vercel.app,,11500.00,true,true
+K2H121,SUDIP HAZRA,eb39f678-d179-4630-a559-9fc5fe3bcd40,k2h121@hr-buddy-nine.vercel.app,,55000.00,false,false
+K2H126,BAPAN MONDAL,cf47d30d-8739-422d-9aaa-e35cf98fd848,k2h126@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H127,MAMUN MAJHI,bfb826a6-f9be-48ff-8739-f3f17f0969c8,k2h127@hr-buddy-nine.vercel.app,,14000.00,true,true
+K2H128,PRALHAD MONDAL,bde41f92-076a-43a5-84bb-e9e48435a464,k2h128@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H129,MD ABBASUDDIN MISTRY,b603e66a-81c6-4426-a47a-c5a3a8f4c0ce,k2h129@hr-buddy-nine.vercel.app,,23500.00,true,false
+K2H130,SUBRATA MONDAL,a679baf4-fa76-4ec6-b304-a97f829d6623,k2h130@hr-buddy-nine.vercel.app,,20000.00,true,false
+K2H131,SAILESH SAW,eb8790c5-b209-45b5-99a1-fb8dc57061f8,k2h131@hr-buddy-nine.vercel.app,,16500.00,true,true
+K2H132,TARUN SARKAR,0b72e563-1c14-4bf2-a2d0-9e62ddc4232a,k2h132@hr-buddy-nine.vercel.app,,15500.00,true,true
+K2H133,SANTU SARKAR,1c89a537-0c2f-4f35-bb0c-d74548bc51d2,k2h133@hr-buddy-nine.vercel.app,,13200.00,true,true
+K2H134,RAJIB MOLLAH,13558543-edfc-4091-b16b-76d4837409fb,k2h134@hr-buddy-nine.vercel.app,9876543210,14850.00,true,true
+K2H135,DEBASIS SASMAL,ccceef7c-6845-42f2-bb42-8ef413eeeb83,k2h135@hr-buddy-nine.vercel.app,,26000.00,true,false
+K2H136,ABDUL ZAHER,526d6591-33ae-4029-9a08-097d00272789,k2h136@hr-buddy-nine.vercel.app,,12650.00,true,true
+K2H137,KALYAN DAN,118723a5-78ef-4f12-8e68-eeb06d00a1ea,k2h137@hr-buddy-nine.vercel.app,,10500.00,true,true
+K2H140,MD KASIM,c7f22010-c9cc-4e20-bcab-e499b9c79d97,k2h140@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H144,DIPANKAR TIKADAR,2d2ebca7-0f2f-4f05-8c2b-6e4b687eb8a0,k2h144@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H145,RAJESH LAL,3d130aac-5ea9-4793-ba9c-f0e1d7217fc9,k2h145@hr-buddy-nine.vercel.app,,13500.00,true,true
+K2H147,GOKUL DURLAV,4f346b79-e375-4872-8910-3c0d1ae3567e,k2h147@hr-buddy-nine.vercel.app,,25500.00,false,false
+K2H151,RAJDEEP SETH,8dfc3a06-278f-49ff-8700-5e4db7a2d8b5,k2h151@hr-buddy-nine.vercel.app,,40000.00,false,false
+K2H156,MAHMOOD ALI,08eb85e4-8fb7-4fd9-9e71-6ec329d7a4b3,k2h156@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H157,MD NAVED,20b3c19b-dcf4-4eff-8cf6-81b3686d6353,k2h157@hr-buddy-nine.vercel.app,,16800.00,true,true
+K2H162,RAHUL JAISWAL,1db7bd07-c201-4023-b47b-70f8fbef6fd1,k2h162@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H164,ODAYBIR LALL,9bafe7e8-40aa-4de2-90b4-068984e79f66,k2h164@hr-buddy-nine.vercel.app,,15500.00,false,false
+K2H165,MAHESH MAJHI,9fef71db-9ead-4168-8e04-dc00c5ea8548,k2h165@hr-buddy-nine.vercel.app,,22500.00,true,false
+K2H166,ANTONY MALICK,23f6d7c8-ae53-4c01-942e-b3a03b5e4416,k2h166@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H168,AMIT GHORAI,05f0dd5e-549c-4e4a-9b55-02726551d763,k2h168@hr-buddy-nine.vercel.app,,15500.00,true,true
+K2H169,SK KABIRUDDIN,7bbc3a3a-0c0d-4a46-81cc-dfe05c1566cd,k2h169@hr-buddy-nine.vercel.app,,18500.00,true,true
+K2H170,MD ALTASAB QADRI,494e341b-fa1a-46af-8941-53ab3092d559,k2h170@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H171,NIRMAL MONDAL,cadb5077-1745-417f-9a5c-7391f41e5064,k2h171@hr-buddy-nine.vercel.app,,21500.00,true,false
+K2H172,PRAMANANDA PADHI,086a25a0-2ff8-4734-ab2c-2b8fcec1b528,k2h172@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H176,SOMNATH DAS,bd131413-1cad-4bf2-8a53-8439f5ef2ff9,k2h176@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H177,RUPAM SARKAR,d33f8c1e-0aad-42c7-9f00-cdad0bccac3f,k2h177@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H178,BUDDHADEB HALDER,a734658b-82cf-43f0-a716-6a29fdadebbe,k2h178@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H180,AMAL SARKAR,3aafea38-2035-4e31-8a48-7436fdd299ab,k2h180@hr-buddy-nine.vercel.app,,24500.00,true,false
+K2H183,ANIMESH MONDAL,db151a26-9002-40f9-97ab-7825bd77bc60,k2h183@hr-buddy-nine.vercel.app,,24500.00,true,false
+K2H185,MUJIBAR SAHA,28610093-84c5-44a9-9f35-09a58b284b69,k2h185@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H186,SUJAN SAMANTA,e9713d8d-f926-4903-83ec-2a36322059f5,k2h186@hr-buddy-nine.vercel.app,,19500.00,true,true
+K2H188,SUBRATA BISWAS,2e9a5660-6c7e-4e67-bb6f-74c0912e8dc9,k2h188@hr-buddy-nine.vercel.app,,22000.00,true,false
+K2H190,SOUMEN BOSE,8a322ad3-d706-480f-b4e0-8aa5c0adb644,k2h190@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H191,ASHOK BOSE,3cd5bd6c-75e1-43d7-a951-92f3d2370c75,k2h191@hr-buddy-nine.vercel.app,,11000.00,false,true
+K2H192,SAHINOOR MONDAL,1c5fbd51-4259-4e54-b4a7-067403af3d1e,k2h192@hr-buddy-nine.vercel.app,,10500.00,true,true
+K2H195,PRATAP GHOSH,068f2001-b2ad-426e-a3f5-3e65a5bd5860,k2h195@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H196,PROSENJIT ROY,363c6752-577c-4f3c-b92a-426071486d96,k2h196@hr-buddy-nine.vercel.app,,40000.00,false,false
+K2H197,NILAY SANA,85e8e693-e0a5-4d47-88d7-1c4f8a58db21,k2h197@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H202,PARITOSH PAL,d4c60d70-3bc4-40eb-b891-b2106e01d144,k2h202@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H207,SARAJIT SARKAR,36c56108-e154-4563-914c-f51984ea6e2d,k2h207@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H211,REJJAK KHAN,2678b859-3d82-4848-9195-6d0aae66f8bd,k2h211@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H212,DIPAK PATAR,a24824db-13f9-4573-a8ed-efc85d2a74de,k2h212@hr-buddy-nine.vercel.app,,15500.00,true,true
+K2H217,SANJAY MONDAL,458b7bda-e768-496e-973c-81fe2dc203e6,k2h217@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H220,TARUN GHOSH,52e8e190-6617-4624-8c75-02fd896b9c08,k2h220@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H223,SANAJIT BISWAS,c179ea7b-d0c6-4386-ba24-afb59f2c49f1,k2h223@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H224,AKASH DUBEY,7fad2e61-e3e2-4410-a10d-855876d66f68,k2h224@hr-buddy-nine.vercel.app,,20000.00,false,true
+K2H227,SANJIT MISHRA,61584242-b255-4829-8a66-8090566e1cf4,k2h227@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H233,SADHAN BISWAS,e29f71da-855e-4e83-99f2-18610a57be6d,k2h233@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H234,SANJIB MALLICK,7bf8a892-409c-4a4b-9b4b-c5ca46036f9f,k2h234@hr-buddy-nine.vercel.app,,25000.00,true,false
+K2H236,BABU DUTTA,7c07b7c9-8b97-43ef-a58b-a613c434c7da,k2h236@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H239,ARITA MAJHI,6859a199-dbcd-4f6b-9597-481a684f140e,k2h239@hr-buddy-nine.vercel.app,,9500.00,true,true
+K2H245,DULARCHAND KUMAR,3951960f-0d08-48f3-8d11-970dbca8d4e4,k2h245@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H254,BAPI PRAMANIK,7cb07bcf-b6b2-457a-b5af-ab32a5062995,k2h254@hr-buddy-nine.vercel.app,,26000.00,true,false
+K2H255,RAHUL MISHRA,e0127853-8298-4450-934d-919ead8b4696,k2h255@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H257,ALAM SEKH,419e4075-c48f-4d33-abb3-83a884da2903,k2h257@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H259,JHANTU SARDAR,cf36dede-f488-464b-8611-8f43a62a959d,k2h259@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H261,SANJOY BHOWMIK,d86ed229-2306-49f3-84a8-a74bf3d7dc37,k2h261@hr-buddy-nine.vercel.app,,17000.00,true,true
+K2H262,JUNAID BEG,869904e8-4b7a-4bd7-8e49-15946abe5a33,k2h262@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H268,RANA GHOSH,fdfd3f76-fd30-4753-a0e8-3f41606a2c14,k2h268@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H269,ABID ALI,562783fe-8f5d-4595-992a-5866e31fb28e,k2h269@hr-buddy-nine.vercel.app,,14000.00,true,true
+K2H270,NAZIR ALI,9ff01638-4fc4-4abb-90a9-aedbbdbf5074,k2h270@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H271,MD NADIM,5bd5391e-4655-4bde-885d-4649f9f329da,k2h271@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H273,Alamgir Sk,62bce902-140c-49eb-a96f-be6a9503d8d4,k2h273@hr-buddy-nine.vercel.app,,17000.00,true,true
+K2H277,MD SHAZADA,f157f81c-89c9-44c7-bb4e-0623c744972d,k2h277@hr-buddy-nine.vercel.app,,16000.00,false,false
+K2H283,SOVAN MAITY,25ed572a-a907-40f9-99cc-7890eb2fa15d,k2h283@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H291,SUSANTO BASAK,5d4c5259-f52c-4968-a5bd-db855d51c349,k2h291@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H293,RAVI KUMAR JAISWL,47740167-b285-4097-93ec-f2761fb3cbc6,k2h293@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H294,DIPANKAR DAS,6e468350-e0ec-4862-b4fb-b6cb7b7dcd55,k2h294@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H296,SARWAR MASOOD,e0977de2-4106-45c9-a400-43b3ea961453,k2h296@hr-buddy-nine.vercel.app,,17000.00,true,true
+K2H297,SHANTANU HALDER,38aa0045-b45e-4bc8-b67b-935e58786989,k2h297@hr-buddy-nine.vercel.app,,10500.00,true,true
+K2H300,MD DANISH KHAN,6e754c51-6325-40db-86f3-b0a3bbdbe1d1,k2h300@hr-buddy-nine.vercel.app,,12000.00,false,false
+K2H302,KANAI LAL BOXI,d667ab09-3b96-46a2-b288-7cefe50170b5,k2h302@hr-buddy-nine.vercel.app,,11500.00,true,true
+K2H305,RAJESH KUMAR MEHETA,8c8b2a10-9cbd-4d92-96cf-d79c3fc75e42,k2h305@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H307,SK AMINUL,e86cb761-1f12-421c-87ff-2a5928dd1f40,k2h307@hr-buddy-nine.vercel.app,,10500.00,false,false
+K2H308,KUSHAL SARKAR,e443287a-5c1f-4267-b8a9-8a891f400c5e,k2h308@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H309,SUJAY BOR,e7689cfe-04a0-44bd-8add-4ed1d543129a,k2h309@hr-buddy-nine.vercel.app,,33000.00,true,false
+K2H310,SOMNATH DHARA,1cd0bc39-1d43-4037-bc18-1d582927c6eb,k2h310@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H316,MITHUN KUMAR YADAV,c032dd85-0cf5-4127-9c96-4d02f9f346fa,k2h316@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H317,SAMBHU CHARAN JANA,0710249d-5b5c-4555-83b4-ddf442001ae7,k2h317@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H319,YUSUF ANSARI,06d13ba8-1735-45f7-ac4d-1a51c85c67ad,k2h319@hr-buddy-nine.vercel.app,,65000.00,false,false
+K2H321,SWAPAN SARKAR,9f61e0fa-2241-4baa-bca9-d171ba4e11d7,k2h321@hr-buddy-nine.vercel.app,,24000.00,true,false
+K2H322,PRANAB JANA,b62e2a87-52b5-4474-9f12-799cffed3339,k2h322@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H323,PRANAB GHARAMI,cb8afade-78a6-4135-8421-9bbc486f7c1d,k2h323@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H324,PRODYUT BISWAS,6fb29761-bae5-4a5c-b0df-c793b0c24f35,k2h324@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H325,BAPI RANA,1dc557ab-755b-43d7-82eb-b6fad90a6509,k2h325@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H327,DILOWAR ALI KHAN,8196ea46-abe9-44be-bf63-9bace446c615,k2h327@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H328,SAFIKUL MONDAL,91f21e01-15c1-4a0a-bf02-0398fcccec0f,k2h328@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H330,PRADIP PAL,f9e30013-85ca-4e33-9f33-2c61848896f3,k2h330@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H331,SUDIPTA KALAPAHAR,ef240233-d1cc-47db-82e0-e14a58af5464,k2h331@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H334,RAHUL ROY,7e75f0d1-5cc9-45c3-ad67-93500faa41a5,k2h334@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H335,KANAI LAL MAITY,a1246b36-dd68-43f2-9486-7fd3f6e8e22e,k2h335@hr-buddy-nine.vercel.app,,24000.00,false,false
+K2H338,MAHAMMAD DHALI,1ea5da25-241e-4925-89aa-4c2f4f835624,k2h338@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H339,KARUNA MONDAL,26c729ac-2a6d-4088-8d48-9b7be21d1918,k2h339@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H340,ANJALI RAM,64c9ce7c-2307-4a09-baa0-415433e839e1,k2h340@hr-buddy-nine.vercel.app,,13000.00,true,true
+K2H343,SAGNIKL DAS,92145563-7b5b-42fc-b7d6-23531c70da59,k2h343@hr-buddy-nine.vercel.app,,22000.00,true,false
+K2H344,NANDA KUMAR MONDAL,34128196-66d8-4848-9ce2-8953dae90b9a,k2h344@hr-buddy-nine.vercel.app,,11500.00,false,false
+K2H345,RAM PARVESH,a1676cf6-c53a-4a63-aec5-19306e634c60,k2h345@hr-buddy-nine.vercel.app,,28000.00,true,false
+K2H350,PRAVAT KR GUPTA,09bd0dd6-0c04-41aa-9000-f5a759085781,k2h350@hr-buddy-nine.vercel.app,,23000.00,true,false
+K2H351,SOVAN MANNA,c253588d-625f-4fda-b641-0469b79b851a,k2h351@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H352,TARUN SARKAR,05f2b3ff-a922-4aff-b05e-23fb222e3b2b,k2h352@hr-buddy-nine.vercel.app,,17500.00,true,true
+K2H354,RAJESH NAIYA,974e0126-40a6-4c5f-a8f8-a5ad4a8bb037,k2h354@hr-buddy-nine.vercel.app,,11500.00,false,false
+K2H356,SANATAN DAS,2fc4c286-e5fa-436f-97eb-472d1b7c24d7,k2h356@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H358,RAVI SHAW,f2ede77a-03bf-42c2-8f32-cf16300e7ebd,k2h358@hr-buddy-nine.vercel.app,,20000.00,true,true
+K2H360,SUKUMAR BARMAN,017a2a03-a0a7-49c8-8f80-35a29ee66416,k2h360@hr-buddy-nine.vercel.app,,21000.00,true,true
+K2H362,SUJIT MONDAL,3bbade96-ed11-4d77-96a6-f01215d7c2f6,k2h362@hr-buddy-nine.vercel.app,,16000.00,false,false
+K2H363,MD SAMAD,14cc59d5-7bdd-4dae-998b-47645647e3fa,k2h363@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H364,ARIFUL KAZI,9a088fcd-4bf4-4a75-8405-8d421d18bd00,k2h364@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H365,TAPAN SHIKARI,186b0986-e1ac-4f25-b5b1-442ebdd2578b,k2h365@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H367,GOBINDA DAS,ff094248-0ecf-4f3a-bae8-c233c4acfc0c,k2h367@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H368,TARUN MONDOL,1cee23a8-082f-43fa-b486-c7b1c4765533,k2h368@hr-buddy-nine.vercel.app,,19000.00,true,true
+K2H371,MANORANJAN KARMAKAR,4f419d5f-c901-43b1-8bbd-c20ae45b8792,k2h371@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H372,SHABUDDIN ISLAM,b6d0c77a-86dc-4f43-857b-0d0be65efcb1,k2h372@hr-buddy-nine.vercel.app,,10000.00,true,true
+K2H373,TIYASHA MUKHERJEE,ac6a7912-738f-42b2-a877-6bfbe817e109,k2h373@hr-buddy-nine.vercel.app,,29930.00,true,false
+K2H374,SARAJIT HALDAR,3e089b30-9f1b-4cce-a22e-2fda39f1e046,k2h374@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H376,SANKAR DEBNATH,63e7a30b-4fc1-4a9e-999e-6e07ea0e5f84,k2h376@hr-buddy-nine.vercel.app,,19000.00,true,true
+K2H377,GOPAL GHOSH,8780d91b-2e4d-4dd7-a755-db8e01b67d60,k2h377@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H379,SANTOSH KUMAR YADAV,ffdd31ec-65af-4de8-948c-64134625f747,k2h379@hr-buddy-nine.vercel.app,,14000.00,true,true
+K2H380,JOY GHOSH,24c534e3-b7df-4959-8fa7-dedceac35976,k2h380@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H381,SUJIT PAL,2334bf7f-f7b4-41d4-83c8-cd749a4eae32,k2h381@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H382,KHADIJA IFTEKHAR,f239a163-497b-4f3f-9b53-6c1721d46711,k2h382@hr-buddy-nine.vercel.app,,45000.00,false,false
+K2H383,SUJAYBISWAS,41c0995b-3bb8-4ec0-8e6e-ec488413590f,k2h383@hr-buddy-nine.vercel.app,,11000.00,false,false
+K2H384,JIT GAIN,07763620-e1bd-4dcb-9bac-a8d40a22f372,k2h384@hr-buddy-nine.vercel.app,,11000.00,false,false
+K2H386,SWAPAN KUMAR SARKAR,4c9160a4-a26f-41ff-8313-4929f4380ad0,k2h386@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H387,LAKSHMAN DEBNATH,e7984621-5067-43b3-87c2-f5a416278fd5,k2h387@hr-buddy-nine.vercel.app,,20000.00,false,false
+K2H389,SHUVAM DEY,8eab153c-b175-4952-9a87-26937107fb6b,k2h389@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H391,JITENDRA MONDAL,095a0b1e-e1e2-42db-b4ec-be5dedf910d1,k2h391@hr-buddy-nine.vercel.app,,22000.00,false,false
+K2H392,LAL BABU MONDAL,6ed65b79-053f-4658-bf15-0a41eeacf1b1,k2h392@hr-buddy-nine.vercel.app,,40000.00,false,false
+K2H394,SAIKAT MAJI,71bae15e-4516-48b5-8886-5e48b22599da,k2h394@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H396,SAMRAT MONDOL,83ef3466-88e2-4966-a821-a573fc9e1cdb,k2h396@hr-buddy-nine.vercel.app,,18000.00,true,true
+K2H397,RAMU KUMAR MANDAL,c2062c8d-7659-4433-9266-d884e89d4590,k2h397@hr-buddy-nine.vercel.app,,25000.00,false,false
+K2H398,PRINCE KUMAR,992811f9-8661-4538-9a29-8589e88ab59c,k2h398@hr-buddy-nine.vercel.app,,13000.00,false,false
+K2H399,ARGHA MONDOL,d0c74ca9-f1ae-4086-829b-ada0f33fa416,k2h399@hr-buddy-nine.vercel.app,,11000.00,true,true
+K2H400,RAJU MONDAL,5fa8239a-0cae-41b1-a2dc-e11a2dfba21e,k2h400@hr-buddy-nine.vercel.app,,21000.00,true,true
+K2H401,ASISH MANDAL,d84199c6-8bdd-4c2e-9e89-3c8f1ec070ff,k2h401@hr-buddy-nine.vercel.app,,11500.00,true,true
+K2H402,MARIAN ROZARIO,fb9e7f5d-e94e-416b-8969-1f0ab9c4e04c,k2h402@hr-buddy-nine.vercel.app,,15000.00,true,true
+K2H403,RAHUL DAS,6deae265-dfea-45be-aa81-2ae7e2b882ad,k2h403@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H404,IBRAHIM SHEK,8f59ea15-d4a4-40c1-990f-a809abd77ce0,k2h404@hr-buddy-nine.vercel.app,,16000.00,true,true
+K2H405,MANISH SINGH,47b8d9e8-836c-4f61-929d-a22afc1b150d,k2h405@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H406,ZAFAR ANSARI,6c4dc248-6ad0-4d6d-82f1-b4dfc3f65726,k2h406@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H407,DILSHAD ANSARI,d2c45695-8107-4243-ad8d-20c1dcfad4f9,k2h407@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H410,Samiran Biswas,1de156c8-782c-455a-b85d-c07a9aa85e52,k2h410@hr-buddy-nine.vercel.app,,12000.00,true,true
+K2H411,TUSHAR DEBNATH,ba945da8-a625-47fc-a64f-0f5f2a01e667,k2h411@hr-buddy-nine.vercel.app,,0.00,false,false
+K2H900,Test Rohit,e217dabd-a572-487e-a198-6d186726645d,7578816131@hr-buddy-nine.vercel.app,7578816131,12000.00,false,false
+K2H901,ADARSH GUPTA,,,,32000.00,false,false
+K2H902,AKIL AHMED,,,,13000.00,true,true
+K2H903,ANKIT KEJRIWAL,,,,35000.00,false,false
+K2H904,AYUSH TEBREWAL,,,,33000.00,false,false
+K2H905,BELAL ALI,,,,19000.00,true,true
+K2H906,BIKASH PAUL,,,,16300.00,true,true
+K2H907,DANISH RASHID,,,,11000.00,true,true
+K2H908,DEBDUTTA DAS,,,,19000.00,true,true
+K2H909,MUNSHI NASHIM UDDIN,,,,11000.00,true,true
+K2H910,NEHA CHOWDHURY,,,,75000.00,false,false
+K2H911,NIMAI GHOSH,,,,23000.00,true,false
+K2H912,POULAMI DUTTA,,,,19500.00,true,true
+K2H913,PREM SHAW,,,,20000.00,false,true
+K2H914,PRITAM DUTTA,,,,20000.00,true,true
+K2H915,SK SAJID,,,,19000.00,true,true
+K2H916,SMITA CHOWDHURY,,,,75000.00,false,false
+K2H917,SNEHA MADHOGARIA,,,,75000.00,false,false
+K2H918,SOMNATH GURIA,,,,16000.00,true,true
+K2H919,SOMNATH SHARMA,,,,21500.00,true,false
+K2H920,SUVODIP  MONDAL,,,,16300.00,true,true
+K2H921,ZESHAN ASLAM,,,,100000.00,false,false
