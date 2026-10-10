@@ -1,24 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/anyClient';
+import { useMemo } from 'react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import type { OrgProfile } from '@/lib/organization';
 
 export const ORG_PROFILE_QUERY_KEY = ['organization-profile'] as const;
 
-/** Loads the single organization-profile row (name + logo + details). */
-export function useOrganizationProfile() {
-  return useQuery({
-    queryKey: ORG_PROFILE_QUERY_KEY,
-    queryFn: async (): Promise<OrgProfile | null> => {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as OrgProfile) ?? null;
-    },
-    staleTime: 5 * 60_000,
-  });
+/**
+ * The organisation currently being viewed.
+ *
+ * This used to be `organization_profile` LIMIT 1, which was right while the
+ * table was pinned to a single row. It now reads the active organisation from
+ * OrganizationContext, so a user who belongs to two companies sees the one
+ * they picked rather than whichever sorted first.
+ *
+ * The return shape is unchanged -- { data, isLoading } -- so every existing
+ * caller keeps working.
+ */
+export function useOrganizationProfile(): { data: OrgProfile | null; isLoading: boolean } {
+  const { activeOrg, isLoading } = useOrganization();
+  return useMemo(() => ({ data: activeOrg, isLoading }), [activeOrg, isLoading]);
 }
 
 /**
@@ -28,7 +27,7 @@ export function useOrganizationProfile() {
  */
 export function useBreaksEnabled(): boolean {
   const { data } = useOrganizationProfile();
-  return (data as (OrgProfile & { breaks_enabled?: boolean }) | null)?.breaks_enabled !== false;
+  return data?.breaks_enabled !== false;
 }
 
 /**
@@ -39,5 +38,5 @@ export function useBreaksEnabled(): boolean {
  */
 export function useSelfCheckinEnabled(): boolean {
   const { data } = useOrganizationProfile();
-  return (data as (OrgProfile & { self_checkin_enabled?: boolean }) | null)?.self_checkin_enabled !== false;
+  return data?.self_checkin_enabled !== false;
 }

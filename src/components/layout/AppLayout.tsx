@@ -9,6 +9,7 @@ import { RequirePermission } from '@/components/auth/RequirePermission';
 import { SidebarPromo } from '@/components/layout/SidebarPromo';
 import { BRAND, ORGANIZATION } from '@/lib/brand';
 import { useOrganizationProfile } from '@/hooks/useOrganizationProfile';
+import { OrgSwitcher } from './OrgSwitcher';
 import { orgDisplayName } from '@/lib/organization';
 const OrganizationOnboardingDialog = lazy(() =>
   import('@/components/organization/OrganizationOnboardingDialog')
@@ -432,9 +433,6 @@ function AppSidebar() {
   const workLabel = userRole === 'accountant' ? 'Accounting' : userRole === 'admin' ? 'Admin' : userRole === 'hr' ? 'HR' : 'Work';
   const { data: orgProfile } = useOrganizationProfile();
   const orgName = orgDisplayName(orgProfile) || ORGANIZATION.name;
-  const orgLogo = orgProfile?.logo_url || ORGANIZATION.logo;
-  const orgShort =
-    orgName.split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase() || ORGANIZATION.shortCode;
   const location = useLocation();
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
@@ -485,21 +483,7 @@ function AppSidebar() {
             </div>
           )}
         </div>
-        {!isCollapsed && orgName && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 py-1.5">
-            <div className="h-6 w-6 rounded-md bg-white/90 flex items-center justify-center shrink-0 overflow-hidden">
-              {orgLogo ? (
-                <img src={orgLogo} alt={orgName} className="h-full w-full object-contain" />
-              ) : (
-                <span className="text-[9px] font-bold text-sidebar-background">{orgShort}</span>
-              )}
-            </div>
-            <div className="min-w-0 leading-tight">
-              <p className="text-[9px] uppercase tracking-wider text-sidebar-muted">Organization</p>
-              <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{orgName}</p>
-            </div>
-          </div>
-        )}
+        {!isCollapsed && <OrgSwitcher />}
       </SidebarHeader>
 
       {/* Work / Employee context toggle */}
