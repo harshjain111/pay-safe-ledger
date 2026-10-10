@@ -5,6 +5,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/anyClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { setActiveOrgHeader } from '@/integrations/supabase/activeOrg';
 import type { OrgProfile } from '@/lib/organization';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     if (!user) {
+      setActiveOrgHeader(null);
       setOrganizations([]);
       setActiveOrgId(null);
       setIsLoading(false);
@@ -81,6 +83,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // access can be removed between sessions.
       const stored = readStored(user.id);
       const valid = stored && rows.some((o) => o.id === stored) ? stored : rows[0]?.id ?? null;
+      // Publish to the Supabase client first: every query from here narrows to
+      // this organisation, and a query that beats the header would read across
+      // all of them.
+      setActiveOrgHeader(valid);
       setActiveOrgId(valid);
       if (valid) writeStored(user.id, valid);
     } catch {
@@ -94,6 +100,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const setActiveOrg = useCallback((id: string) => {
     if (!user || id === activeOrgId) return;
+    // Order matters: the header has to be the new organisation before the
+    // cache is dropped, or the refetches it triggers would carry the old one.
+    setActiveOrgHeader(id);
     setActiveOrgId(id);
     writeStored(user.id, id);
     // Everything cached belongs to the organisation we are leaving.

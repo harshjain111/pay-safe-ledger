@@ -2,6 +2,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { OrganizationProvider, useOrganization } from './OrganizationContext';
+import { getActiveOrgHeader, setActiveOrgHeader } from '@/integrations/supabase/activeOrg';
 
 const { orgsResult, authUser } = vi.hoisted(() => ({
   orgsResult: vi.fn(),
@@ -28,6 +29,7 @@ beforeEach(() => {
   orgsResult.mockReset();
   authUser.current = { id: 'user-1' };
   localStorage.clear();
+  setActiveOrgHeader(null);
 });
 
 describe('OrganizationContext', () => {
@@ -102,5 +104,44 @@ describe('OrganizationContext', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.organizations).toEqual([]);
     expect(result.current.activeOrgId).toBeNull();
+  });
+});
+
+describe('OrganizationContext — the request header', () => {
+  it('publishes the active organisation to the Supabase client on load', async () => {
+    orgsResult.mockResolvedValue({ data: [KONNECT, GLOO], error: null });
+    const { result } = renderHook(() => useOrganization(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(getActiveOrgHeader()).toBe('org-k');
+  });
+
+  it('updates the header before clearing the cache, so refetches carry the new org', async () => {
+    // If the cache were dropped first, the refetches it triggers would go out
+    // with the previous organisation's header and repopulate with its rows.
+    orgsResult.mockResolvedValue({ data: [KONNECT, GLOO], error: null });
+    const { result } = renderHook(() => useOrganization(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let headerWhenCleared: string | null = null;
+    const realClear = client.clear.bind(client);
+    client.clear = () => { headerWhenCleared = getActiveOrgHeader(); realClear(); };
+
+    act(() => result.current.setActiveOrg('org-g'));
+
+    expect(headerWhenCleared).toBe('org-g');
+    expect(getActiveOrgHeader()).toBe('org-g');
+  });
+
+  it('stops sending an organisation once signed out', async () => {
+    orgsResult.mockResolvedValue({ data: [KONNECT], error: null });
+    const { result, rerender } = renderHook(() => useOrganization(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(getActiveOrgHeader()).toBe('org-k');
+
+    authUser.current = null;
+    rerender();
+
+    await waitFor(() => expect(getActiveOrgHeader()).toBeNull());
   });
 });
