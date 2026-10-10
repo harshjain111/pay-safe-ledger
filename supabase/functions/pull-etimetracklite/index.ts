@@ -699,7 +699,7 @@ serve(async (req) => {
       for (const e of emps.values()) for (const d of e.dev.keys()) if (!deviceNames.includes(d)) deviceNames.push(d);
 
       // 1. Organisation profile
-      await db.from("organization_profile").update({ trade_name: "Konnect 2 Hospitality", onboarded_at: new Date().toISOString() }).eq("singleton", true);
+      await db.from("organizations").update({ trade_name: "Konnect 2 Hospitality", onboarded_at: new Date().toISOString() }).eq("brand_code", "K2H");
 
       // 2. Outlets (one per device name), name -> id
       const outletId = new Map<string, string>();

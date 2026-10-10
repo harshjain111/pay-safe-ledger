@@ -120,7 +120,7 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
       }
 
       const { error } = await supabase
-        .from('organization_profile')
+        .from('organizations')
         .update({
           trade_name: nullify(values.trade_name),
           legal_name: nullify(values.legal_name),
@@ -139,7 +139,9 @@ export function OrganizationOnboardingDialog({ open, onOpenChange, profile, mode
           logo_url: logoUrl,
           onboarded_at: profile?.onboarded_at ?? new Date().toISOString(),
         })
-        .eq('singleton', true);
+        // organizations is no longer a single row pinned by a `singleton`
+        // column, so the update has to name the organisation it is editing.
+        .eq('id', profile.id);
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ORG_PROFILE_QUERY_KEY });

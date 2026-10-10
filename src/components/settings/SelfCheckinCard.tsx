@@ -61,7 +61,7 @@ export function SelfCheckinCard() {
     if (!orgId) return;
     setSavingMaster(true);
     const { error } = await anyClient
-      .from('organization_profile')
+      .from('organizations')
       .update({ self_checkin_enabled: value })
       .eq('id', orgId);
     setSavingMaster(false);

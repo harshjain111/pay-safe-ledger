@@ -239,10 +239,10 @@ export function LeaveTypesCard() {
   const saveStartMonth = async (m: number) => {
     setStartMonth(m);
     setSavingMonth(true);
-    const { data: org } = await supabase.from('organization_profile').select('id').limit(1).maybeSingle();
+    const { data: org } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
     const id = (org as { id?: string } | null)?.id;
     if (id) {
-      const { error } = await supabase.from('organization_profile').update({ leave_year_start_month: m }).eq('id', id);
+      const { error } = await supabase.from('organizations').update({ leave_year_start_month: m }).eq('id', id);
       if (error) toast.error('Could not save leave-year start');
       else toast.success('Leave year updated');
     }

@@ -159,7 +159,7 @@ const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padS
 
 /** The org's financial-year start month (1 = Jan). Defaults to 1. */
 export async function fetchLeaveYearStartMonth(): Promise<number> {
-  const { data } = await supabase.from('organization_profile' as never).select('leave_year_start_month').limit(1).maybeSingle();
+  const { data } = await supabase.from('organizations' as never).select('leave_year_start_month').limit(1).maybeSingle();
   const m = Number((data as { leave_year_start_month?: number } | null)?.leave_year_start_month ?? 1);
   return m >= 1 && m <= 12 ? m : 1;
 }

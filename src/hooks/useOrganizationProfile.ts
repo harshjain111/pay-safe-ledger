@@ -10,7 +10,7 @@ export function useOrganizationProfile() {
     queryKey: ORG_PROFILE_QUERY_KEY,
     queryFn: async (): Promise<OrgProfile | null> => {
       const { data, error } = await supabase
-        .from('organization_profile')
+        .from('organizations')
         .select('*')
         .limit(1)
         .maybeSingle();

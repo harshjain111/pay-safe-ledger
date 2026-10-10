@@ -70,7 +70,7 @@ export async function fetchPayslipExtras(staffIds: string[]): Promise<Map<string
   return out;
 }
 
-/** Map the organization_profile row to the payslip's employer block. */
+/** Map the organizations row to the payslip's employer block. */
 export function orgToPayslipOrg(org: Record<string, unknown> | null | undefined): PayslipOrg {
   const o = (org ?? {}) as {
     legal_name?: string | null; trade_name?: string | null; address?: string | null;

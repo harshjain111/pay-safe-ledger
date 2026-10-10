@@ -381,6 +381,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          organization_id: string
           is_active: boolean
           label: string
           last_seen_at: string | null
@@ -396,6 +397,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           label: string
           last_seen_at?: string | null
@@ -411,6 +413,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           label?: string
           last_seen_at?: string | null
@@ -499,6 +502,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          organization_id: string
           is_active: boolean
           name: string
           updated_at: string
@@ -507,6 +511,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           name: string
           updated_at?: string
@@ -515,6 +520,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           name?: string
           updated_at?: string
@@ -526,6 +532,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          organization_id: string
           is_active: boolean
           name: string
           updated_at: string
@@ -535,6 +542,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           name: string
           updated_at?: string
@@ -544,6 +552,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           name?: string
           updated_at?: string
@@ -1008,6 +1017,7 @@ export type Database = {
           full_day_minutes: number
           half_day_minutes: number
           id: string
+          organization_id: string
           is_shift_wise_work_hrs: boolean
           singleton: boolean
           unscheduled_is_off: boolean
@@ -1020,6 +1030,7 @@ export type Database = {
           full_day_minutes?: number
           half_day_minutes?: number
           id?: string
+          organization_id?: string
           is_shift_wise_work_hrs?: boolean
           singleton?: boolean
           unscheduled_is_off?: boolean
@@ -1032,6 +1043,7 @@ export type Database = {
           full_day_minutes?: number
           half_day_minutes?: number
           id?: string
+          organization_id?: string
           is_shift_wise_work_hrs?: boolean
           singleton?: boolean
           unscheduled_is_off?: boolean
@@ -1382,6 +1394,7 @@ export type Database = {
           accrual: string
           annual_quota: number
           id: string
+          organization_id: string
           singleton: boolean
           updated_at: string
           updated_by: string | null
@@ -1390,6 +1403,7 @@ export type Database = {
           accrual?: string
           annual_quota?: number
           id?: string
+          organization_id?: string
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1398,6 +1412,7 @@ export type Database = {
           accrual?: string
           annual_quota?: number
           id?: string
+          organization_id?: string
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1487,6 +1502,7 @@ export type Database = {
           encashment_limit: number | null
           encashment_period: string | null
           id: string
+          organization_id: string
           is_active: boolean
           is_default: boolean
           is_paid: boolean
@@ -1511,6 +1527,7 @@ export type Database = {
           encashment_limit?: number | null
           encashment_period?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           is_default?: boolean
           is_paid?: boolean
@@ -1535,6 +1552,7 @@ export type Database = {
           encashment_limit?: number | null
           encashment_period?: string | null
           id?: string
+          organization_id?: string
           is_active?: boolean
           is_default?: boolean
           is_paid?: boolean
@@ -1720,7 +1738,7 @@ export type Database = {
         }
         Relationships: []
       }
-      organization_profile: {
+      organizations: {
         Row: {
           address: string | null
           attendance_day_start_hour: number
@@ -1736,12 +1754,12 @@ export type Database = {
           leave_year_start_month: number
           legal_name: string | null
           logo_url: string | null
+          is_active: boolean
           onboarded_at: string | null
           pan: string | null
           phone: string | null
           pincode: string | null
           self_checkin_enabled: boolean
-          singleton: boolean
           state: string | null
           trade_name: string | null
           updated_at: string
@@ -1762,12 +1780,12 @@ export type Database = {
           leave_year_start_month?: number
           legal_name?: string | null
           logo_url?: string | null
+          is_active?: boolean
           onboarded_at?: string | null
           pan?: string | null
           phone?: string | null
           pincode?: string | null
           self_checkin_enabled?: boolean
-          singleton?: boolean
           state?: string | null
           trade_name?: string | null
           updated_at?: string
@@ -1788,12 +1806,12 @@ export type Database = {
           leave_year_start_month?: number
           legal_name?: string | null
           logo_url?: string | null
+          is_active?: boolean
           onboarded_at?: string | null
           pan?: string | null
           phone?: string | null
           pincode?: string | null
           self_checkin_enabled?: boolean
-          singleton?: boolean
           state?: string | null
           trade_name?: string | null
           updated_at?: string
@@ -1810,6 +1828,7 @@ export type Database = {
           created_by: string | null
           geofence_enforcement: string
           id: string
+          organization_id: string
           is_active: boolean
           latitude: number | null
           longitude: number | null
@@ -1824,6 +1843,7 @@ export type Database = {
           created_by?: string | null
           geofence_enforcement?: string
           id?: string
+          organization_id?: string
           is_active?: boolean
           latitude?: number | null
           longitude?: number | null
@@ -1838,6 +1858,7 @@ export type Database = {
           created_by?: string | null
           geofence_enforcement?: string
           id?: string
+          organization_id?: string
           is_active?: boolean
           latitude?: number | null
           longitude?: number | null
@@ -1945,6 +1966,7 @@ export type Database = {
           esi_employer_rate: number
           esi_enabled: boolean
           id: string
+          organization_id: string
           ot_enabled: boolean
           ot_multiplier: number
           ot_standard_minutes: number
@@ -1968,6 +1990,7 @@ export type Database = {
           esi_employer_rate?: number
           esi_enabled?: boolean
           id?: string
+          organization_id?: string
           ot_enabled?: boolean
           ot_multiplier?: number
           ot_standard_minutes?: number
@@ -1991,6 +2014,7 @@ export type Database = {
           esi_employer_rate?: number
           esi_enabled?: boolean
           id?: string
+          organization_id?: string
           ot_enabled?: boolean
           ot_multiplier?: number
           ot_standard_minutes?: number
@@ -2115,6 +2139,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          organization_id: string
           is_builtin: boolean
           is_owner: boolean
           name: string
@@ -2127,6 +2152,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          organization_id?: string
           is_builtin?: boolean
           is_owner?: boolean
           name: string
@@ -2139,6 +2165,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          organization_id?: string
           is_builtin?: boolean
           is_owner?: boolean
           name?: string
@@ -2676,6 +2703,7 @@ export type Database = {
           description: string | null
           has_break: boolean
           id: string
+          organization_id: string
           is_active: boolean
           is_one_time_all_days: boolean
           is_open: boolean
@@ -2692,6 +2720,7 @@ export type Database = {
           description?: string | null
           has_break?: boolean
           id?: string
+          organization_id?: string
           is_active?: boolean
           is_one_time_all_days?: boolean
           is_open?: boolean
@@ -2708,6 +2737,7 @@ export type Database = {
           description?: string | null
           has_break?: boolean
           id?: string
+          organization_id?: string
           is_active?: boolean
           is_one_time_all_days?: boolean
           is_open?: boolean
@@ -2748,6 +2778,7 @@ export type Database = {
           gender: string | null
           hra: number
           id: string
+          organization_id: string
           is_active: boolean | null
           is_manager: boolean
           location: string | null
@@ -2806,6 +2837,7 @@ export type Database = {
           gender?: string | null
           hra?: number
           id?: string
+          organization_id?: string
           is_active?: boolean | null
           is_manager?: boolean
           location?: string | null
@@ -2864,6 +2896,7 @@ export type Database = {
           gender?: string | null
           hra?: number
           id?: string
+          organization_id?: string
           is_active?: boolean | null
           is_manager?: boolean
           location?: string | null
@@ -3163,6 +3196,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          organization_id: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
@@ -3170,6 +3204,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          organization_id?: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
@@ -3177,6 +3212,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          organization_id?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
