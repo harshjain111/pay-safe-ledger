@@ -1,6 +1,7 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAttendanceLiveSync } from '@/hooks/useAttendanceLive';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -855,6 +856,9 @@ export function AppLayout() {
   // Re-mount the content fade only when the route changes — keyed on pathname
   // below — while the sidebar/header stay mounted across navigations.
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  // One realtime channel for the app: device punches refresh attendance screens.
+  useAttendanceLiveSync(!!user);
 
   return (
     <SidebarProvider defaultOpen={true}>

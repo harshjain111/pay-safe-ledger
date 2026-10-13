@@ -386,6 +386,7 @@ export type Database = {
           label: string
           last_seen_at: string | null
           outlet_id: string | null
+          push_token_hash: string | null
           serial: string | null
           status: string
           type: string
@@ -402,6 +403,7 @@ export type Database = {
           label: string
           last_seen_at?: string | null
           outlet_id?: string | null
+          push_token_hash?: string | null
           serial?: string | null
           status?: string
           type?: string
@@ -418,6 +420,7 @@ export type Database = {
           label?: string
           last_seen_at?: string | null
           outlet_id?: string | null
+          push_token_hash?: string | null
           serial?: string | null
           status?: string
           type?: string
@@ -557,6 +560,45 @@ export type Database = {
           name?: string
           updated_at?: string
           weekly_off_carry_forward?: boolean
+        }
+        Relationships: []
+      }
+      device_unmatched_punches: {
+        Row: {
+          created_at: string
+          device_id: string
+          device_user_id: string
+          id: string
+          organization_id: string | null
+          raw: Json | null
+          resolved_at: string | null
+          resolved_staff_id: string | null
+          ts: string
+          verify_mode: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          device_user_id: string
+          id?: string
+          organization_id?: string | null
+          raw?: Json | null
+          resolved_at?: string | null
+          resolved_staff_id?: string | null
+          ts: string
+          verify_mode?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          device_user_id?: string
+          id?: string
+          organization_id?: string | null
+          raw?: Json | null
+          resolved_at?: string | null
+          resolved_staff_id?: string | null
+          ts?: string
+          verify_mode?: string | null
         }
         Relationships: []
       }
@@ -2766,6 +2808,7 @@ export type Database = {
           department_id: string | null
           designation: string | null
           designation_id: string | null
+          device_user_id: string | null
           email: string
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -2825,6 +2868,7 @@ export type Database = {
           department_id?: string | null
           designation?: string | null
           designation_id?: string | null
+          device_user_id?: string | null
           email: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -2884,6 +2928,7 @@ export type Database = {
           department_id?: string | null
           designation?: string | null
           designation_id?: string | null
+          device_user_id?: string | null
           email?: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -3385,6 +3430,16 @@ export type Database = {
       }
     }
     Functions: {
+      apply_device_punch: {
+        Args: {
+          _device_id: string
+          _method?: string
+          _raw_ref?: string
+          _staff_id: string
+          _ts: string
+        }
+        Returns: string
+      }
       apply_holiday_group: { Args: { _group_id: string }; Returns: Json }
       assert_finance_or_admin: { Args: never; Returns: undefined }
       assert_owner: { Args: never; Returns: undefined }
@@ -3626,6 +3681,7 @@ export type Database = {
         Returns: Json
       }
       remove_holiday_group: { Args: { _group_id: string }; Returns: Json }
+      replay_unmatched_punches: { Args: { _staff_id: string }; Returns: number }
       resolve_login_email: { Args: { _id: string }; Returns: string }
       run_leave_rollover: { Args: { _target_fy: number }; Returns: Json }
       set_etl_cron_secret: { Args: { p_secret: string }; Returns: undefined }

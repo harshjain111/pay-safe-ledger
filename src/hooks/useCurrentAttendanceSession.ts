@@ -4,6 +4,7 @@ import {
   getCurrentSession,
   getTodayCompletedSession,
 } from '@/lib/attendance';
+import { useOnAttendanceChange } from '@/hooks/useAttendanceLive';
 
 export function useCurrentAttendanceSession(userId: string | undefined) {
   const [session, setSession] = useState<AttendanceSession | null>(null);
@@ -36,6 +37,9 @@ export function useCurrentAttendanceSession(userId: string | undefined) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // A punch on the biometric device updates this without a reload.
+  useOnAttendanceChange(refresh);
 
   return { session, todayCompleted, isLoading, error, refresh };
 }

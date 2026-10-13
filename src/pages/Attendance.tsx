@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnAttendanceChange } from '@/hooks/useAttendanceLive';
 import { useLateForDate } from '@/hooks/useLateForDate';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreaksEnabled } from '@/hooks/useOrganizationProfile';
@@ -147,8 +148,13 @@ export default function Attendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
-  const fetchAll = async () => {
-    setLoading(true);
+  // A punch on the biometric device refreshes the grid in place (no spinner).
+  useOnAttendanceChange(() => {
+    if (canView) fetchAll({ silent: true });
+  });
+
+  const fetchAll = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setHasError(false);
     try {
       const [staffRes, sessRes, leaveRes] = await Promise.all([
@@ -483,7 +489,7 @@ export default function Attendance() {
 
         {hasError && (
           <ErrorState
-            onRetry={fetchAll}
+            onRetry={() => fetchAll()}
             title="Couldn't load attendance"
             description="We couldn't load attendance for this period. Please try again."
           />
@@ -637,7 +643,7 @@ export default function Attendance() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Button variant="outline" onClick={fetchAll}>
+              <Button variant="outline" onClick={() => fetchAll()}>
                 Refresh
               </Button>
               <Button variant="outline" onClick={handleExportExcel} className="gap-2">

@@ -16,6 +16,15 @@ export interface EnrolmentRow {
   /** biometric_enrolments.id of the staff's global enrolment, if one exists. */
   enrolmentId: string | null;
   faceVectorRef: string | null;
+  /** The User ID this person has on the biometric terminal (staff.device_user_id). */
+  deviceUserId: string | null;
+}
+
+/** Punches from the terminal whose User ID is not linked to any staff yet. */
+export interface UnmatchedUserId {
+  deviceUserId: string;
+  count: number;
+  lastAt: string;
 }
 
 interface EnrolmentSummary {
@@ -23,9 +32,10 @@ interface EnrolmentSummary {
   total: number;
   enrolled: number;
   pending: number;
+  unmatched: UnmatchedUserId[];
 }
 
-const EMPTY: EnrolmentSummary = { rows: [], total: 0, enrolled: 0, pending: 0 };
+const EMPTY: EnrolmentSummary = { rows: [], total: 0, enrolled: 0, pending: 0, unmatched: [] };
 
 /**
  * Tracks biometric enrolment across attendance-tracked staff.
@@ -43,10 +53,10 @@ export function useBiometricEnrolment() {
     setIsLoading(true);
     setError(null);
     try {
-      const [staffRes, enrolRes, outletRes] = await Promise.all([
+      const [staffRes, enrolRes, outletRes, unmatchedRes] = await Promise.all([
         supabase
           .from('staff')
-          .select('id, full_name, employee_id, outlet_id')
+          .select('id, full_name, employee_id, outlet_id, device_user_id')
           .eq('is_active', true)
           .eq('attendance_tracked', true)
           .order('full_name'),
@@ -54,6 +64,12 @@ export function useBiometricEnrolment() {
           .from('biometric_enrolments')
           .select('id, staff_id, device_id, kind, status, enrolled_at, face_vector_ref'),
         fetchOutlets(),
+        supabase
+          .from('device_unmatched_punches')
+          .select('device_user_id, ts')
+          .is('resolved_at', null)
+          .order('ts', { ascending: false })
+          .limit(1000),
       ]);
 
       if (staffRes.error) throw staffRes.error;
@@ -91,11 +107,21 @@ export function useBiometricEnrolment() {
           enrolledAt: e?.enrolled_at ?? null,
           enrolmentId: e?.id ?? null,
           faceVectorRef: e?.face_vector_ref ?? null,
+          deviceUserId: s.device_user_id ?? null,
         };
       });
 
+      // Optional: the table may not exist yet if the migration has not run.
+      const unmatchedMap = new Map<string, UnmatchedUserId>();
+      for (const u of unmatchedRes.error ? [] : unmatchedRes.data ?? []) {
+        const ex = unmatchedMap.get(u.device_user_id);
+        if (ex) ex.count++;
+        else unmatchedMap.set(u.device_user_id, { deviceUserId: u.device_user_id, count: 1, lastAt: u.ts });
+      }
+      const unmatched = [...unmatchedMap.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+
       const enrolled = rows.filter((r) => r.status === 'enrolled').length;
-      setData({ rows, total: rows.length, enrolled, pending: rows.length - enrolled });
+      setData({ rows, total: rows.length, enrolled, pending: rows.length - enrolled, unmatched });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load enrolment data');
       setData(EMPTY);
