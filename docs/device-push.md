@@ -68,3 +68,9 @@ rules as `rebuild_sessions_by_gap`):
 - `src/hooks/useAttendanceLive.ts` — live refresh in the browser
 - `tools/device-listener/listener.cjs` — the LAN listener used for diagnosis; not
   needed in production
+
+## Terminals that only take an IP address
+
+Some firmware offers only **Push Server IP / Push Server Port** — no domain name.
+Vercel cannot be reached that way. Run the same endpoint on a small cloud server
+with a fixed IP instead: see `tools/device-server/README.md`.

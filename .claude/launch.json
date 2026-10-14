@@ -8,7 +8,7 @@
         "run",
         "dev"
       ],
-      "port": 8080
+      "port": 5173
     },
     {
       "name": "preview",
