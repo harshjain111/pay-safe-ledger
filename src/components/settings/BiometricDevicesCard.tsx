@@ -426,13 +426,18 @@ export function BiometricDevicesCard() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="device-serial">Serial (optional)</Label>
+                <Label htmlFor="device-serial">Serial</Label>
                 <Input
                   id="device-serial"
                   value={form.serial}
                   onChange={(e) => setForm((f) => ({ ...f, serial: e.target.value }))}
-                  placeholder="e.g. ZK-9981"
+                  placeholder="e.g. 0EE588586859C013"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Required for devices that push directly to this site. Use the device’s serial / Device
+                  ID exactly as it shows on the device, and point the device at{' '}
+                  <span className="font-mono">{window.location.host}</span>, port 443, SSL on.
+                </p>
               </div>
             </div>
             <div className="space-y-1.5">

@@ -1,0 +1,2 @@
+# Run on Linux servers: keep Unix line endings
+tools/device-server/deploy/* text eol=lf

@@ -84,7 +84,7 @@ npm install
 cp .env.example .env
 #    …then edit .env with your Supabase project values.
 
-# 4. Start the dev server (http://localhost:8080).
+# 4. Start the dev server (http://localhost:5173).
 npm run dev
 ```
 
@@ -129,7 +129,7 @@ function secrets, not from the frontend `.env`.
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Start the Vite dev server on port 8080. |
+| `npm run dev` | Start the Vite dev server on port 5173. |
 | `npm run build` | Production build to `dist/`. |
 | `npm run build:dev` | Build using development mode/sourcemaps. |
 | `npm run preview` | Serve the production build locally. |

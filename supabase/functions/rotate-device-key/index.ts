@@ -4,7 +4,9 @@
 // Provisions (or regenerates) the API key for a biometric device. Owner/admin
 // only. The plaintext key is returned ONCE in the response; only its SHA-256
 // hash is persisted (biometric_devices.api_key_hash). Regenerating immediately
-// invalidates the previous key.
+// invalidates the previous key. It also forgets the push token pinned by a
+// terminal that pushes directly (api/device-push.ts), so a replaced terminal
+// with the same serial is accepted on its next push.
 //
 // Body:    { "device_id": "<uuid>" }
 // Response: { ok, device_id, api_key, api_key_prefix }
@@ -77,7 +79,7 @@ serve(async (req) => {
 
     const { error: updErr } = await admin
       .from("biometric_devices")
-      .update({ api_key_hash: apiKeyHash, api_key_prefix: apiKeyPrefix })
+      .update({ api_key_hash: apiKeyHash, api_key_prefix: apiKeyPrefix, push_token_hash: null })
       .eq("id", device.id);
     if (updErr) return json(500, { error: updErr.message });
 

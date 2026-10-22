@@ -28,3 +28,11 @@ dist-ssr
 *.sln
 *.sw?
 *.tsbuildinfo
+
+# Raw device push captures (may contain employee data)
+tools/device-listener/captures/
+# Listener TLS key (private key; never commit)
+tools/device-listener/certs/
+
+# Built device-push server bundle (npm run device:server:build)
+tools/device-server/dist/

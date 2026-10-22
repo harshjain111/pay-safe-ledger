@@ -1,8 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/AIData.aspx", "destination": "/api/device-push" },
+    { "source": "/aidata.aspx", "destination": "/api/device-push" },
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ]

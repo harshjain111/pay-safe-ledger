@@ -9,6 +9,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "device:local": "vite-node tools/device-server/server.ts",
+    "device:server:build": "esbuild tools/device-server/server.ts --bundle --platform=node --target=node20 --format=esm --outfile=tools/device-server/dist/device-server.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" && node -e \"for (const f of ['setup.sh','device-push.service']) require('fs').copyFileSync('tools/device-server/deploy/'+f, 'tools/device-server/dist/'+f)\"",
+    "device:punch": "node tools/send-test-punch.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

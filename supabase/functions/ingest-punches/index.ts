@@ -142,13 +142,17 @@ serve(async (req) => {
       for (const s of data ?? []) staffMeta.set(s.id, { user_id: s.user_id ?? null });
     }
     if (empSet.size > 0) {
-      const { data } = await admin
-        .from("staff")
-        .select("id, user_id, employee_id")
-        .in("employee_id", [...empSet]);
-      for (const s of data ?? []) {
+      // The device's user number may be the employee code, or the number stored
+      // in staff.device_user_id (for devices that only accept digits).
+      const ids = [...empSet];
+      const [byEmployee, byDevice] = await Promise.all([
+        admin.from("staff").select("id, user_id, employee_id, device_user_id").in("employee_id", ids),
+        admin.from("staff").select("id, user_id, employee_id, device_user_id").in("device_user_id", ids),
+      ]);
+      for (const s of [...(byEmployee.data ?? []), ...(byDevice.data ?? [])]) {
         staffMeta.set(s.id, { user_id: s.user_id ?? null });
         if (s.employee_id) empToId.set(s.employee_id, s.id);
+        if (s.device_user_id) empToId.set(s.device_user_id, s.id);
       }
     }
 

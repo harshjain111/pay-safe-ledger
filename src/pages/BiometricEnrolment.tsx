@@ -5,6 +5,7 @@ import { useBiometricEnrolment, type EnrolmentRow } from '@/hooks/useBiometricEn
 import { getFaceProvider } from '@/lib/face';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   Select,
@@ -37,7 +38,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { toast } from '@/lib/toast';
 import { format } from 'date-fns';
-import { Fingerprint, ScanFace, ShieldOff, Loader2 } from 'lucide-react';
+import { Fingerprint, ScanFace, ShieldOff, Loader2, AlertTriangle } from 'lucide-react';
 
 type Filter = 'pending' | 'enrolled' | 'all';
 type Kind = 'fingerprint' | 'face';
@@ -59,11 +60,12 @@ const STATUS_LABEL = {
 export default function BiometricEnrolment() {
   const { user, isOwner, isAdmin, isHR } = useAuth();
   const canManage = isOwner || isAdmin || isHR;
-  const { rows, total, enrolled, pending, isLoading, error, reload } = useBiometricEnrolment();
+  const { rows, total, enrolled, pending, unmatched, isLoading, error, reload } = useBiometricEnrolment();
 
   const [filter, setFilter] = useState<Filter>('pending');
   const [enrolTarget, setEnrolTarget] = useState<EnrolmentRow | null>(null);
   const [kind, setKind] = useState<Kind>('fingerprint');
+  const [deviceUserId, setDeviceUserId] = useState('');
   const [saving, setSaving] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<EnrolmentRow | null>(null);
 
@@ -89,12 +91,33 @@ export default function BiometricEnrolment() {
   const openEnrol = (row: EnrolmentRow) => {
     setEnrolTarget(row);
     setKind((row.kind as Kind) || 'fingerprint');
+    setDeviceUserId(row.deviceUserId ?? '');
   };
 
   const submitEnrol = async () => {
     if (!enrolTarget) return;
+    const code = deviceUserId.trim();
+    if (code && !/^[A-Za-z0-9_.-]{1,64}$/.test(code)) {
+      toast.error('Device User ID can only contain letters, digits, dot, dash and underscore');
+      return;
+    }
     setSaving(true);
     try {
+      // The number this person has on the terminal. Punches arrive with it.
+      if (code !== (enrolTarget.deviceUserId ?? '')) {
+        const { error: codeErr } = await supabase
+          .from('staff')
+          .update({ device_user_id: code || null })
+          .eq('id', enrolTarget.staffId);
+        if (codeErr) {
+          throw new Error(
+            codeErr.code === '23505'
+              ? `Device User ID ${code} is already linked to someone else`
+              : codeErr.message,
+          );
+        }
+      }
+
       let faceVectorRef: string | null = null;
       let status: 'enrolled' | 'failed' = 'enrolled';
       if (kind === 'face') {
@@ -131,6 +154,16 @@ export default function BiometricEnrolment() {
           ? `${enrolTarget.fullName} enrolled`
           : `Face enrolment failed for ${enrolTarget.fullName}`,
       );
+
+      // Punches the terminal sent for this User ID before it was linked.
+      if (code) {
+        const { data: replayed, error: replayErr } = await supabase.rpc('replay_unmatched_punches', {
+          _staff_id: enrolTarget.staffId,
+        });
+        if (replayErr) toast.error(`Earlier punches not added: ${replayErr.message}`);
+        else if (replayed && replayed > 0)
+          toast.success(`${replayed} earlier punch${replayed === 1 ? '' : 'es'} added to attendance`);
+      }
       setEnrolTarget(null);
       await reload();
     } catch (e) {
@@ -166,6 +199,16 @@ export default function BiometricEnrolment() {
           <div className="text-xs text-muted-foreground">{r.employeeId}</div>
         </div>
       ),
+    },
+    {
+      id: 'deviceUserId',
+      header: 'Device User ID',
+      cell: (r) =>
+        r.deviceUserId ? (
+          <span className="font-mono text-sm">{r.deviceUserId}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
     },
     {
       id: 'branch',
@@ -232,6 +275,32 @@ export default function BiometricEnrolment() {
         </div>
       </PageHeader>
 
+      {unmatched.length > 0 && (
+        <div className="flex gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">
+              The device sent punches for User IDs that aren’t linked to anyone
+            </p>
+            <p className="text-muted-foreground">
+              {unmatched
+                .map(
+                  (u) =>
+                    `${u.deviceUserId} (${u.count} punch${u.count === 1 ? '' : 'es'}, last ${format(
+                      new Date(u.lastAt),
+                      'd MMM, h:mm a',
+                    )})`,
+                )
+                .join(' · ')}
+            </p>
+            <p className="text-muted-foreground">
+              Enrol the person below and enter their Device User ID. These punches are kept and will be
+              added to their attendance.
+            </p>
+          </div>
+        </div>
+      )}
+
       {error ? (
         <ErrorState title="Couldn't load enrolment data" description={error} onRetry={reload} />
       ) : (
@@ -286,6 +355,23 @@ export default function BiometricEnrolment() {
               Records a global biometric enrolment so this staff member’s device punches are accepted.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="enrol-device-user-id">
+              Device User ID
+            </label>
+            <Input
+              id="enrol-device-user-id"
+              value={deviceUserId}
+              onChange={(e) => setDeviceUserId(e.target.value)}
+              placeholder={enrolTarget?.employeeId ?? 'e.g. 1'}
+              inputMode="text"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              The User ID this person has on the attendance device. Leave empty if it is the same as
+              their employee code ({enrolTarget?.employeeId}).
+            </p>
+          </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium" htmlFor="enrol-kind">
               Biometric type
