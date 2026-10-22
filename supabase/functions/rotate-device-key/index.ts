@@ -19,7 +19,7 @@ import { generateDeviceKey, sha256Hex, keyDisplayPrefix } from "../_shared/devic
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-active-org",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
