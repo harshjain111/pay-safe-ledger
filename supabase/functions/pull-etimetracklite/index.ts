@@ -659,7 +659,7 @@ serve(async (req) => {
     const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data: staff } = await db.from("staff").select("id, employee_id");
     const byCode = new Map<string, string>();
-    for (const s of staff ?? []) if (s.employee_id) byCode.set(String(s.employee_id).trim(), s.id);
+    for (const s of staff ?? []) if (s.employee_id) byCode.set(String(s.employee_id).trim().toUpperCase(), s.id);
 
     const col = (r: Record<string, string>, ...names: string[]) => {
       for (const n of names) { const k = Object.keys(r).find((h) => h.trim().toLowerCase() === n.toLowerCase()); if (k && r[k]?.trim()) return r[k].trim(); }
@@ -726,7 +726,7 @@ serve(async (req) => {
     if (body?.backfill) {
       const { data: staffRows } = await db.from("staff").select("id, employee_id, user_id");
       const codeToId = new Map<string, string>(); const idToUser = new Map<string, string | null>();
-      for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
+      for (const s of staffRows ?? []) { const sr = s as { id: string; employee_id?: string; user_id?: string | null }; if (sr.employee_id) codeToId.set(String(sr.employee_id).trim().toUpperCase(), sr.id); idToUser.set(sr.id, sr.user_id ?? null); }
 
       // GAP-based sessionization (matches rebuild_sessions_by_gap): sort each
       // staff's punches; a gap > 12h starts a new session. check-in = first punch,
@@ -748,7 +748,7 @@ serve(async (req) => {
       const byStaff = new Map<string, string[]>();
       let unmatchedB = 0;
       for (const r of rows) {
-        const sid = codeToId.get(col(r, "UserId", "Employee Code In Device")); if (!sid) { unmatchedB++; continue; }
+        const sid = codeToId.get(col(r, "UserId", "Employee Code In Device").toUpperCase()); if (!sid) { unmatchedB++; continue; }
         const iso = logDateToIso(col(r, "Log Date")); if (!iso) continue;
         (byStaff.get(sid) ?? byStaff.set(sid, []).get(sid)!).push(iso);
       }
@@ -847,9 +847,9 @@ serve(async (req) => {
       }
 
       const { data: staffRows } = await db.from("staff").select("id, employee_id");
-      const codeToId = new Map((staffRows ?? []).filter((s) => (s as { employee_id?: string }).employee_id).map((s) => [String((s as { employee_id: string }).employee_id).trim(), (s as { id: string }).id]));
+      const codeToId = new Map((staffRows ?? []).filter((s) => (s as { employee_id?: string }).employee_id).map((s) => [String((s as { employee_id: string }).employee_id).trim().toUpperCase(), (s as { id: string }).id]));
       const devCount = new Map<string, Map<string, number>>();
-      for (const r of rows) { const sid = codeToId.get(col(r, "UserId")); const d = col(r, "Device Name"); if (!sid || !d) continue; const m = devCount.get(sid) ?? new Map<string, number>(); m.set(d, (m.get(d) || 0) + 1); devCount.set(sid, m); }
+      for (const r of rows) { const sid = codeToId.get(col(r, "UserId").toUpperCase()); const d = col(r, "Device Name"); if (!sid || !d) continue; const m = devCount.get(sid) ?? new Map<string, number>(); m.set(d, (m.get(d) || 0) + 1); devCount.set(sid, m); }
       const { data: exEnr } = await db.from("biometric_enrolments").select("staff_id");
       const enrolled = new Set((exEnr ?? []).map((e) => (e as { staff_id: string }).staff_id));
       const toInsert: Record<string, unknown>[] = [];
@@ -872,7 +872,7 @@ serve(async (req) => {
     let unmatched = 0, badDate = 0;
     for (const r of rows) {
       const code = col(r, "UserId", "Employee Code In Device", "User Id", "Employee Code");
-      const staffId = code ? byCode.get(code) : undefined;
+      const staffId = code ? byCode.get(code.toUpperCase()) : undefined;
       if (!staffId) { if (code) unmatched++; continue; }
       const rawDate = col(r, "Log Date", "LogDate");
       const iso = logDateToIso(rawDate);
