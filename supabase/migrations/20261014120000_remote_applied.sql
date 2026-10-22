@@ -1,0 +1,2 @@
+-- This migration was applied directly on the remote database.
+-- Stub added to keep local migration history in sync with remote.
