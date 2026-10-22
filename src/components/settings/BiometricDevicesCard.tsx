@@ -434,9 +434,8 @@ export function BiometricDevicesCard() {
                   placeholder="e.g. 0EE588586859C013"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Required for devices that push directly to this site. Use the device’s serial / Device
-                  ID exactly as it shows on the device, and point the device at{' '}
-                  <span className="font-mono">{window.location.host}</span>, port 443, SSL on.
+                  Required for devices that push directly. Use the device’s serial / Device ID exactly as
+                  it shows on the device.
                 </p>
               </div>
             </div>
