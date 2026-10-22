@@ -212,17 +212,22 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     // Resolve the person: the terminal's User ID is either the number stored
-    // in staff.device_user_id or the employee code itself.
+    // in staff.device_user_id or the employee code itself. Case-insensitive:
+    // terminals keep "edl026" where the roster has "EDL026". ilike only narrows
+    // the candidates (its "_" wildcard can over-match); the comparison decides.
     let staffQuery = db()
       .from('staff')
       .select('id, employee_id, device_user_id')
-      .or(`device_user_id.eq.${punch.userId},employee_id.eq.${punch.userId}`);
+      .or(`device_user_id.ilike.${punch.userId},employee_id.ilike.${punch.userId}`);
     if (device.organization_id) staffQuery = staffQuery.eq('organization_id', device.organization_id);
     const { data: staffRows, error: staffErr } = await staffQuery;
     if (staffErr) throw staffErr;
 
+    const uid = punch.userId.toUpperCase();
     const rows = (staffRows ?? []) as { id: string; employee_id: string | null; device_user_id: string | null }[];
-    const staff = rows.find((r) => r.device_user_id === punch.userId) ?? rows.find((r) => r.employee_id === punch.userId);
+    const staff =
+      rows.find((r) => r.device_user_id?.toUpperCase() === uid) ??
+      rows.find((r) => r.employee_id?.toUpperCase() === uid);
 
     if (!staff) {
       const { error } = await db()

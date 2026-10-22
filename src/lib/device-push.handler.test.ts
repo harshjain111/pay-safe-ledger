@@ -61,6 +61,19 @@ describe('api/device-push', () => {
     expect(state.updates.some((u) => typeof u.push_token_hash === 'string')).toBe(true);
   });
 
+  it('matches the employee code case-insensitively (terminal keeps "edl026")', async () => {
+    state.staff = [
+      { id: 'staff-x', employee_id: 'EDLX26', device_user_id: null },
+      { id: 'staff-26', employee_id: 'EDL026', device_user_id: null },
+    ];
+    const res = await push(PUNCH.replace('"userId":"1"', '"userId":"edl026"').replace('"Fp"', '"Face"'));
+    expect(res.headers.get('response_code')).toBe('OK');
+    expect(state.rpcs).toEqual([{ fn: 'apply_device_punch', args: expect.objectContaining({
+      _staff_id: 'staff-26', _method: 'face',
+    }) }]);
+    expect(state.upserts).toHaveLength(0);
+  });
+
   it('refuses an unregistered terminal (so it keeps the punch and retries)', async () => {
     state.device = null;
     const res = await push(PUNCH);
