@@ -808,6 +808,15 @@ serve(async (req) => {
       for (const serial of serialsSeen) {
         await db.from("biometric_devices").update({ last_seen_at: nowIso, status: "online" }).eq("serial", serial);
       }
+      // Also mark online by label: any device that appears in the eSSL device
+      // dropdown is actively talking to eSSL — regardless of whether it has
+      // punches in this time window (e.g. a new face device with no punches yet).
+      const devDropSel = (/<select\b[^>]*\bname\s*=\s*"[^"]*drp_Devices"[^>]*>([\s\S]*?)<\/select>/i.exec(formHtml) || [])[1] || "";
+      const devDropNames = [...devDropSel.matchAll(/<option\b[^>]*\bvalue\s*=\s*"([^"]*)"[^>]*>([^<]*)</gi)]
+        .map((m) => m[2].trim()).filter((n) => n && !/^all$/i.test(n));
+      for (const label of devDropNames) {
+        await db.from("biometric_devices").update({ last_seen_at: nowIso, status: "online" }).eq("label", label);
+      }
       // Self-heal the scheduled sync: when a logged-in user triggers this pull
       // (sync-attendance sets healCron), (re)load the cron secret into Vault from
       // our OWN env so the 15-min pg_cron job keeps authenticating even after a DB
