@@ -823,7 +823,7 @@ serve(async (req) => {
       // reset wiped vault.secrets. The pg_cron job itself never sets healCron, so
       // this only runs on user-initiated syncs (login / refresh / Hard resync).
       if (body?.healCron) { try { await db.rpc("set_etl_cron_secret", { p_secret: CRON_SECRET }); } catch (_) { /* best-effort */ } }
-      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaffDay.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB, devicesTouched: serialsSeen.size });
+      return json(200, { ok: true, month: `${yr}-${pad(mo)}`, rows: rows.length, staffWithPunches: byStaff.size, sessionsBuilt: sessions.length, upserted: up, unmatched: unmatchedB, errs: errB, devicesTouched: serialsSeen.size });
     }
 
     // Populate biometric hardware + enrolments from the connector (so the Devices +
