@@ -40,6 +40,15 @@ EOF
 fi
 PORT="$(grep -E '^PORT=' "$ENV_FILE" | cut -d= -f2)"
 
+# TLS: the BioMax pushes over HTTPS with no way to turn it off. Self-signed,
+# generated once; the service reads it via systemd credentials.
+if [ ! -f /etc/device-push/tls.key ]; then
+  install -d -m 700 /etc/device-push
+  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=device-push" \
+    -keyout /etc/device-push/tls.key -out /etc/device-push/tls.crt 2>/dev/null
+  chmod 600 /etc/device-push/tls.key /etc/device-push/tls.crt
+fi
+
 # Code + service --------------------------------------------------------------
 install -d -m 755 /opt/device-push
 install -m 644 "$HERE/device-server.mjs" /opt/device-push/device-server.mjs

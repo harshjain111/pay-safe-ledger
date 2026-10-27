@@ -5,6 +5,8 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile=/etc/device-push.env
+LoadCredential=tls.crt:/etc/device-push/tls.crt
+LoadCredential=tls.key:/etc/device-push/tls.key
 ExecStart=/usr/bin/node /opt/device-push/device-server.mjs
 WorkingDirectory=/opt/device-push
 Restart=always
