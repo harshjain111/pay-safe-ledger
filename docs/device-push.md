@@ -32,7 +32,7 @@ sends the headers exactly. (The terminal also only offers Push Server IP/Port.)
    the person has on the terminal (e.g. `1`). Leave it empty if the terminal uses
    the employee code itself (matched case-insensitively: `edl026` = `EDL026`).
 5. **Terminal settings** — Push Server IP = the relay's IP; Push Server Port =
-   `8090`; SSL off; clock GMT+5:30.
+   `8090`; clock GMT+5:30. (It always connects over TLS; the relay accepts both.)
 
 ## How punches become attendance
 

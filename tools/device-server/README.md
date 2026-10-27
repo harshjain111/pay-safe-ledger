@@ -36,7 +36,8 @@ npm run device:punch -- 1 0930       # fake punch: Device User ID 1 at 09:30 tod
    `.env.local`), stores them in `/etc/device-push.env` (root-only), starts the
    service, and prints the IP and port to enter on the terminal.
 4. **Terminal:** Push Server IP = the server's IP, Push Server Port = `8090`,
-   SSL off. Punch — then `ssh root@<ip> journalctl -u device-push -f` shows
+   (the terminal always uses TLS; the relay accepts HTTP or HTTPS on the same
+   port with a self-signed cert). Punch — then `ssh root@<ip> journalctl -u device-push -f` shows
    `token-pinned` once, then `"event":"punch"` per punch.
 
 ## Updating the code
