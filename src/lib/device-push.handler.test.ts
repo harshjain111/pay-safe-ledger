@@ -74,6 +74,22 @@ describe('api/device-push', () => {
     expect(state.upserts).toHaveLength(0);
   });
 
+  it('matches a User ID the terminal stored with a space ("EDL 029")', async () => {
+    state.staff = [{ id: 'staff-29', employee_id: 'EDL029', device_user_id: null }];
+    const res = await push(PUNCH.replace('"userId":"1"', '"userId":"EDL 029"'));
+    expect(res.headers.get('response_code')).toBe('OK');
+    expect(state.rpcs).toEqual([{ fn: 'apply_device_punch', args: expect.objectContaining({ _staff_id: 'staff-29' }) }]);
+  });
+
+  it('keeps a spaced User ID with no staff match instead of dropping it', async () => {
+    state.staff = [];
+    const res = await push(PUNCH.replace('"userId":"1"', '"userId":"EDL 111"'));
+    expect(res.headers.get('response_code')).toBe('OK');
+    expect(state.upserts).toEqual([expect.objectContaining({
+      table: 'device_unmatched_punches', device_user_id: 'EDL 111',
+    })]);
+  });
+
   it('refuses an unregistered terminal (so it keeps the punch and retries)', async () => {
     state.device = null;
     const res = await push(PUNCH);

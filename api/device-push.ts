@@ -79,6 +79,12 @@ export function toPunch(obj: Record<string, unknown> | null): DevicePunch | null
   };
 }
 
+/** Comparison key for a User ID: the terminal may store "EDL 111", "edl111"
+ *  or "EDL111" for the same person, so spaces and case are ignored. */
+export function userKey(id: string | null | undefined): string {
+  return (id ?? '').replace(/\s+/g, '').toUpperCase();
+}
+
 export function punchMethod(verifyMode?: string): 'face' | 'biometric' {
   return (verifyMode ?? '').toLowerCase() === 'face' ? 'face' : 'biometric';
 }
@@ -204,30 +210,32 @@ export async function POST(request: Request): Promise<Response> {
   }
   const method = punchMethod(punch.verifyMode);
 
-  if (!punch.userId || !/^[A-Za-z0-9_.-]{1,64}$/.test(punch.userId)) {
+  if (!punch.userId || !/^[A-Za-z0-9_. -]{1,64}$/.test(punch.userId)) {
     // Face/finger not matched to any user on the terminal itself.
-    log('no-user', { devId, time: punch.time, verifyMode: punch.verifyMode });
+    log('no-user', { devId, time: punch.time, verifyMode: punch.verifyMode, body: body.slice(0, 400) });
     return reply(transId, requestCode, true);
   }
 
   try {
     // Resolve the person: the terminal's User ID is either the number stored
-    // in staff.device_user_id or the employee code itself. Case-insensitive:
-    // terminals keep "edl026" where the roster has "EDL026". ilike only narrows
-    // the candidates (its "_" wildcard can over-match); the comparison decides.
+    // in staff.device_user_id or the employee code itself, compared by userKey
+    // (terminals keep "edl026" or "EDL 026" where the roster has "EDL026").
+    // ilike only narrows the candidates (letter/digit runs joined by %, so a
+    // space on either side still matches); the key comparison decides.
+    const key = userKey(punch.userId);
+    const pattern = (key.match(/[A-Z]+|[0-9]+|[^A-Z0-9]+/g) ?? [key]).join('%');
     let staffQuery = db()
       .from('staff')
       .select('id, employee_id, device_user_id')
-      .or(`device_user_id.ilike.${punch.userId},employee_id.ilike.${punch.userId}`);
+      .or(`device_user_id.ilike.${pattern},employee_id.ilike.${pattern}`);
     if (device.organization_id) staffQuery = staffQuery.eq('organization_id', device.organization_id);
     const { data: staffRows, error: staffErr } = await staffQuery;
     if (staffErr) throw staffErr;
 
-    const uid = punch.userId.toUpperCase();
     const rows = (staffRows ?? []) as { id: string; employee_id: string | null; device_user_id: string | null }[];
     const staff =
-      rows.find((r) => r.device_user_id?.toUpperCase() === uid) ??
-      rows.find((r) => r.employee_id?.toUpperCase() === uid);
+      rows.find((r) => r.device_user_id && userKey(r.device_user_id) === key) ??
+      rows.find((r) => userKey(r.employee_id) === key);
 
     if (!staff) {
       const { error } = await db()
