@@ -36,6 +36,12 @@ sends the headers exactly. (The terminal also only offers Push Server IP/Port.)
 
 ## How punches become attendance
 
+Milli Milli uses a fixed day start (`outlets.attendance_day_start_hour` = 8):
+one session per person per day, 08:00–08:00 IST, first punch → last punch, built
+from `punch_events` by `rebuild_sessions_from_punches()` on every punch and again
+by the daily rebuild (15:47 IST). Outlets without a day start use the gap rules
+below.
+
 The terminal reports every punch as "IN", so direction comes from timing (same
 rules as `rebuild_sessions_by_gap`):
 

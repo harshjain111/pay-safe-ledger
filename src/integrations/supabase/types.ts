@@ -1865,6 +1865,7 @@ export type Database = {
         Row: {
           address: string | null
           allowed_radius_meters: number | null
+          attendance_day_start_hour: number | null
           code: string | null
           created_at: string
           created_by: string | null
@@ -1880,6 +1881,7 @@ export type Database = {
         Insert: {
           address?: string | null
           allowed_radius_meters?: number | null
+          attendance_day_start_hour?: number | null
           code?: string | null
           created_at?: string
           created_by?: string | null
@@ -1895,6 +1897,7 @@ export type Database = {
         Update: {
           address?: string | null
           allowed_radius_meters?: number | null
+          attendance_day_start_hour?: number | null
           code?: string | null
           created_at?: string
           created_by?: string | null
