@@ -42,6 +42,9 @@ from `punch_events` by `rebuild_sessions_from_punches()` on every punch and agai
 by the daily rebuild (15:47 IST). Outlets without a day start use the gap rules
 below.
 
+A day edited by hand (Bulk Attendance etc.) is recorded in `attendance_manual_days`
+and no longer rebuilt; delete that row to hand the day back to the punches.
+
 The terminal reports every punch as "IN", so direction comes from timing (same
 rules as `rebuild_sessions_by_gap`):
 
