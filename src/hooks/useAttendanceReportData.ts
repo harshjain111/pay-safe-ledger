@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   buildReportDataset,
   type AttendanceReportDataset,
@@ -97,33 +98,42 @@ export function useAttendanceReportData(filters: ReportFilterState) {
       }
 
       // 2) Related data for those staff over the range.
-      const [sessRes, rosRes, lvRes, shiftRes, assignRes, holRes, holAssignRes] = await Promise.all([
-        supabase
-          .from('attendance_sessions')
-          .select('staff_id, work_date, worked_minutes, status, check_in_at, check_out_at, source')
-          .in('staff_id', staffIds)
-          .gte('work_date', from)
-          .lte('work_date', to),
-        supabase
-          .from('staff_roster')
-          .select('staff_id, roster_date, shift_id, is_off')
-          .in('staff_id', staffIds)
-          .gte('roster_date', from)
-          .lte('roster_date', to),
-        supabase
-          .from('leave_records')
-          .select('staff_id, leave_date, deduction_days, status, leave_type')
-          .in('staff_id', staffIds)
-          .eq('status', 'approved')
-          .gte('leave_date', from)
-          .lte('leave_date', to),
+      const [sessionRows, rosterRows, leaveRows, shiftRes, assignRes, holRes, holAssignRes] = await Promise.all([
+        fetchAllPages<ReportSession>((f, t) =>
+          supabase
+            .from('attendance_sessions')
+            .select('staff_id, work_date, worked_minutes, status, check_in_at, check_out_at, source')
+            .in('staff_id', staffIds)
+            .gte('work_date', from)
+            .lte('work_date', to)
+            .order('id')
+            .range(f, t)),
+        fetchAllPages<ReportRoster>((f, t) =>
+          supabase
+            .from('staff_roster')
+            .select('staff_id, roster_date, shift_id, is_off')
+            .in('staff_id', staffIds)
+            .gte('roster_date', from)
+            .lte('roster_date', to)
+            .order('id')
+            .range(f, t)),
+        fetchAllPages<ReportLeave>((f, t) =>
+          supabase
+            .from('leave_records')
+            .select('staff_id, leave_date, deduction_days, status, leave_type')
+            .in('staff_id', staffIds)
+            .eq('status', 'approved')
+            .gte('leave_date', from)
+            .lte('leave_date', to)
+            .order('id')
+            .range(f, t)),
         supabase.from('shifts').select('id, name, check_in_time, check_out_time'),
         supabase.from('staff_shift_assignments').select('staff_id, shift_id, effective_from').in('staff_id', staffIds),
         supabase.from('holidays').select('id, name, date, type, is_paid, recurring_yearly, org_wide'),
         supabase.from('holiday_assignments').select('holiday_id, outlet_id, staff_id'),
       ]);
 
-      for (const res of [sessRes, rosRes, lvRes, shiftRes, assignRes, holRes, holAssignRes]) {
+      for (const res of [shiftRes, assignRes, holRes, holAssignRes]) {
         if (res.error) throw res.error;
       }
 
@@ -137,9 +147,9 @@ export function useAttendanceReportData(filters: ReportFilterState) {
       setDataset(
         buildReportDataset({
           from, to, staff,
-          sessions: (sessRes.data ?? []) as unknown as ReportSession[],
-          roster: (rosRes.data ?? []) as unknown as ReportRoster[],
-          leaves: (lvRes.data ?? []) as unknown as ReportLeave[],
+          sessions: sessionRows,
+          roster: rosterRows,
+          leaves: leaveRows,
           shifts: (shiftRes.data ?? []) as unknown as ReportShift[],
           assignments: (assignRes.data ?? []) as unknown as ReportShiftAssignment[],
           rules,

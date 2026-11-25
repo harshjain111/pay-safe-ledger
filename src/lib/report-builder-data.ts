@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { format } from 'date-fns';
 import { getSource, type ReportRow, type ReportFilters, type SourceKey } from './report-builder';
 
@@ -55,9 +56,9 @@ export async function fetchReportRows(sourceKey: SourceKey, filters: ReportFilte
       .gte('work_date', filters.from)
       .lte('work_date', filters.to);
     if (filters.staffId) q = q.eq('staff_id', filters.staffId);
-    const { data, error } = await q.order('work_date', { ascending: false });
-    if (error) throw error;
-    rows = (data ?? []).map((r) => {
+    const ordered = q.order('work_date', { ascending: false }).order('id');
+    const data = await fetchAllPages<NonNullable<Awaited<typeof q>['data']>[number]>((f, t) => ordered.range(f, t));
+    rows = data.map((r) => {
       const m = meta(r.staff_id);
       return {
         work_date: r.work_date,
@@ -75,9 +76,9 @@ export async function fetchReportRows(sourceKey: SourceKey, filters: ReportFilte
       .gte('settlement_month', filters.from.slice(0, 7))
       .lte('settlement_month', filters.to.slice(0, 7));
     if (filters.staffId) q = q.eq('staff_id', filters.staffId);
-    const { data, error } = await q.order('settlement_month', { ascending: false });
-    if (error) throw error;
-    rows = (data ?? []).map((r) => {
+    const ordered = q.order('settlement_month', { ascending: false }).order('id');
+    const data = await fetchAllPages<NonNullable<Awaited<typeof q>['data']>[number]>((f, t) => ordered.range(f, t));
+    rows = data.map((r) => {
       const m = meta(r.staff_id);
       return {
         settlement_month: r.settlement_month,
@@ -94,9 +95,9 @@ export async function fetchReportRows(sourceKey: SourceKey, filters: ReportFilte
       .gte('entry_date', filters.from)
       .lte('entry_date', filters.to);
     if (filters.staffId) q = q.eq('staff_id', filters.staffId);
-    const { data, error } = await q.order('entry_date', { ascending: false });
-    if (error) throw error;
-    rows = (data ?? []).map((r) => {
+    const ordered = q.order('entry_date', { ascending: false }).order('id');
+    const data = await fetchAllPages<NonNullable<Awaited<typeof q>['data']>[number]>((f, t) => ordered.range(f, t));
+    rows = data.map((r) => {
       const m = meta(r.staff_id);
       return {
         entry_date: r.entry_date, voucher_no: r.voucher_no, voucher_type: r.voucher_type,

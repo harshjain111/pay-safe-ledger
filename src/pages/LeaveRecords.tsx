@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Paginator } from '@/components/patterns';
 import { usePagination } from '@/hooks/usePagination';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ExportButton } from '@/components/common/ExportButton';
@@ -141,15 +142,17 @@ export default function LeaveRecords() {
 
       let staffQ = supabase.from('staff').select('id, full_name, employee_id, weekly_off_day').eq('is_active', true).eq('attendance_tracked', true).order('full_name');
       if (selectedStaffId !== 'all') staffQ = staffQ.eq('id', selectedStaffId);
-      const [staffRes, sessRes, leaveRes, holRes] = await Promise.all([
+      const [staffRes, sessionRows, leaveRows, holRes] = await Promise.all([
         staffQ,
-        supabase.from('attendance_sessions' as never).select('staff_id, work_date').gte('work_date', fromISO).lte('work_date', toISO),
-        supabase.from('leave_records').select('staff_id, leave_date').eq('status', 'approved').gte('leave_date', fromISO).lte('leave_date', toISO),
+        fetchAllPages<{ staff_id: string; work_date: string }>((f, t) =>
+          supabase.from('attendance_sessions' as never).select('staff_id, work_date').gte('work_date', fromISO).lte('work_date', toISO).order('id').range(f, t)),
+        fetchAllPages<{ staff_id: string; leave_date: string }>((f, t) =>
+          supabase.from('leave_records').select('staff_id, leave_date').eq('status', 'approved').gte('leave_date', fromISO).lte('leave_date', toISO).order('id').range(f, t)),
         supabase.from('holidays').select('date').gte('date', fromISO).lte('date', toISO),
       ]);
       const staffList = ((staffRes.data ?? []) as { id: string; full_name: string; employee_id: string; weekly_off_day: number | null }[]);
-      const sessionSet = new Set(((sessRes.data ?? []) as { staff_id: string; work_date: string }[]).map((s) => `${s.staff_id}|${s.work_date}`));
-      const leaveSet = new Set(((leaveRes.data ?? []) as { staff_id: string; leave_date: string }[]).map((l) => `${l.staff_id}|${l.leave_date}`));
+      const sessionSet = new Set(sessionRows.map((s) => `${s.staff_id}|${s.work_date}`));
+      const leaveSet = new Set(leaveRows.map((l) => `${l.staff_id}|${l.leave_date}`));
       const holidaySet = new Set(((holRes.data ?? []) as { date: string }[]).map((h) => h.date));
 
       const days: string[] = [];

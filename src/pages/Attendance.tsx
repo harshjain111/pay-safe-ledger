@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { useOnAttendanceChange } from '@/hooks/useAttendanceLive';
 import { useLateForDate } from '@/hooks/useLateForDate';
 import { useAuth } from '@/contexts/AuthContext';
@@ -157,35 +158,39 @@ export default function Attendance() {
     if (!opts?.silent) setLoading(true);
     setHasError(false);
     try {
-      const [staffRes, sessRes, leaveRes] = await Promise.all([
+      const [staffRes, sessionRows, leaveRows] = await Promise.all([
         supabase
           .from('staff')
           .select('id, user_id, employee_id, full_name, department, designation, is_active, attendance_tracked')
           .eq('is_active', true)
           .eq('attendance_tracked', true)
           .order('employee_id', { ascending: false }),
-        supabase
-          .from('attendance_sessions' as never)
-          .select('*')
-          .gte('work_date', from)
-          .lte('work_date', to)
-          .order('check_in_at', { ascending: true }),
-        supabase
-          .from('leave_records')
-          .select('staff_id, leave_date, status')
-          .eq('status', 'approved')
-          .gte('leave_date', from)
-          .lte('leave_date', to),
+        fetchAllPages<AttendanceSession>((f, t) =>
+          supabase
+            .from('attendance_sessions' as never)
+            .select('*')
+            .gte('work_date', from)
+            .lte('work_date', to)
+            .order('check_in_at', { ascending: true })
+            .order('id')
+            .range(f, t)),
+        fetchAllPages<{ staff_id: string; leave_date: string }>((f, t) =>
+          supabase
+            .from('leave_records')
+            .select('staff_id, leave_date, status')
+            .eq('status', 'approved')
+            .gte('leave_date', from)
+            .lte('leave_date', to)
+            .order('id')
+            .range(f, t)),
       ]);
 
       if (staffRes.error) throw staffRes.error;
-      if (sessRes.error) throw sessRes.error;
-      if (leaveRes.error) throw leaveRes.error;
 
       setStaff((staffRes.data as StaffRow[]) ?? []);
-      setSessions((sessRes.data as AttendanceSession[]) ?? []);
+      setSessions(sessionRows);
       const set = new Set<string>();
-      (leaveRes.data ?? []).forEach((l: { staff_id: string; leave_date: string }) =>
+      leaveRows.forEach((l) =>
         set.add(`${l.staff_id}|${l.leave_date}`),
       );
       setLeaveDates(set);

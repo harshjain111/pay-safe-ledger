@@ -15,6 +15,7 @@ import {
   Loader2, Search, ShieldAlert, Info, Save, FileSpreadsheet, RotateCcw, RefreshCw, ArrowRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchActiveMaster } from '@/lib/masters-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -153,17 +154,17 @@ export default function BulkAttendance() {
         return;
       }
 
-      const [sessRes, rosRes, leaveRes, asnRes, shiftRes, ruleRes, typeRes] = await Promise.all([
-        supabase.from('attendance_sessions')
+      const [sessionRows, rosterRows, leaveRows, asnRes, shiftRes, ruleRes, typeRes] = await Promise.all([
+        fetchAllPages<any>((f, t) => supabase.from('attendance_sessions')
           .select('staff_id, work_date, status, worked_minutes, check_in_at, check_out_at')
-          .in('staff_id', ids).gte('work_date', from).lte('work_date', to),
-        supabase.from('staff_roster')
+          .in('staff_id', ids).gte('work_date', from).lte('work_date', to).order('id').range(f, t)),
+        fetchAllPages<any>((f, t) => supabase.from('staff_roster')
           .select('staff_id, roster_date, shift_id, is_off')
-          .in('staff_id', ids).gte('roster_date', from).lte('roster_date', to),
-        supabase.from('leave_records')
+          .in('staff_id', ids).gte('roster_date', from).lte('roster_date', to).order('id').range(f, t)),
+        fetchAllPages<any>((f, t) => supabase.from('leave_records')
           .select('staff_id, leave_date, leave_type, leave_type_id, status')
           .in('staff_id', ids).gte('leave_date', from).lte('leave_date', to)
-          .eq('status', 'approved'),
+          .eq('status', 'approved').order('id').range(f, t)),
         supabase.from('staff_shift_assignments' as never).select('staff_id, shift_id').in('staff_id', ids),
         supabase.from('shifts').select('id, check_in_time, check_out_time'),
         supabase.from('discipline_rules' as never).select('grace_minutes_in, grace_minutes_out').order('updated_at', { ascending: false }).limit(1),
@@ -172,7 +173,7 @@ export default function BulkAttendance() {
 
       // Sessions: earliest check-in, latest check-out, summed worked minutes.
       const sessMap = new Map<string, { status: string; worked: number; checkIn: string | null; checkOut: string | null }>();
-      for (const s of (sessRes.data ?? []) as any[]) {
+      for (const s of sessionRows) {
         const k = `${s.staff_id}|${s.work_date}`;
         const cur = sessMap.get(k) ?? { status: s.status, worked: 0, checkIn: null, checkOut: null };
         if (s.status === 'completed') { cur.status = 'completed'; cur.worked += Number(s.worked_minutes ?? 0); }
@@ -181,10 +182,10 @@ export default function BulkAttendance() {
         sessMap.set(k, cur);
       }
       const rosMap = new Map<string, { is_off: boolean; shift_id: string | null }>();
-      for (const r of (rosRes.data ?? []) as any[]) rosMap.set(`${r.staff_id}|${r.roster_date}`, { is_off: r.is_off, shift_id: r.shift_id });
+      for (const r of rosterRows) rosMap.set(`${r.staff_id}|${r.roster_date}`, { is_off: r.is_off, shift_id: r.shift_id });
       const typeName = new Map<string, string>(((typeRes.data ?? []) as any[]).map((t) => [t.id, t.name]));
       const leaveMap = new Map<string, string>();
-      for (const l of (leaveRes.data ?? []) as any[]) leaveMap.set(`${l.staff_id}|${l.leave_date}`, (l.leave_type_id && typeName.get(l.leave_type_id)) || l.leave_type || 'Leave');
+      for (const l of leaveRows) leaveMap.set(`${l.staff_id}|${l.leave_date}`, (l.leave_type_id && typeName.get(l.leave_type_id)) || l.leave_type || 'Leave');
       const asnByStaff = new Map<string, string>();
       for (const a of (asnRes.data ?? []) as any[]) if (a.shift_id) asnByStaff.set(a.staff_id, a.shift_id);
       const shiftById = new Map<string, { in: string; out: string }>(((shiftRes.data ?? []) as any[]).map((s) => [s.id, { in: s.check_in_time, out: s.check_out_time }]));
